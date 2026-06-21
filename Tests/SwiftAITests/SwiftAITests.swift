@@ -59,6 +59,23 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testOAuthPKCEAndCopilotHelpers() throws {
+        let pair = try OAuthUtilities.generatePKCE()
+        XCTAssertFalse(pair.verifier.isEmpty)
+        XCTAssertFalse(pair.challenge.isEmpty)
+        XCTAssertNotEqual(pair.verifier, pair.challenge)
+        XCTAssertEqual(OAuthUtilities.normalizeDomain("https://company.ghe.com/"), "company.ghe.com")
+        XCTAssertEqual(GitHubCopilotOAuthProvider.baseURL(token: "tid=abc;proxy-ep=proxy.individual.githubcopilot.com;sku=x"), "https://api.individual.githubcopilot.com")
+        let provider = GitHubCopilotOAuthProvider()
+        let models = [
+            Model(id: "keep", name: "keep", api: .openAICompletions, provider: .githubCopilot),
+            Model(id: "drop", name: "drop", api: .openAICompletions, provider: .githubCopilot),
+            Model(id: "other", name: "other", api: .openAICompletions, provider: .openAI)
+        ]
+        let filtered = provider.modifyModels(models, credentials: OAuthCredentials(refresh: "r", access: "tok", expires: 0, extra: ["availableModelIds": .array([.string("keep")])]))
+        XCTAssertEqual(filtered.map(\.id), ["keep", "other"])
+    }
+
     func testRetryPolicy() {
         var options = StreamOptions()
         options.maxRetries = 3

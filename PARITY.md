@@ -19,6 +19,8 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
+- OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.
+- GitHub Copilot OAuth provider: device-code login, token refresh, Copilot model policy enablement, available-model fetching/filtering, and base URL extraction.
 
 ## Known gaps vs upstream runtime parity
 
@@ -31,7 +33,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Mistral Conversations runtime is not implemented.
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
-- OAuth flows are not implemented.
+- OAuth flows other than GitHub Copilot are not implemented.
 - Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
 - Request/response interception hooks are not implemented.
 - Full upstream transform/harness/session-resource helpers are not implemented.

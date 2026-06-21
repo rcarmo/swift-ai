@@ -32,6 +32,7 @@ public enum SwiftAI {
         await BuiltinImageModels.registerAll()
         await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: OpenAICompletionsProvider.stream))
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: OpenRouterImagesProvider.generateImages))
+        await OAuthRegistry.shared.register(GitHubCopilotOAuthProvider())
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

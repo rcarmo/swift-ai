@@ -102,6 +102,10 @@ public enum OpenAICompletionsProvider {
             }
             var obj: [String: JSONValue] = ["role": .string(role), "content": contentValue]
             if message.role == .assistant {
+                if compat.requiresReasoningContentOnAssistantMessages == true {
+                    let reasoning = message.content.filter { $0.type == "thinking" }.compactMap(\.thinking).joined()
+                    obj["reasoning_content"] = .string(AIUtilities.sanitizeSurrogates(reasoning))
+                }
                 let calls = message.content.filter { $0.type == "toolCall" }.map { block in
                     JSONValue.object(["id": .string(block.id ?? ""), "type": .string("function"), "function": .object(["name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))])])
                 }

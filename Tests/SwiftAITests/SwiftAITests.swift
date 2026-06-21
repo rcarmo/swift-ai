@@ -684,6 +684,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
     }
 
+    func testOpenAIReasoningContentReplay() {
+        var compat = OpenAICompletionsCompat()
+        compat.requiresReasoningContentOnAssistantMessages = true
+        let model = Model(id: "deep", name: "Deep", api: .openAICompletions, provider: .deepSeek, completionsCompat: compat)
+        var assistant = Message(role: .assistant, content: [ContentBlock.thinking("why"), .text("answer")])
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let first) = messages[0] else { return XCTFail("missing assistant") }
+        XCTAssertEqual(first["reasoning_content"], .string("why"))
+    }
+
     func testOpenAIMultimodalAndToolResultReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresAssistantAfterToolResult = true

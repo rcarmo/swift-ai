@@ -66,7 +66,24 @@ public enum GoogleGeminiCLIProvider {
     private static func unwrapCCAFrame(_ frame: String) -> String { SSEParser().parse(frame + "\n\n").map { unwrapCCAData($0.data) }.filter { !$0.isEmpty }.map { "data: \($0)" }.joined(separator: "\n\n") }
     private static func unwrapCCAData(_ data: String) -> String { guard data != "[DONE]", let raw = data.data(using: .utf8), let wrapped = try? JSONDecoder().decode(CCAStreamChunk.self, from: raw), let response = wrapped.response, let encoded = try? JSONEncoder().encode(response) else { return data == "[DONE]" ? data : "" }; return String(data: encoded, encoding: .utf8) ?? "" }
 
-    private static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] { messages.compactMap { msg in var parts: [JSONValue] = []; for b in msg.content { if b.type == "text" { parts.append(.object(["text": .string(AIUtilities.sanitizeSurrogates(b.text ?? ""))])) } else if b.type == "image" { parts.append(.object(["inlineData": .object(["mimeType": .string(b.mimeType ?? "application/octet-stream"), "data": .string(b.data ?? "")])])) } else if b.type == "thinking" { parts.append(.object(["thought": .bool(true), "text": .string(AIUtilities.sanitizeSurrogates(b.thinking ?? ""))])) } else if b.type == "toolCall" { parts.append(.object(["functionCall": .object(["name": .string(b.name ?? ""), "args": .object(b.arguments ?? [:])])])) } }; guard !parts.isEmpty else { return nil }; return .object(["role": .string(msg.role == .assistant ? "model" : "user"), "parts": .array(parts)]) } }
+    private static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] {
+        messages.compactMap { msg in
+            if msg.role == .toolResult {
+                let text = AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n"))
+                let response: [String: JSONValue] = msg.isError == true ? ["error": .string(text)] : ["output": .string(text)]
+                return .object(["role": .string("user"), "parts": .array([.object(["functionResponse": .object(["name": .string(msg.toolName ?? ""), "response": .object(response)])])])])
+            }
+            var parts: [JSONValue] = []
+            for b in msg.content {
+                if b.type == "text" { parts.append(.object(["text": .string(AIUtilities.sanitizeSurrogates(b.text ?? ""))])) }
+                else if b.type == "image" { parts.append(.object(["inlineData": .object(["mimeType": .string(b.mimeType ?? "application/octet-stream"), "data": .string(b.data ?? "")])])) }
+                else if b.type == "thinking" { parts.append(.object(["thought": .bool(true), "text": .string(AIUtilities.sanitizeSurrogates(b.thinking ?? ""))])) }
+                else if b.type == "toolCall" { parts.append(.object(["functionCall": .object(["name": .string(b.name ?? ""), "args": .object(b.arguments ?? [:])])])) }
+            }
+            guard !parts.isEmpty else { return nil }
+            return .object(["role": .string(msg.role == .assistant ? "model" : "user"), "parts": .array(parts)])
+        }
+    }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]) }
 }
 

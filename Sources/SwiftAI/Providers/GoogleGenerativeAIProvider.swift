@@ -109,6 +109,12 @@ public enum GoogleGenerativeAIProvider {
     private static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] {
         messages.compactMap { msg in
             let sameModel = msg.provider == model.provider && msg.api == model.api && msg.model == model.id
+            if msg.role == .toolResult {
+                let text = AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n"))
+                var response: [String: JSONValue] = msg.isError == true ? ["error": .string(text)] : ["output": .string(text)]
+                let functionResponse: [String: JSONValue] = ["name": .string(msg.toolName ?? ""), "response": .object(response), "id": .string(normalizeToolCallID(msg.toolCallId ?? ""))]
+                return .object(["role": .string("user"), "parts": .array([.object(["functionResponse": .object(functionResponse)])])])
+            }
             var parts: [JSONValue] = []
             for block in msg.content {
                 if block.type == "text" {

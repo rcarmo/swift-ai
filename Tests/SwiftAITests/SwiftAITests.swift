@@ -493,6 +493,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.content.first?.text, "ok")
     }
 
+    func testGoogleToolResultSerialization() {
+        var result = Message(role: .toolResult, content: [.text("ok")])
+        result.toolName = "lookup"
+        result.toolCallId = "call.1"
+        let model = Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google)
+        let body = GoogleGenerativeAIProvider.buildRequestBody(model: model, context: AIContext(messages: [result]), options: nil)
+        guard case .array(let contents)? = body["contents"], case .object(let first) = contents[0], case .array(let parts)? = first["parts"], case .object(let part) = parts[0], case .object(let response)? = part["functionResponse"] else { return XCTFail("missing functionResponse") }
+        XCTAssertEqual(response["name"], .string("lookup"))
+        XCTAssertNotNil(response["response"])
+        let cliBody = GoogleGeminiCLIProvider.buildRequestBody(model: Model(id: "gemini", name: "Gemini", api: .googleGeminiCLI, provider: .googleGeminiCLI), context: AIContext(messages: [result]), projectId: "p", options: nil)
+        guard case .object(let request)? = cliBody["request"], case .array(let cliContents)? = request["contents"], case .object(let cliFirst) = cliContents[0], case .array(let cliParts)? = cliFirst["parts"], case .object(let cliPart) = cliParts[0] else { return XCTFail("missing cli functionResponse") }
+        XCTAssertNotNil(cliPart["functionResponse"])
+    }
+
     func testGoogleSameModelSignatureReplay() {
         let sig = "QUJDRA=="
         let model = Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google)

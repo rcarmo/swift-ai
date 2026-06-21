@@ -528,6 +528,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNotNil(cliPart["functionResponse"])
     }
 
+    func testGoogleMultimodalToolResultSerialization() {
+        var result = Message(role: .toolResult, content: [.image(data: "abc", mimeType: "image/png")])
+        result.toolName = "lookup"
+        result.toolCallId = "call.1"
+        let model = Model(id: "gemini-3-pro", name: "Gemini 3", api: .googleGenerativeAI, provider: .google)
+        let body = GoogleGenerativeAIProvider.buildRequestBody(model: model, context: AIContext(messages: [result]), options: nil)
+        guard case .array(let contents)? = body["contents"], case .object(let first) = contents[0], case .array(let parts)? = first["parts"], case .object(let part) = parts[0], case .object(let response)? = part["functionResponse"], case .array(let responseParts)? = response["parts"] else { return XCTFail("missing multimodal functionResponse parts") }
+        XCTAssertEqual(responseParts.count, 1)
+    }
+
     func testGoogleSameModelSignatureReplay() {
         let sig = "QUJDRA=="
         let model = Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google)

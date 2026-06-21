@@ -111,8 +111,17 @@ public enum GoogleGenerativeAIProvider {
             let sameModel = msg.provider == model.provider && msg.api == model.api && msg.model == model.id
             if msg.role == .toolResult {
                 let text = AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n"))
-                var response: [String: JSONValue] = msg.isError == true ? ["error": .string(text)] : ["output": .string(text)]
-                let functionResponse: [String: JSONValue] = ["name": .string(msg.toolName ?? ""), "response": .object(response), "id": .string(normalizeToolCallID(msg.toolCallId ?? ""))]
+                let imageParts = msg.content.compactMap { block -> JSONValue? in
+                    guard block.type == "image", let data = block.data, let mime = block.mimeType else { return nil }
+                    return .object(["inlineData": .object(["mimeType": .string(mime), "data": .string(data)])])
+                }
+                let response: [String: JSONValue]
+                if msg.isError == true { response = ["error": .string(text)] }
+                else if !text.isEmpty { response = ["output": .string(text)] }
+                else if !imageParts.isEmpty { response = ["output": .string("(see attached image)")] }
+                else { response = [:] }
+                var functionResponse: [String: JSONValue] = ["name": .string(msg.toolName ?? ""), "response": .object(response), "id": .string(normalizeToolCallID(msg.toolCallId ?? ""))]
+                if !imageParts.isEmpty && supportsMultimodalFunctionResponse(model.id) { functionResponse["parts"] = .array(imageParts) }
                 return .object(["role": .string("user"), "parts": .array([.object(["functionResponse": .object(functionResponse)])])])
             }
             var parts: [JSONValue] = []
@@ -140,6 +149,7 @@ public enum GoogleGenerativeAIProvider {
     }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesThinkingLevel(_ model: Model) -> Bool { model.id.lowercased().contains("gemini-3") || model.id.lowercased().contains("gemma-4") || model.id == "gemini-flash-latest" || model.id == "gemini-flash-lite-latest" }
+    private static func supportsMultimodalFunctionResponse(_ modelID: String) -> Bool { let lower = modelID.lowercased(); if lower.hasPrefix("gemini-") { return lower.contains("gemini-3") }; return true }
     private static func googleThinkingLevel(_ effort: String, model: Model) -> String { switch effort { case "minimal": return "MINIMAL"; case "low": return model.id.lowercased().contains("gemini-3") && model.id.lowercased().contains("pro") ? "LOW" : "LOW"; case "medium": return "MEDIUM"; case "high": return "HIGH"; default: return effort.uppercased() } }
     private static func googleBudget(_ effort: String) -> Int { switch effort { case "minimal": return 1024; case "low": return 2048; case "medium": return 8192; case "high": return 24576; default: return 8192 } }
     private static func disabledThinkingConfig(model: Model) -> JSONValue { usesThinkingLevel(model) ? .object(["thinkingLevel": .string(model.id.lowercased().contains("pro") ? "LOW" : "MINIMAL")]) : .object(["thinkingBudget": .number(0)]) }

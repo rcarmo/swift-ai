@@ -34,7 +34,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Google Gemini CLI and Antigravity OAuth providers: PKCE authorization URL construction, project ID capture, authorization-code token exchange, refresh-token exchange, and JSON API-key payload generation.
 - Anthropic Messages provider: request construction, thinking budgets/adaptive thinking, beta headers, prompt cache-control annotations, tool_use/tool_result request blocks, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Mistral Conversations provider: request construction, reasoning/prompt mode handling, tools, SSE parsing for text/reasoning/tool events, usage, and stop reasons.
-- Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, functionResponse tool results, same-model thought signature replay, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
+- Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, functionResponse tool results including multimodal image parts when supported, same-model thought signature replay, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, functionResponse tool results, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
 - Amazon Bedrock provider surface: registration, pluggable `BedrockTransport`, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
 
@@ -45,7 +45,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - OpenAI-compatible provider lacks only a very small number of advanced provider-specific replay edge cases from `go-ai`.
 - OpenAI Responses/Codex provider has pluggable WebSocket transport support but does not bundle a WebSocket/session-cache transport implementation; a few advanced prompt-cache edge cases remain.
 - Anthropic Messages provider lacks only a few advanced replay edge cases.
-- Google providers lack only a small number of advanced upstream replay edge cases.
+- Google providers lack only a very small number of advanced upstream replay edge cases.
 - OAuth flow surface now covers upstream providers: GitHub Copilot, OpenAI Codex, Anthropic, Google Gemini CLI, and Google Antigravity.
 - Provider environment/API-key resolution: upstream provider env var mapping, scoped env override, generic fallback names, explicit option API key override, cache-retention env handling, and authenticated sentinels for Vertex ADC/Bedrock credential presence.
 - Request/response interception hooks on text and image options, wired into HTTP providers with serializable payload maps and response metadata.

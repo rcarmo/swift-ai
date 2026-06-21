@@ -90,6 +90,32 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testMistralRequestAndSSEProcessing() {
+        let model = Model(id: "mistral-small-latest", name: "Mistral Small", api: .mistralConversations, provider: .mistral, baseUrl: "https://api.mistral.ai/v1", reasoning: true, thinkingLevelMap: [.low: "low"])
+        var options = StreamOptions()
+        options.reasoning = .low
+        let body = MistralConversationsProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["model"], .string("mistral-small-latest"))
+        XCTAssertEqual(body["stream"], .bool(true))
+        XCTAssertEqual(body["reasoning_effort"], .string("low"))
+
+        let sse = """
+        data: {"choices":[{"delta":{"reasoning_content":"think"}}]}
+
+        data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}
+
+        data: [DONE]
+
+        """
+        let events = MistralConversationsProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.content.first?.type, "thinking")
+        XCTAssertEqual(message.content.first?.thinking, "think")
+        XCTAssertTrue(message.content.contains { $0.type == "text" && $0.text == "ok" })
+        XCTAssertEqual(message.usage?.totalTokens, 5)
+    }
+
     func testAnthropicRequestAndSSEProcessing() {
         let model = Model(id: "claude-test", name: "Claude Test", api: .anthropicMessages, provider: .anthropic, baseUrl: "https://api.anthropic.com", reasoning: true, maxTokens: 4096)
         var options = StreamOptions()

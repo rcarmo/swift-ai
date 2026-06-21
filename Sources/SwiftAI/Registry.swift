@@ -32,6 +32,7 @@ public enum SwiftAI {
         await BuiltinImageModels.registerAll()
         await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: OpenAICompletionsProvider.stream))
         await AIRegistry.shared.register(APIProvider(api: .anthropicMessages, stream: AnthropicMessagesProvider.stream))
+        await AIRegistry.shared.register(APIProvider(api: .mistralConversations, stream: MistralConversationsProvider.stream))
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: OpenRouterImagesProvider.generateImages))
         await OAuthRegistry.shared.register(GitHubCopilotOAuthProvider())
     }

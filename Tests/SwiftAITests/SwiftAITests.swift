@@ -30,6 +30,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(detected.chatTemplateKwargs?["enable_thinking"]?.variable, "thinking.enabled")
     }
 
+    func testModelThinkingLevelMapCodableShape() throws {
+        let json = """
+        {"id":"m","name":"M","api":"openai-completions","provider":"openai","baseUrl":"","reasoning":true,"thinkingLevelMap":{"off":"none","xhigh":null},"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1}
+        """.data(using: .utf8)!
+        let model = try JSONDecoder().decode(Model.self, from: json)
+        XCTAssertEqual(model.thinkingLevelMap?[.off] ?? nil, "none")
+        XCTAssertTrue(model.thinkingLevelMap?.keys.contains(.xhigh) == true)
+        XCTAssertNil(model.thinkingLevelMap?[.xhigh] ?? nil)
+        let encoded = try JSONEncoder().encode(model)
+        let decoded = try JSONDecoder().decode(Model.self, from: encoded)
+        XCTAssertTrue(decoded.thinkingLevelMap?.keys.contains(.xhigh) == true)
+    }
+
     func testGeneratedModelRegistryMetadata() throws {
         XCTAssertEqual(BuiltinModels.upstreamVersion, "0.79.9")
         XCTAssertEqual(BuiltinModels.modelCount, 979)

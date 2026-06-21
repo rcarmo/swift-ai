@@ -176,6 +176,63 @@ public struct Model: Codable, Equatable, Sendable {
     public init(id: String, name: String, api: API, provider: Provider, baseUrl: String = "", reasoning: Bool = false, thinkingLevelMap: [ModelThinkingLevel: String?]? = nil, input: [String] = ["text"], cost: ModelCost = ModelCost(), contextWindow: Int = 0, maxTokens: Int = 0, headers: [String: String]? = nil, completionsCompat: OpenAICompletionsCompat? = nil, responsesCompat: OpenAIResponsesCompat? = nil, anthropicCompat: AnthropicMessagesCompat? = nil) {
         self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.reasoning = reasoning; self.thinkingLevelMap = thinkingLevelMap; self.input = input; self.cost = cost; self.contextWindow = contextWindow; self.maxTokens = maxTokens; self.headers = headers; self.completionsCompat = completionsCompat; self.responsesCompat = responsesCompat; self.anthropicCompat = anthropicCompat
     }
+
+    enum CodingKeys: String, CodingKey { case id, name, api, provider; case baseUrl; case reasoning; case thinkingLevelMap; case input, cost, contextWindow, maxTokens, headers, completionsCompat, responsesCompat, anthropicCompat }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        api = try c.decode(API.self, forKey: .api)
+        provider = try c.decode(Provider.self, forKey: .provider)
+        baseUrl = try c.decodeIfPresent(String.self, forKey: .baseUrl) ?? ""
+        reasoning = try c.decodeIfPresent(Bool.self, forKey: .reasoning) ?? false
+        if let rawMap = try c.decodeIfPresent([String: OptionalString].self, forKey: .thinkingLevelMap) {
+            var converted: [ModelThinkingLevel: String?] = [:]
+            for (key, value) in rawMap { if let level = ModelThinkingLevel(rawValue: key) { converted[level] = value.value } }
+            thinkingLevelMap = converted
+        } else {
+            thinkingLevelMap = nil
+        }
+        input = try c.decodeIfPresent([String].self, forKey: .input) ?? ["text"]
+        cost = try c.decodeIfPresent(ModelCost.self, forKey: .cost) ?? ModelCost()
+        contextWindow = try c.decodeIfPresent(Int.self, forKey: .contextWindow) ?? 0
+        maxTokens = try c.decodeIfPresent(Int.self, forKey: .maxTokens) ?? 0
+        headers = try c.decodeIfPresent([String: String].self, forKey: .headers)
+        completionsCompat = try c.decodeIfPresent(OpenAICompletionsCompat.self, forKey: .completionsCompat)
+        responsesCompat = try c.decodeIfPresent(OpenAIResponsesCompat.self, forKey: .responsesCompat)
+        anthropicCompat = try c.decodeIfPresent(AnthropicMessagesCompat.self, forKey: .anthropicCompat)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(api, forKey: .api)
+        try c.encode(provider, forKey: .provider)
+        try c.encode(baseUrl, forKey: .baseUrl)
+        try c.encode(reasoning, forKey: .reasoning)
+        if let thinkingLevelMap {
+            var raw: [String: OptionalString] = [:]
+            for (key, value) in thinkingLevelMap { raw[key.rawValue] = OptionalString(value) }
+            try c.encode(raw, forKey: .thinkingLevelMap)
+        }
+        try c.encode(input, forKey: .input)
+        try c.encode(cost, forKey: .cost)
+        try c.encode(contextWindow, forKey: .contextWindow)
+        try c.encode(maxTokens, forKey: .maxTokens)
+        try c.encodeIfPresent(headers, forKey: .headers)
+        try c.encodeIfPresent(completionsCompat, forKey: .completionsCompat)
+        try c.encodeIfPresent(responsesCompat, forKey: .responsesCompat)
+        try c.encodeIfPresent(anthropicCompat, forKey: .anthropicCompat)
+    }
+}
+
+private struct OptionalString: Codable, Equatable, Sendable {
+    var value: String?
+    init(_ value: String?) { self.value = value }
+    init(from decoder: Decoder) throws { let c = try decoder.singleValueContainer(); value = c.decodeNil() ? nil : try c.decode(String.self) }
+    func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); if let value { try c.encode(value) } else { try c.encodeNil() } }
 }
 
 public struct ThinkingBudgets: Codable, Equatable, Sendable { public var minimal: Int?; public var low: Int?; public var medium: Int?; public var high: Int?; public init(minimal: Int? = nil, low: Int? = nil, medium: Int? = nil, high: Int? = nil) { self.minimal = minimal; self.low = low; self.medium = medium; self.high = high } }

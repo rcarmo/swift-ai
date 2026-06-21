@@ -34,7 +34,12 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
     public init() {}
 }
 
-public struct OpenAIResponsesCompat: Codable, Equatable, Sendable { public var promptCacheKey: Bool?; public init(promptCacheKey: Bool? = nil) { self.promptCacheKey = promptCacheKey } }
+public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
+    public var promptCacheKey: Bool?
+    public var sendSessionIdHeader: Bool?
+    public var supportsLongCacheRetention: Bool?
+    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention }
+}
 public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?
     public var supportsLongCacheRetention: Bool?

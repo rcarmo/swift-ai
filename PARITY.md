@@ -17,6 +17,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - SSE parser.
 - OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
+- OpenAI Responses/Azure Responses provider: request construction, Azure config resolution, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.
@@ -30,7 +31,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 The package is structurally consumable via SwiftPM, but provider-runtime parity is still incomplete:
 
 - OpenAI-compatible provider lacks some provider-specific header/retry/prompt-cache edge cases from `go-ai`.
-- OpenAI Responses / Azure Responses runtime is not implemented.
+- OpenAI Responses provider lacks some upstream replay/signature/prompt-cache edge cases.
 - Anthropic Messages provider lacks full prompt-cache replay/tool-result edge cases.
 - Google Gemini CLI runtime is not implemented.
 - Google provider lacks some upstream transform/signature/tool-result edge cases.

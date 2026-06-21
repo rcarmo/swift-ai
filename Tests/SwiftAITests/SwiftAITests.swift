@@ -90,6 +90,44 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testOpenAIResponsesRequestAzureAndSSE() throws {
+        let model = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .openAI, baseUrl: "https://api.openai.com/v1", reasoning: true)
+        var options = StreamOptions()
+        options.reasoning = .high
+        options.sessionId = "session"
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["model"], .string("gpt-5"))
+        XCTAssertEqual(body["stream"], .bool(true))
+        XCTAssertNotNil(body["reasoning"])
+        XCTAssertEqual(body["prompt_cache_key"], .string("session"))
+        let azure = try OpenAIResponsesProvider.resolveAzureConfig(model: Model(id: "dep", name: "dep", api: .azureOpenAIResponses, provider: .azureOpenAI), options: { var o = StreamOptions(); o.azureResourceName = "res"; return o }())
+        XCTAssertTrue(azure.baseURL.contains("res.openai.azure.com"))
+
+        let sse = """
+        event: response.created
+        data: {"response":{"id":"resp_1"}}
+
+        event: response.output_item.added
+        data: {"item":{"type":"message"}}
+
+        event: response.output_text.delta
+        data: {"delta":"hi"}
+
+        event: response.output_item.done
+        data: {}
+
+        event: response.completed
+        data: {"response":{"id":"resp_1","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5}}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.responseId, "resp_1")
+        XCTAssertEqual(message.content.first?.text, "hi")
+        XCTAssertEqual(message.usage?.totalTokens, 5)
+    }
+
     func testGoogleRequestURLAndSSEProcessing() throws {
         let model = Model(id: "gemini-2.5-pro", name: "Gemini", api: .googleGenerativeAI, provider: .google, baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: true)
         var options = StreamOptions()

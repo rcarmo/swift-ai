@@ -31,6 +31,8 @@ public enum SwiftAI {
         await BuiltinModels.registerAll()
         await BuiltinImageModels.registerAll()
         await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: OpenAICompletionsProvider.stream))
+        await AIRegistry.shared.register(APIProvider(api: .openAIResponses, stream: OpenAIResponsesProvider.stream))
+        await AIRegistry.shared.register(APIProvider(api: .azureOpenAIResponses, stream: OpenAIResponsesProvider.stream))
         await AIRegistry.shared.register(APIProvider(api: .anthropicMessages, stream: AnthropicMessagesProvider.stream))
         await AIRegistry.shared.register(APIProvider(api: .mistralConversations, stream: MistralConversationsProvider.stream))
         await AIRegistry.shared.register(APIProvider(api: .googleGenerativeAI, stream: GoogleGenerativeAIProvider.stream))

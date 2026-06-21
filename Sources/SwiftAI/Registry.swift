@@ -38,6 +38,7 @@ public enum SwiftAI {
         await AIRegistry.shared.register(APIProvider(api: .mistralConversations, stream: MistralConversationsProvider.stream))
         await AIRegistry.shared.register(APIProvider(api: .googleGenerativeAI, stream: GoogleGenerativeAIProvider.stream))
         await AIRegistry.shared.register(APIProvider(api: .googleVertex, stream: GoogleGenerativeAIProvider.stream))
+        await AIRegistry.shared.register(APIProvider(api: .googleGeminiCLI, stream: GoogleGeminiCLIProvider.stream))
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: OpenRouterImagesProvider.generateImages))
         await OAuthRegistry.shared.register(GitHubCopilotOAuthProvider())
         await OAuthRegistry.shared.register(OpenAICodexOAuthProvider())

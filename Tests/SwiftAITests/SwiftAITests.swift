@@ -314,6 +314,27 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testGeminiCLIRequestAndSSEProcessing() {
+        let model = Model(id: "gemini-cli", name: "Gemini CLI", api: .googleGeminiCLI, provider: .googleGeminiCLI, reasoning: true)
+        var options = StreamOptions()
+        options.reasoning = .low
+        options.sessionId = "sess"
+        let body = GoogleGeminiCLIProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), projectId: "proj", options: options)
+        XCTAssertEqual(body["project"], .string("proj"))
+        XCTAssertEqual(body["model"], .string("gemini-cli"))
+        guard case .object(let request)? = body["request"] else { return XCTFail("missing request") }
+        XCTAssertEqual(request["sessionId"], .string("sess"))
+        let sse = """
+        data: {"response":{"responseId":"r1","candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}}
+
+        """
+        let events = GoogleGeminiCLIProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.responseId, "r1")
+        XCTAssertEqual(message.content.first?.text, "ok")
+    }
+
     func testGoogleRequestURLAndSSEProcessing() throws {
         let model = Model(id: "gemini-2.5-pro", name: "Gemini", api: .googleGenerativeAI, provider: .google, baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: true)
         var options = StreamOptions()

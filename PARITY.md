@@ -35,6 +35,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Anthropic Messages provider: request construction, thinking budgets/adaptive thinking, beta headers, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Mistral Conversations provider: request construction, reasoning/prompt mode handling, tools, SSE parsing for text/reasoning/tool events, usage, and stop reasons.
 - Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
+- Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
 
 ## Known gaps vs upstream runtime parity
 
@@ -43,8 +44,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - OpenAI-compatible provider lacks some provider-specific header/retry/prompt-cache edge cases from `go-ai`.
 - OpenAI Responses/Codex provider lacks WebSocket transport and some upstream replay/signature/prompt-cache edge cases.
 - Anthropic Messages provider lacks full prompt-cache replay/tool-result edge cases.
-- Google Gemini CLI runtime is not implemented.
-- Google provider lacks some upstream signature/tool-result edge cases.
+- Google providers lack some upstream signature/tool-result edge cases.
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
 - OAuth flow surface now covers upstream providers: GitHub Copilot, OpenAI Codex, Anthropic, Google Gemini CLI, and Google Antigravity.

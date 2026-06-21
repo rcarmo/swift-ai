@@ -26,6 +26,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Anthropic Messages provider with SSE parsing for text, thinking, tool calls, usage, and stop reasons.
 - Mistral Conversations provider with reasoning/prompt mode and SSE event parsing.
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.
+- Google Gemini CLI / Cloud Code Assist provider with OAuth JSON credentials and wrapped Gemini SSE parsing.
 - Faux provider/test double for credential-free SwiftPM tests.
 - Token cost calculation utilities wired into provider usage metadata.
 - Message transformation helpers for cross-provider replay, image downgrade, and synthetic tool results.

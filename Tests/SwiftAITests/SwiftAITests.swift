@@ -680,6 +680,18 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.output, 2)
     }
 
+    func testOpenAISSEErrorFinishEmitsError() {
+        let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI)
+        let sse = """
+        data: {"choices":[{"index":0,"delta":{"content":"bad"},"finish_reason":"content_filter"}]}
+
+        data: [DONE]
+
+        """
+        let events = OpenAICompletionsProvider.processSSEText(sse, model: model)
+        XCTAssertTrue(events.contains { if case .error = $0 { return true }; return false })
+    }
+
     func testOpenAISSEProcessing() {
         let model = Model(id: "gpt-test", name: "GPT Test", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com")
         let sse = """

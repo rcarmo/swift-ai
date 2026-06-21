@@ -277,8 +277,12 @@ public enum OpenAICompletionsProvider {
         state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         let reason = stopReason(from: state.finishReason)
         state.partial.stopReason = reason
-        if reason == .error, let finish = state.finishReason { state.partial.errorMessage = "Provider finish_reason: \(finish)" }
-        yield(.done(reason: reason, message: state.partial))
+        if reason == .error, let finish = state.finishReason {
+            state.partial.errorMessage = "Provider finish_reason: \(finish)"
+            yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "provider error")))
+        } else {
+            yield(.done(reason: reason, message: state.partial))
+        }
     }
 
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }

@@ -25,7 +25,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**. `STATUS.j
 - Diagnostics and logging helpers: thrown-value formatting, serializable assistant diagnostics, diagnostic append helper, pluggable discard/stderr logger, and global logger actor.
 - Context overflow and JSON Schema tool argument validation helpers, including required fields, primitive type checks, and string enum checks.
 - Simple-options/thinking helpers: supported level discovery, xhigh clamping, nearest-level clamping, provider-specific thinking value mapping, default thinking budgets, and max-token/thinking-budget adjustment.
-- OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
+- OpenRouter image generation provider request/response path, including multimodal payload construction, string/object `image_url` response forms, `data:` URL image extraction, text output, usage, and cost calculation.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including upstream no-retry defaults, opt-in default retry config via `maxRetryDelayMs`, retryable status set, exponential backoff/jitter, and `Retry-After` cap handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.
 - GitHub Copilot OAuth provider: device-code login, token refresh, Copilot model policy enablement, available-model fetching/filtering, and base URL extraction.

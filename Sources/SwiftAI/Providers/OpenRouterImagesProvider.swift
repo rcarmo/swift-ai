@@ -35,22 +35,27 @@ public enum OpenRouterImagesProvider {
                 out.errorMessage = String(data: data, encoding: .utf8) ?? "HTTP \(http.statusCode)"
                 return out
             }
-            let decoded = try JSONDecoder().decode(OpenRouterImageResponse.self, from: data)
-            out.responseId = decoded.id
-            if let usage = decoded.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(imageModel: model, usage: &u); out.usage = u }
-            if let text = decoded.choices.first?.message.content, !text.isEmpty { out.output.append(ImageOutput(type: "text", text: text)) }
-            for image in decoded.choices.first?.message.images ?? [] {
-                guard let url = image.urlValue, url.hasPrefix("data:") else { continue }
-                let stripped = String(url.dropFirst("data:".count))
-                let parts = stripped.components(separatedBy: ";base64,")
-                if parts.count == 2 { out.output.append(ImageOutput(type: "image", data: parts[1], mimeType: parts[0])) }
-            }
-            return out
+            return try parseResponseData(data, model: model, into: out)
         } catch {
             out.stopReason = .error
             out.errorMessage = error.localizedDescription
             return out
         }
+    }
+
+    public static func parseResponseData(_ data: Data, model: ImagesModel, into initial: AssistantImages? = nil) throws -> AssistantImages {
+        var out = initial ?? AssistantImages(api: model.api, provider: model.provider, model: model.id, stopReason: .stop, timestamp: Int64(Date().timeIntervalSince1970 * 1000))
+        let decoded = try JSONDecoder().decode(OpenRouterImageResponse.self, from: data)
+        out.responseId = decoded.id
+        if let usage = decoded.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(imageModel: model, usage: &u); out.usage = u }
+        if let text = decoded.choices.first?.message.content, !text.isEmpty { out.output.append(ImageOutput(type: "text", text: text)) }
+        for image in decoded.choices.first?.message.images ?? [] {
+            guard let url = image.urlValue, url.hasPrefix("data:") else { continue }
+            let stripped = String(url.dropFirst("data:".count))
+            let parts = stripped.components(separatedBy: ";base64,")
+            if parts.count == 2 { out.output.append(ImageOutput(type: "image", data: parts[1], mimeType: parts[0])) }
+        }
+        return out
     }
 
     public static func buildImagesPayload(model: ImagesModel, context: ImagesContext) -> JSONValue {

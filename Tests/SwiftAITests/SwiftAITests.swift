@@ -71,6 +71,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
     }
 
+    func testOpenRouterImageResponseParser() throws {
+        let model = ImagesModel(id: "image-model", name: "Image Model", api: .openRouterImages, provider: .openRouter, cost: ModelCost(input: 1, output: 1))
+        let json = """
+        {"id":"r","choices":[{"message":{"content":"caption","images":[{"image_url":{"url":"data:image/png;base64,abc"}},{"image_url":"data:image/jpeg;base64,def"}]}}],"usage":{"prompt_tokens":1000,"completion_tokens":1000,"total_tokens":2000}}
+        """.data(using: .utf8)!
+        let result = try OpenRouterImagesProvider.parseResponseData(json, model: model)
+        XCTAssertEqual(result.responseId, "r")
+        XCTAssertEqual(result.output.count, 3)
+        XCTAssertEqual(result.output[1].mimeType, "image/png")
+        XCTAssertEqual(result.output[2].mimeType, "image/jpeg")
+        XCTAssertEqual(result.usage?.cost.total, 0.002, accuracy: 0.0000001)
+    }
+
     func testOpenRouterImagePayloadBuilder() throws {
         let model = ImagesModel(id: "image-model", name: "Image Model", api: .openRouterImages, provider: .openRouter, output: ["image", "text"])
         let payload = OpenRouterImagesProvider.buildImagesPayload(model: model, context: ImagesContext(input: [.text("draw"), .image(data: "abc", mimeType: "image/png")]))

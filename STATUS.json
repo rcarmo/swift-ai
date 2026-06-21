@@ -1,0 +1,63 @@
+{
+  "upstream": {
+    "package": "@earendil-works/pi-ai",
+    "version": "0.79.9",
+    "reference": "go-ai v0.79.9"
+  },
+  "swiftPM": {
+    "package": "swift-ai",
+    "libraryProduct": "SwiftAI",
+    "minimumToolsVersion": "5.9",
+    "platforms": ["macOS 13", "iOS 16", "tvOS 16", "watchOS 9"]
+  },
+  "registries": {
+    "textModels": 979,
+    "textProviders": 35,
+    "textAPIs": 9,
+    "imageModels": 34,
+    "imageProviders": 1,
+    "imageAPIs": 1
+  },
+  "bundledRuntimeProviders": [
+    "openai-completions",
+    "openai-responses",
+    "azure-openai-responses",
+    "openai-codex-responses-sse",
+    "anthropic-messages",
+    "google-generative-ai",
+    "google-vertex",
+    "google-gemini-cli",
+    "mistral-conversations",
+    "openrouter-images",
+    "faux"
+  ],
+  "pluggableTransports": [
+    {
+      "api": "bedrock-converse-stream",
+      "protocol": "BedrockTransport",
+      "reason": "AWS SigV4/event-stream transport is platform/dependency heavy and is intentionally supplied by consumers."
+    },
+    {
+      "api": "openai-codex-responses",
+      "protocol": "CodexTransport",
+      "reason": "WebSocket/session-cache transport is pluggable; SSE fallback is bundled."
+    }
+  ],
+  "oauthProviders": [
+    "github-copilot",
+    "openai-codex",
+    "anthropic",
+    "google-gemini-cli",
+    "google-antigravity"
+  ],
+  "validation": {
+    "swiftToolchainUnavailableInContainer": true,
+    "staticCommand": "python3 scripts/static-check.py",
+    "swiftCommand": "swift test"
+  },
+  "knownNonBundledCapabilities": [
+    "Bedrock live AWS SigV4/event-stream transport",
+    "Codex WebSocket/session-cache transport implementation",
+    "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
+  ]
+}

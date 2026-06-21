@@ -1,6 +1,6 @@
 # swift-ai parity status
 
-Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
+Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**. `STATUS.json` contains the same high-level status in machine-readable form.
 
 ## Implemented
 

@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_MODELS = ROOT / "scripts" / "models.v0.79.9.json"
 IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.79.9.json"
+STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
 REGISTRY = ROOT / "Sources" / "SwiftAI" / "Registry.swift"
@@ -67,6 +68,7 @@ def registered_api_raw_values() -> tuple[set[str], set[str]]:
 def main() -> int:
     text = json.loads(TEXT_MODELS.read_text())
     images = json.loads(IMAGE_MODELS.read_text())
+    status = json.loads(STATUS.read_text())
     raw = raw_values(TYPES, IMAGES)
 
     failures: list[str] = []
@@ -80,6 +82,12 @@ def main() -> int:
         (len(text_providers), EXPECTED_TEXT_PROVIDERS, "text provider count"),
         (len(images), EXPECTED_IMAGE_MODELS, "image model count"),
         (len(image_providers), EXPECTED_IMAGE_PROVIDERS, "image provider count"),
+        (status["registries"]["textModels"], len(text), "STATUS text model count"),
+        (status["registries"]["textProviders"], len(text_providers), "STATUS text provider count"),
+        (status["registries"]["textAPIs"], len(text_apis), "STATUS text API count"),
+        (status["registries"]["imageModels"], len(images), "STATUS image model count"),
+        (status["registries"]["imageProviders"], len(image_providers), "STATUS image provider count"),
+        (status["registries"]["imageAPIs"], len(image_apis), "STATUS image API count"),
     ]
     for got, want, label in checks:
         if got != want:

@@ -2,7 +2,7 @@
 
 SwiftPM library port of [`@earendil-works/pi-ai`](https://www.npmjs.com/package/@earendil-works/pi-ai), using [`go-ai`](https://github.com/rcarmo/go-ai) as the audited reference implementation.
 
-This package is an initial Swift port prepared for consumption as a SwiftPM library. It tracks upstream `@earendil-works/pi-ai` **0.79.9**.
+This package is an initial Swift port prepared for consumption as a SwiftPM library. It tracks upstream `@earendil-works/pi-ai` **0.79.9**. See `STATUS.json` for machine-readable parity/transport status.
 
 ## What is implemented
 

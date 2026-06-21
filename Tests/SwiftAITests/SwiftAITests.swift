@@ -49,6 +49,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
     }
 
+    func testOpenRouterImagePayloadBuilder() throws {
+        let model = ImagesModel(id: "image-model", name: "Image Model", api: .openRouterImages, provider: .openRouter, output: ["image", "text"])
+        let payload = OpenRouterImagesProvider.buildImagesPayload(model: model, context: ImagesContext(input: [.text("draw"), .image(data: "abc", mimeType: "image/png")]))
+        guard case .object(let object) = payload else { return XCTFail("expected object") }
+        XCTAssertEqual(object["model"], .string("image-model"))
+        XCTAssertEqual(object["stream"], .bool(false))
+        guard case .array(let modalities)? = object["modalities"] else { return XCTFail("missing modalities") }
+        XCTAssertEqual(modalities, [.string("image"), .string("text")])
+    }
+
     func testOpenAIRequestBuilder() {
         var compat = OpenAICompletionsCompat()
         compat.thinkingFormat = "chat-template"

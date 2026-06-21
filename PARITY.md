@@ -16,6 +16,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Basic context overflow detection and tool required-argument validation helpers.
 - SSE parser.
 - Initial OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points.
+- OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 
 ## Known gaps vs upstream runtime parity
 
@@ -29,8 +30,8 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
 - OAuth flows are not implemented.
-- OpenRouter image generation runtime is not implemented.
-- Provider-specific retry/backoff behavior is not implemented.
+- OpenRouter image generation retry/backoff hooks are not fully ported.
+- Provider-specific retry/backoff behavior is not fully implemented.
 - Full upstream transform/harness/session-resource helpers are not implemented.
 
 ## Validation constraints

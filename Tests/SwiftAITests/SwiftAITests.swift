@@ -59,6 +59,36 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testContextOverflowAndToolValidation() throws {
+        var overflow = Message(role: .assistant, content: [])
+        overflow.stopReason = .error
+        overflow.errorMessage = "input token count exceeds the maximum"
+        XCTAssertTrue(ContextUtilities.isContextOverflow(overflow, contextWindow: 0))
+        overflow.errorMessage = "rate limit: too many requests"
+        XCTAssertFalse(ContextUtilities.isContextOverflow(overflow, contextWindow: 0))
+        var usage = Usage()
+        usage.input = 100
+        usage.cacheRead = 1
+        var stop = Message(role: .assistant, content: [])
+        stop.stopReason = .stop
+        stop.usage = usage
+        XCTAssertTrue(ContextUtilities.isContextOverflow(stop, contextWindow: 50))
+
+        let schema: JSONValue = .object([
+            "type": .string("object"),
+            "required": .array([.string("q")]),
+            "properties": .object([
+                "q": .object(["type": .string("string"), "enum": .array([.string("ok")])]),
+                "n": .object(["type": .string("integer")])
+            ])
+        ])
+        let tool = Tool(name: "lookup", description: "lookup", parameters: schema)
+        XCTAssertNoThrow(try ContextUtilities.validateToolArguments(tool: tool, arguments: ["q": .string("ok"), "n": .number(1)]))
+        XCTAssertThrowsError(try ContextUtilities.validateToolArguments(tool: tool, arguments: ["n": .number(1)]))
+        XCTAssertThrowsError(try ContextUtilities.validateToolArguments(tool: tool, arguments: ["q": .string("bad")]))
+        XCTAssertThrowsError(try ContextUtilities.validateToolArguments(tool: tool, arguments: ["q": .string("ok"), "n": .number(1.5)]))
+    }
+
     func testDiagnosticsAndLogger() async throws {
         struct SampleError: Error {}
         XCTAssertEqual(Diagnostics.formatThrownValue("x"), "x")

@@ -23,6 +23,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.
 - Prompt cache helpers and session-resource cleanup registry, with OpenAI prompt-cache key clamping wired into Chat Completions and Responses requests.
 - Diagnostics and logging helpers: thrown-value formatting, serializable assistant diagnostics, diagnostic append helper, pluggable discard/stderr logger, and global logger actor.
+- Context overflow and JSON Schema tool argument validation helpers, including required fields, primitive type checks, and string enum checks.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.

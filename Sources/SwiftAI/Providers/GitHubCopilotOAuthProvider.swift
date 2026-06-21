@@ -152,4 +152,3 @@ private struct CopilotTokenResponse: Decodable { var token: String; var expiresA
 private struct CopilotModelsResponse: Decodable { var data: [CopilotModel] }
 private struct CopilotModel: Decodable { var id: String; var modelPickerEnabled: Bool?; var policy: Policy?; var capabilities: Capabilities?; var isSelectable: Bool { modelPickerEnabled == true && policy?.state != "disabled" && capabilities?.supports?.toolCalls != false }; enum CodingKeys: String, CodingKey { case id; case modelPickerEnabled = "model_picker_enabled"; case policy, capabilities }; struct Policy: Decodable { var state: String? }; struct Capabilities: Decodable { var supports: Supports? }; struct Supports: Decodable { var toolCalls: Bool?; enum CodingKeys: String, CodingKey { case toolCalls = "tool_calls" } } }
 
-private extension JSONValue { var stringValue: String? { if case .string(let value) = self { return value }; return nil } }

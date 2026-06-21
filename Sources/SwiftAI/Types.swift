@@ -70,6 +70,12 @@ public enum JSONValue: Codable, Equatable, Sendable {
     case array([JSONValue])
     case object([String: JSONValue])
 
+    public var stringValue: String? { if case .string(let value) = self { return value }; return nil }
+    public var doubleValue: Double? { if case .number(let value) = self { return value }; return nil }
+    public var boolValue: Bool? { if case .bool(let value) = self { return value }; return nil }
+    public var arrayValue: [JSONValue]? { if case .array(let value) = self { return value }; return nil }
+    public var objectValue: [String: JSONValue]? { if case .object(let value) = self { return value }; return nil }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() { self = .null }

@@ -31,6 +31,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - GitHub Copilot OAuth provider: device-code login, token refresh, Copilot model policy enablement, available-model fetching/filtering, and base URL extraction.
 - OpenAI Codex OAuth provider: Auth0 device-code login, token polling, refresh-token exchange, and API-key extraction.
 - Anthropic OAuth provider: PKCE authorization URL construction, authorization-code token exchange, refresh-token exchange, and API-key extraction. SwiftPM portability uses host prompt for the callback code instead of embedding a local HTTP server.
+- Google Gemini CLI and Antigravity OAuth providers: PKCE authorization URL construction, project ID capture, authorization-code token exchange, refresh-token exchange, and JSON API-key payload generation.
 - Anthropic Messages provider: request construction, thinking budgets/adaptive thinking, beta headers, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Mistral Conversations provider: request construction, reasoning/prompt mode handling, tools, SSE parsing for text/reasoning/tool events, usage, and stop reasons.
 - Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
@@ -46,7 +47,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Google provider lacks some upstream signature/tool-result edge cases.
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
-- OAuth flows other than GitHub Copilot, OpenAI Codex, and Anthropic are not implemented.
+- OAuth flow surface now covers upstream providers: GitHub Copilot, OpenAI Codex, Anthropic, Google Gemini CLI, and Google Antigravity.
 - Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
 - Request/response interception hooks are not implemented.
 - Full upstream transform/harness/session-resource helpers are not implemented.

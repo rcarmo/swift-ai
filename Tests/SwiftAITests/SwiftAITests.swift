@@ -170,6 +170,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(await registration.pendingResponseCount(), 0)
     }
 
+    func testGoogleOAuthProviderShape() {
+        let gemini = GoogleGeminiCLIOAuthProvider()
+        let anti = GoogleAntigravityOAuthProvider()
+        XCTAssertEqual(gemini.id, "google-gemini-cli")
+        XCTAssertEqual(anti.id, "google-antigravity")
+        let url = GoogleOAuthFlow.authorizationURL(challenge: "challenge")
+        XCTAssertTrue(url.contains("code_challenge=challenge"))
+        XCTAssertTrue(url.contains("access_type=offline"))
+        let key = gemini.apiKey(credentials: OAuthCredentials(refresh: "r", access: "tok", expires: 0, extra: ["projectId": .string("project")]))
+        XCTAssertTrue(key.contains("tok"))
+        XCTAssertTrue(key.contains("project"))
+    }
+
     func testAnthropicOAuthProviderShape() {
         let provider = AnthropicOAuthProvider()
         let url = provider.authorizationURL(challenge: "challenge")

@@ -59,6 +59,12 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testCloudflareBaseURLHelpers() {
+        let model = Model(id: "cf", name: "CF", api: .openAICompletions, provider: .cloudflareWorkersAI, baseUrl: "https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1")
+        XCTAssertTrue(AIUtilities.isCloudflareProvider(.cloudflareWorkersAI))
+        XCTAssertEqual(AIUtilities.resolveCloudflareBaseURL(model: model, env: ["CLOUDFLARE_ACCOUNT_ID": "acct"]), "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1")
+    }
+
     func testHashAndSanitizeUtilities() {
         XCTAssertEqual(AIUtilities.shortHash("abc"), AIUtilities.shortHash("abc"))
         XCTAssertEqual(AIUtilities.shortHash("abc").count, 16)

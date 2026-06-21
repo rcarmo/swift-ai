@@ -58,7 +58,8 @@ public enum OpenAIResponsesProvider {
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
         guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         var requestModel = model
-        var base = model.baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let resolvedModelBase = AIUtilities.isCloudflareProvider(model.provider) ? AIUtilities.resolveCloudflareBaseURL(model: model, env: options?.env) : model.baseUrl
+        var base = resolvedModelBase.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         var suffix = "/responses"
         if model.api == .openAICodexResponses { base = resolveCodexURL(model.baseUrl); suffix = "" }
         if model.api == .azureOpenAIResponses { let cfg = try resolveAzureConfig(model: model, options: options); base = cfg.baseURL; suffix = "/responses?api-version=\(cfg.apiVersion.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cfg.apiVersion)"; requestModel.id = cfg.deployment }

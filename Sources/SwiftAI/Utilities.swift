@@ -113,6 +113,18 @@ public enum AIUtilities {
 
     public static func azureSessionHeaders(_ sessionId: String) -> [String: String] { sessionId.isEmpty ? [:] : ["session_id": sessionId, "x-client-request-id": sessionId, "x-ms-client-request-id": sessionId] }
 
+    public static func isCloudflareProvider(_ provider: Provider) -> Bool { provider == .cloudflareWorkersAI || provider == .cloudflareAIGateway }
+
+    public static func resolveCloudflareBaseURL(model: Model, env: ProviderEnv? = nil) -> String {
+        var result = model.baseUrl
+        while let start = result.firstIndex(of: "{"), let end = result[start...].firstIndex(of: "}") {
+            let name = String(result[result.index(after: start)..<end])
+            let value = ProviderEnvironment.value(name, env: env) ?? ""
+            result.replaceSubrange(start...end, with: value)
+        }
+        return result
+    }
+
     public static func transformMessages(_ messages: [Message], for model: Model?) -> [Message] {
         guard let model else { return messages }
         let downgraded = downgradeUnsupportedImages(messages, for: model)

@@ -43,6 +43,8 @@ REQUIRED_SOURCES = [
     "Sources/SwiftAI/Harness.swift",
     "Sources/SwiftAI/PartialJSON.swift",
     "Sources/SwiftAI/Retry.swift",
+    "docs/TRANSPORTS.md",
+    "docs/USAGE.md",
 ]
 
 
@@ -136,6 +138,9 @@ def main() -> int:
         if expected not in swift_status:
             failures.append(f"SwiftAIStatus missing/aligned value for {key}: {expected}")
 
+    usage_doc = status.get("usageDocumentation")
+    if not usage_doc or not (ROOT / usage_doc).exists():
+        failures.append("STATUS usageDocumentation is missing or points to a missing file")
     transport_doc = status.get("transportDocumentation")
     if not transport_doc or not (ROOT / transport_doc).exists():
         failures.append("STATUS transportDocumentation is missing or points to a missing file")

@@ -1,0 +1,59 @@
+# swift-ai
+
+SwiftPM library port of [`@earendil-works/pi-ai`](https://www.npmjs.com/package/@earendil-works/pi-ai), using [`go-ai`](https://github.com/rcarmo/go-ai) as the audited reference implementation.
+
+This package is an initial Swift port prepared for consumption as a SwiftPM library. It tracks upstream `@earendil-works/pi-ai` **0.79.9**.
+
+## What is implemented
+
+- Core `Codable` type system: models, providers, messages, tools, usage, diagnostics, stream options.
+- Stream event enum matching the `pi-ai`/`go-ai` event protocol.
+- Actor-backed provider and model registry.
+- Built-in bootstrap entry point: `await SwiftAI.bootstrap()`.
+- Environment API key lookup with per-request `StreamOptions.env` overlay.
+- OpenAI-compatible compat detection, including `chat-template` thinking kwargs.
+- Context overflow and basic tool argument validation helpers.
+- SSE parser.
+- Initial non-streaming OpenAI Chat Completions provider exposed through the common async stream/complete API.
+- Seed built-in model catalog for representative OpenAI/Anthropic/Google/DeepSeek/OpenRouter models.
+
+## Usage
+
+```swift
+import SwiftAI
+
+await SwiftAI.bootstrap()
+let model = await AIRegistry.shared.model(provider: .openAI, id: "gpt-4.1-mini")!
+let message = try await SwiftAI.complete(
+    model: model,
+    context: AIContext(messages: [.user("Say hello")]),
+    options: StreamOptions()
+)
+print(message.content.first?.text ?? "")
+```
+
+Set `OPENAI_API_KEY` in the environment, or pass a scoped override:
+
+```swift
+var options = StreamOptions()
+options.env = ["OPENAI_API_KEY": "..."]
+```
+
+## Current limitations
+
+This is not yet a full provider-complete port. The SwiftPM package is structured so additional providers can be added incrementally under `Sources/SwiftAI/Providers/` while preserving the public API.
+
+- OpenAI-compatible provider currently uses non-streaming `/chat/completions` and emits a final `.done` event.
+- Anthropic, Google, Mistral, Bedrock, OAuth and image providers are type/registry placeholders, not runtime implementations yet.
+- The generated registry is currently a seed catalog, not the full upstream 979-model registry.
+- This container does not include `swift`, so compilation must be run on a Swift 5.9+ toolchain host.
+
+## Development
+
+```bash
+swift test
+```
+
+## License
+
+MIT.

@@ -617,6 +617,17 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testAnthropicTruncatedStreamEmitsError() {
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let sse = """
+        event: message_start
+        data: {"message":{"id":"m","usage":{"input_tokens":1}}}
+
+        """
+        let events = AnthropicMessagesProvider.processSSEText(sse, model: model)
+        XCTAssertTrue(events.contains { if case .error = $0 { return true }; return false })
+    }
+
     func testAnthropicToolUseAndResultRequest() {
         var assistant = Message(role: .assistant, content: [.toolCall(id: "call.1", name: "lookup", arguments: ["q": .string("x")])])
         assistant.stopReason = .toolUse

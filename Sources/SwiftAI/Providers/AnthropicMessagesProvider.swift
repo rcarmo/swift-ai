@@ -132,6 +132,12 @@ public enum AnthropicMessagesProvider {
 
     private static func finish(state: inout AnthropicStreamState, yield: (AIEvent) -> Void) {
         if !state.started { state.started = true; yield(.start(partial: state.partial)) }
+        if state.sawMessageStart && !state.sawMessageStop {
+            state.partial.stopReason = .error
+            state.partial.errorMessage = "anthropic stream ended before message_stop"
+            yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "anthropic stream error")))
+            return
+        }
         state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         if state.partial.stopReason == nil { state.partial.stopReason = .stop }
         yield(.done(reason: state.partial.stopReason ?? .stop, message: state.partial))

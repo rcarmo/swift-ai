@@ -45,6 +45,7 @@ public enum OpenAIResponsesProvider {
         var suffix = "/responses"
         if model.api == .azureOpenAIResponses { let cfg = try resolveAzureConfig(model: model, options: options); base = cfg.baseURL; suffix = "/responses?api-version=\(cfg.apiVersion.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cfg.apiVersion)"; requestModel.id = cfg.deployment }
         var body = buildRequestBody(model: requestModel, context: context, options: options)
+        if let hook = options?.onPayload { body = try await hook(body, model) }
         var request = URLRequest(url: URL(string: base + suffix)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -56,6 +57,7 @@ public enum OpenAIResponsesProvider {
         request.httpBody = try JSONEncoder().encode(body)
         let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
+        if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
         var state = ResponsesStreamState(model: model)
         var buffer = ""

@@ -183,7 +183,7 @@ public typealias ProviderEnv = [String: String]
 
 public struct RetryConfig: Codable, Equatable, Sendable { public var maxRetries: Int?; public var maxDelayMs: Int?; public init(maxRetries: Int? = nil, maxDelayMs: Int? = nil) { self.maxRetries = maxRetries; self.maxDelayMs = maxDelayMs } }
 
-public struct StreamOptions: Codable, Equatable, Sendable {
+public struct StreamOptions: Sendable {
     public var temperature: Double?
     public var maxTokens: Int?
     public var apiKey: String?
@@ -213,5 +213,14 @@ public struct StreamOptions: Codable, Equatable, Sendable {
     public var reasoningSummary: String?
     public var serviceTier: String?
 
+    public var onPayload: (@Sendable ([String: JSONValue], Model) async throws -> [String: JSONValue])?
+    public var onResponse: (@Sendable (HTTPResponseMetadata, Model) async -> Void)?
+
     public init() {}
+}
+
+public struct HTTPResponseMetadata: Codable, Equatable, Sendable {
+    public var status: Int
+    public var headers: [String: String]
+    public init(status: Int, headers: [String: String]) { self.status = status; self.headers = headers }
 }

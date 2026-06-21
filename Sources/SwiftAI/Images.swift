@@ -51,7 +51,7 @@ public struct AssistantImages: Codable, Equatable, Sendable {
 
 public struct ImagesResponseMetadata: Codable, Equatable, Sendable { public var status: Int; public var headers: [String: String]; public init(status: Int, headers: [String: String]) { self.status = status; self.headers = headers } }
 
-public struct ImagesOptions: Codable, Equatable, Sendable {
+public struct ImagesOptions: Sendable {
     public var apiKey: String?
     public var headers: [String: String]?
     public var timeoutMs: Int?
@@ -59,6 +59,8 @@ public struct ImagesOptions: Codable, Equatable, Sendable {
     public var maxRetryDelayMs: Int?
     public var metadata: [String: JSONValue]?
     public var env: ProviderEnv?
+    public var onPayload: (@Sendable ([String: JSONValue], ImagesModel) async throws -> [String: JSONValue])?
+    public var onResponse: (@Sendable (ImagesResponseMetadata, ImagesModel) async -> Void)?
     public init() {}
 }
 

@@ -97,7 +97,7 @@ public enum OpenAICompletionsProvider {
         .object(["type": .string("function"), "function": .object(["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters])])
     }
 
-    private static func makeRequest(model: Model, context: AIContext, options: StreamOptions?, stream: Bool) throws -> URLRequest {
+    private static func makeRequest(model: Model, context: AIContext, options: StreamOptions?, stream: Bool) async throws -> URLRequest {
         guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         let url = URL(string: model.baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions")!
         var request = URLRequest(url: url)
@@ -107,14 +107,17 @@ public enum OpenAICompletionsProvider {
         if stream { request.setValue("text/event-stream", forHTTPHeaderField: "Accept") }
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-        request.httpBody = try JSONEncoder().encode(buildRequestBody(model: model, context: context, options: options, stream: stream))
+        var payload = buildRequestBody(model: model, context: context, options: options, stream: stream)
+        if let hook = options?.onPayload { payload = try await hook(payload, model) }
+        request.httpBody = try JSONEncoder().encode(payload)
         return request
     }
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
-        let request = try makeRequest(model: model, context: context, options: options, stream: true)
+        let request = try await makeRequest(model: model, context: context, options: options, stream: true)
         let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
+        if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
         var state = StreamState(model: model)
         var buffer = ""
@@ -130,9 +133,10 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func request(model: Model, context: AIContext, options: StreamOptions?) async throws -> Message {
-        let request = try makeRequest(model: model, context: context, options: options, stream: false)
+        let request = try await makeRequest(model: model, context: context, options: options, stream: false)
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(options: options))
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
+        if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
         var message = Message(role: .assistant, content: [.text(raw.choices.first?.message.content ?? "")])

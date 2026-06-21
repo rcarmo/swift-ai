@@ -55,9 +55,12 @@ public enum GoogleGenerativeAIProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-        request.httpBody = try JSONEncoder().encode(buildRequestBody(model: model, context: context, options: options))
+        var payload = buildRequestBody(model: model, context: context, options: options)
+        if let hook = options?.onPayload { payload = try await hook(payload, model) }
+        request.httpBody = try JSONEncoder().encode(payload)
         let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
+        if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
         var state = GoogleStreamState(model: model)
         var buffer = ""

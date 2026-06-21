@@ -12,7 +12,11 @@ public enum OpenRouterImagesProvider {
             return out
         }
         do {
-            let payload = buildImagesPayload(model: model, context: context)
+            var payloadValue = buildImagesPayload(model: model, context: context)
+            var payload: [String: JSONValue]
+            if case .object(let object) = payloadValue { payload = object } else { payload = [:] }
+            if let hook = options?.onPayload { payload = try await hook(payload, model) }
+            payloadValue = .object(payload)
             let base = (model.baseUrl ?? "https://openrouter.ai/api/v1").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             var request = URLRequest(url: URL(string: base + "/chat/completions")!)
             request.httpMethod = "POST"
@@ -20,11 +24,12 @@ public enum OpenRouterImagesProvider {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
             for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-            request.httpBody = try JSONEncoder().encode(payload)
+            request.httpBody = try JSONEncoder().encode(payloadValue)
             let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(options: options))
             guard let http = response as? HTTPURLResponse else {
                 out.stopReason = .error; out.errorMessage = "non-HTTP response"; return out
             }
+            if let hook = options?.onResponse { await hook(ImagesResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
             if http.statusCode >= 300 {
                 out.stopReason = .error
                 out.errorMessage = String(data: data, encoding: .utf8) ?? "HTTP \(http.statusCode)"

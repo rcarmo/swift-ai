@@ -54,9 +54,9 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Incremental/partial JSON object parsing for streamed tool-call arguments, wired into text providers that accumulate tool deltas.
 - Copilot/OpenAI session headers: Copilot dynamic initiator/vision headers, standard Copilot headers, OpenAI-compatible session affinity headers, Azure session headers, and Responses Copilot dynamic headers.
 - Utility parity: deterministic SHA-256 short hashes, surrogate sanitization, Cloudflare provider detection, and Cloudflare base URL placeholder resolution; provider request builders sanitize serialized text inputs and Mistral tool-call ID fallback uses deterministic hashes.
+- Harness/context helpers: deep clone, JSON save/load, rough token estimation, context-window fit checks, tail compaction, turn appenders, text/tool extraction, and tool-execution detection.
 - Amazon Bedrock live transport is not bundled; full runtime parity requires AWS SigV4/event-stream support or an AWS SDK transport module.
 - Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
-- Full upstream transform/harness/session-resource helpers are not implemented.
 
 ## Validation constraints
 

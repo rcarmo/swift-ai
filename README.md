@@ -30,7 +30,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Faux provider/test double for credential-free SwiftPM tests.
 - Token cost calculation utilities wired into text and image provider usage metadata.
 - Message transformation helpers for cross-provider replay, image downgrade, and synthetic tool results.
-- Prompt-cache helpers and session-resource cleanup registry.
+- Prompt-cache helpers, session-resource cleanup registry, and harness/context utility helpers.
 - Diagnostics and pluggable logging helpers.
 - Context overflow detection and JSON Schema tool argument validation helpers.
 - Simple-options/thinking level and token-budget helpers.

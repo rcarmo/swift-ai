@@ -169,6 +169,24 @@ final class SwiftAITests: XCTestCase {
         await LoggerRegistry.shared.info("ok", ["provider": "test"])
     }
 
+    func testHarnessHelpers() throws {
+        var context = AIContext(systemPrompt: "system", messages: [.user("one"), .user("two")], tools: [Tool(name: "t", description: "d", parameters: .object(["type": .string("object")]))])
+        let clone = Harness.cloneContext(context)
+        XCTAssertEqual(clone, context)
+        XCTAssertGreaterThan(Harness.estimateTokens(context), 0)
+        let model = Model(id: "small", name: "Small", api: .openAICompletions, provider: .openAI, contextWindow: 1)
+        XCTAssertFalse(Harness.fitsInContextWindow(context, model: model).fits)
+        XCTAssertEqual(Harness.compactContext(context, model: model, keepRecent: 1)?.messages.count, 1)
+        Harness.appendUserMessage("three", to: &context)
+        XCTAssertEqual(context.messages.last?.content.first?.text, "three")
+        Harness.appendToolResult(toolCallId: "c", toolName: "tool", text: "result", isError: false, to: &context)
+        XCTAssertEqual(context.messages.last?.role, .toolResult)
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "c", name: "tool", arguments: [:])])
+        assistant.stopReason = .toolUse
+        XCTAssertTrue(Harness.needsToolExecution(assistant))
+        XCTAssertEqual(Harness.toolCalls(in: assistant).count, 1)
+    }
+
     func testPromptCacheAndSessionResources() async throws {
         XCTAssertEqual(PromptCache.clampOpenAIKey(String(repeating: "x", count: 80)).count, 64)
         let registry = SessionResourceRegistry.shared

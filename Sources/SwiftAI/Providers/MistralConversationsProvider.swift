@@ -117,16 +117,16 @@ public enum MistralConversationsProvider {
 
     private static func convertMessages(_ context: AIContext, model: Model) -> [JSONValue] {
         var out: [JSONValue] = []
-        if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string("system"), "content": .string(system)])) }
+        if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string("system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
         for msg in AIUtilities.transformMessages(context.messages, for: model) {
             switch msg.role {
-            case .user: out.append(.object(["role": .string("user"), "content": .string(msg.content.compactMap(\.text).joined())]))
+            case .user: out.append(.object(["role": .string("user"), "content": .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined()))]))
             case .assistant:
                 var obj: [String: JSONValue] = ["role": .string("assistant"), "content": .string(msg.content.compactMap { $0.text ?? $0.thinking }.joined())]
                 let calls = msg.content.filter { $0.type == "toolCall" }.map { block in JSONValue.object(["id": .string(normalizeToolCallID(block.id ?? "")), "type": .string("function"), "function": .object(["name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))])]) }
                 if !calls.isEmpty { obj["tool_calls"] = .array(calls) }
                 out.append(.object(obj))
-            case .toolResult: out.append(.object(["role": .string("tool"), "content": .string(msg.content.compactMap(\.text).joined()), "tool_call_id": .string(normalizeToolCallID(msg.toolCallId ?? "")), "name": .string(msg.toolName ?? "")]))
+            case .toolResult: out.append(.object(["role": .string("tool"), "content": .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined())), "tool_call_id": .string(normalizeToolCallID(msg.toolCallId ?? "")), "name": .string(msg.toolName ?? "")]))
             }
         }
         return out
@@ -138,7 +138,7 @@ public enum MistralConversationsProvider {
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "length", "model_length": return .length; case "tool_calls": return .toolUse; case "error": return .error; default: return .stop } }
-    private static func normalizeToolCallID(_ id: String) -> String { let filtered = id.filter { $0.isLetter || $0.isNumber }; if filtered.count == 9 { return String(filtered) }; return String(abs(id.hashValue)).prefix(9).padding(toLength: 9, withPad: "0", startingAt: 0).description }
+    private static func normalizeToolCallID(_ id: String) -> String { let filtered = id.filter { $0.isLetter || $0.isNumber }; if filtered.count == 9 { return String(filtered) }; return String(AIUtilities.shortHash(id).filter { $0.isLetter || $0.isNumber }.prefix(9)).padding(toLength: 9, withPad: "0", startingAt: 0) }
 }
 
 private struct MistralStreamState { var model: Model; var partial: Message; var started = false; var finishReason: String?; var activeTools: [Int: MistralActiveTool] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }

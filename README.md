@@ -22,6 +22,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Request/response interception hooks for text and image HTTP providers.
 - Partial JSON parser for streamed tool-call arguments.
 - Copilot and OpenAI/Azure session-affinity header helpers wired into providers.
+- Deterministic short hashes and Unicode surrogate sanitization helpers.
 - Anthropic Messages provider with SSE parsing for text, thinking, tool calls, usage, and stop reasons.
 - Mistral Conversations provider with reasoning/prompt mode and SSE event parsing.
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.

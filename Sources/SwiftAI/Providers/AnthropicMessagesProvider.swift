@@ -25,7 +25,7 @@ public enum AnthropicMessagesProvider {
             "stream": .bool(true),
             "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model)))
         ]
-        if let system = context.systemPrompt, !system.isEmpty { body["system"] = .string(system) }
+        if let system = context.systemPrompt, !system.isEmpty { body["system"] = .string(AIUtilities.sanitizeSurrogates(system)) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
         if let reasoning = options?.reasoning, model.reasoning {
@@ -143,7 +143,7 @@ public enum AnthropicMessagesProvider {
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh: return options?.thinkingBudgets?.high ?? 16384 } }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; default: return .stop } }
     private static func convertMessages(_ messages: [Message]) -> [JSONValue] { messages.map { .object(["role": .string($0.role == .assistant ? "assistant" : "user"), "content": .array($0.content.compactMap(contentBlock))]) } }
-    private static func contentBlock(_ block: ContentBlock) -> JSONValue? { if block.type == "text" { return .object(["type": .string("text"), "text": .string(block.text ?? "")]) }; if block.type == "image" { return .object(["type": .string("image"), "source": .object(["type": .string("base64"), "media_type": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])]) }; return nil }
+    private static func contentBlock(_ block: ContentBlock) -> JSONValue? { if block.type == "text" { return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]) }; if block.type == "image" { return .object(["type": .string("image"), "source": .object(["type": .string("base64"), "media_type": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])]) }; return nil }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]) }
 }
 

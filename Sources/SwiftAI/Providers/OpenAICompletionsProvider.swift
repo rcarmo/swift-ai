@@ -78,7 +78,7 @@ public enum OpenAICompletionsProvider {
 
     private static func convertMessages(model: Model, context: AIContext, compat: OpenAICompletionsCompat) -> [JSONValue] {
         var out: [JSONValue] = []
-        if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string("system"), "content": .string(system)])) }
+        if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string("system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
         for message in AIUtilities.transformMessages(context.messages, for: model) {
             let role: String = message.role == .toolResult ? "tool" : message.role.rawValue
             let contentText = message.content.compactMap { block -> String? in

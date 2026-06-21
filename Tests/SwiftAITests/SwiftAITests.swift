@@ -59,6 +59,12 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testHashAndSanitizeUtilities() {
+        XCTAssertEqual(AIUtilities.shortHash("abc"), AIUtilities.shortHash("abc"))
+        XCTAssertEqual(AIUtilities.shortHash("abc").count, 16)
+        XCTAssertEqual(AIUtilities.sanitizeSurrogates("ok\u{FFFD}"), "ok")
+    }
+
     func testCopilotAndSessionHeaders() {
         XCTAssertEqual(AIUtilities.inferCopilotInitiator([.user("hi")]), "user")
         var assistant = Message(role: .assistant, content: [.text("ok")])

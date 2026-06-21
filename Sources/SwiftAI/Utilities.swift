@@ -1,4 +1,5 @@
 import Foundation
+import Crypto
 
 public enum AIUtilities {
     private static let extendedThinkingLevels: [ModelThinkingLevel] = [.off, .minimal, .low, .medium, .high, .xhigh]
@@ -70,6 +71,17 @@ public enum AIUtilities {
 
     public static func supportsXHigh(model: Model?) -> Bool { supportedThinkingLevels(model: model).contains(.xhigh) }
     public static func modelsAreEqual(_ a: Model?, _ b: Model?) -> Bool { guard let a, let b else { return false }; return a.id == b.id && a.provider == b.provider }
+
+    public static func shortHash(_ value: String) -> String {
+        let digest = SHA256.hash(data: Data(value.utf8))
+        return digest.prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
+    public static func sanitizeSurrogates(_ text: String) -> String {
+        String(text.unicodeScalars.filter { scalar in
+            scalar.value != 0xFFFD && !(scalar.value >= 0xD800 && scalar.value <= 0xDFFF)
+        })
+    }
 
     public static func inferCopilotInitiator(_ messages: [Message]) -> String { messages.last?.role == .user || messages.isEmpty ? "user" : "agent" }
 

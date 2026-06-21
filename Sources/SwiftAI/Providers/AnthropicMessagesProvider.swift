@@ -23,11 +23,12 @@ public enum AnthropicMessagesProvider {
             "model": .string(model.id),
             "max_tokens": .number(Double(options?.maxTokens ?? model.maxTokens)),
             "stream": .bool(true),
-            "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model)))
+            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model)), cacheControl: cacheControl(model: model, options: options)))
         ]
-        if let system = context.systemPrompt, !system.isEmpty { body["system"] = .string(AIUtilities.sanitizeSurrogates(system)) }
+        let cc = cacheControl(model: model, options: options)
+        if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
+        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, cacheControl: idx == tools.count - 1 ? cc : nil) }) }
         if let reasoning = options?.reasoning, model.reasoning {
             if model.anthropicCompat?.forceAdaptiveThinking == true { body["thinking"] = .object(["type": .string("adaptive")]) }
             else { body["thinking"] = .object(["type": .string("enabled"), "budget_tokens": .number(Double(thinkingBudget(reasoning, options: options)))]) }
@@ -144,7 +145,26 @@ public enum AnthropicMessagesProvider {
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; default: return .stop } }
     private static func convertMessages(_ messages: [Message]) -> [JSONValue] { messages.map { .object(["role": .string($0.role == .assistant ? "assistant" : "user"), "content": .array($0.content.compactMap(contentBlock))]) } }
     private static func contentBlock(_ block: ContentBlock) -> JSONValue? { if block.type == "text" { return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]) }; if block.type == "image" { return .object(["type": .string("image"), "source": .object(["type": .string("base64"), "media_type": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])]) }; return nil }
-    private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]) }
+    private static func cacheControl(model: Model, options: StreamOptions?) -> JSONValue? {
+        let retention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
+        if retention == .none { return nil }
+        var object: [String: JSONValue] = ["type": .string("ephemeral")]
+        if retention == .long && model.anthropicCompat?.supportsLongCacheRetention != false { object["ttl"] = .string("1h") }
+        return .object(object)
+    }
+
+    private static func applyCacheControl(to messages: [JSONValue], cacheControl: JSONValue?) -> [JSONValue] {
+        guard let cacheControl else { return messages }
+        var messages = messages
+        guard let idx = messages.lastIndex(where: { if case .object(let obj) = $0 { return obj["role"] == .string("user") }; return false }), case .object(var msg) = messages[idx], case .array(var content)? = msg["content"], !content.isEmpty, case .object(var lastBlock) = content[content.count - 1] else { return messages }
+        lastBlock["cache_control"] = cacheControl
+        content[content.count - 1] = .object(lastBlock)
+        msg["content"] = .array(content)
+        messages[idx] = .object(msg)
+        return messages
+    }
+
+    private static func toolJSON(_ tool: Tool, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
 }
 
 private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }

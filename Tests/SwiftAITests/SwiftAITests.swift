@@ -504,6 +504,18 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testAnthropicCacheControlRequest() {
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsLongCacheRetention: true))
+        var options = StreamOptions()
+        options.cacheRetention = .long
+        let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")], tools: [tool]), options: options)
+        guard case .array(let messages)? = body["messages"], case .object(let msg) = messages[0], case .array(let content)? = msg["content"], case .object(let block) = content[0], case .object(let cc)? = block["cache_control"] else { return XCTFail("missing message cache_control") }
+        XCTAssertEqual(cc["ttl"], .string("1h"))
+        guard case .array(let tools)? = body["tools"], case .object(let toolObj) = tools[0], case .object(let toolCC)? = toolObj["cache_control"] else { return XCTFail("missing tool cache_control") }
+        XCTAssertEqual(toolCC["type"], .string("ephemeral"))
+    }
+
     func testAnthropicRequestAndSSEProcessing() {
         let model = Model(id: "claude-test", name: "Claude Test", api: .anthropicMessages, provider: .anthropic, baseUrl: "https://api.anthropic.com", reasoning: true, maxTokens: 4096)
         var options = StreamOptions()

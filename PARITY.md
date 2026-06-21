@@ -19,6 +19,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
 - OpenAI Responses/Azure Responses provider: request construction, Azure config resolution, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
+- Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text-provider usage where metadata is available.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.

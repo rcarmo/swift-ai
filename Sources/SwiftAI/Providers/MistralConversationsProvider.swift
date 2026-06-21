@@ -64,7 +64,7 @@ public enum MistralConversationsProvider {
         if !state.started { state.started = true; yield(.start(partial: state.partial)) }
         if data == "[DONE]" { return }
         guard let raw = data.data(using: .utf8), let chunk = try? JSONDecoder().decode(MistralChunk.self, from: raw) else { return }
-        if let usage = chunk.usage { var u = state.partial.usage ?? Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); state.partial.usage = u }
+        if let usage = chunk.usage { var u = state.partial.usage ?? Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
         guard let choice = chunk.choices.first else { return }
         if let finish = choice.finishReason { state.finishReason = finish }
         if let content = choice.delta.content, !content.isEmpty {
@@ -138,6 +138,6 @@ public enum MistralConversationsProvider {
     private static func normalizeToolCallID(_ id: String) -> String { let filtered = id.filter { $0.isLetter || $0.isNumber }; if filtered.count == 9 { return String(filtered) }; return String(abs(id.hashValue)).prefix(9).padding(toLength: 9, withPad: "0", startingAt: 0).description }
 }
 
-private struct MistralStreamState { var partial: Message; var started = false; var finishReason: String?; var activeTools: [Int: MistralActiveTool] = [:]; init(model: Model) { var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
+private struct MistralStreamState { var model: Model; var partial: Message; var started = false; var finishReason: String?; var activeTools: [Int: MistralActiveTool] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct MistralActiveTool { var id: String?; var name: String?; var args: String; var contentIndex: Int }
 private struct MistralChunk: Decodable { var choices: [Choice]; var usage: UsagePayload?; struct Choice: Decodable { var delta: Delta; var finishReason: String?; enum CodingKeys: String, CodingKey { case delta; case finishReason = "finish_reason" } }; struct Delta: Decodable { var content: String?; var reasoning: String?; var toolCalls: [ToolCall]?; enum CodingKeys: String, CodingKey { case content; case reasoning = "reasoning_content"; case toolCalls = "tool_calls" } }; struct ToolCall: Decodable { var index: Int; var id: String?; var function: Function? }; struct Function: Decodable { var name: String?; var arguments: String? }; struct UsagePayload: Decodable { var promptTokens: Int?; var completionTokens: Int?; var totalTokens: Int?; enum CodingKeys: String, CodingKey { case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens" } } }

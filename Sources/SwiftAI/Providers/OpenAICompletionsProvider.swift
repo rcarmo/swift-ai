@@ -136,7 +136,7 @@ public enum OpenAICompletionsProvider {
         let raw = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
         var message = Message(role: .assistant, content: [.text(raw.choices.first?.message.content ?? "")])
         message.api = model.api; message.provider = model.provider; message.model = model.id; message.responseId = raw.id; message.responseModel = raw.model; message.stopReason = raw.choices.first?.finishReason == "length" ? .length : .stop
-        if let usage = raw.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); message.usage = u }
+        if let usage = raw.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(model: model, usage: &u); message.usage = u }
         return message
     }
     public static func processSSEText(_ text: String, model: Model) -> [AIEvent] {
@@ -233,13 +233,14 @@ public enum OpenAICompletionsProvider {
 }
 
 private struct StreamState {
+    var model: Model
     var partial: Message
     var started = false
     var doneSeen = false
     var finishReason: String?
     var activeTools: [Int: ActiveTool] = [:]
-    init(model: Model) { var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg }
-    mutating func applyUsage(_ raw: SSEUsage) { var u = partial.usage ?? Usage(); u.input = raw.promptTokens ?? 0; u.output = raw.completionTokens ?? 0; u.totalTokens = raw.totalTokens ?? (u.input + u.output); if let cached = raw.promptTokensDetails?.cachedTokens ?? raw.promptCacheHitTokens { u.cacheRead = cached; u.input = max(0, u.input - cached) }; if let written = raw.promptTokensDetails?.cacheWriteTokens { u.cacheWrite = written; u.input = max(0, u.input - written) }; partial.usage = u }
+    init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg }
+    mutating func applyUsage(_ raw: SSEUsage) { var u = partial.usage ?? Usage(); u.input = raw.promptTokens ?? 0; u.output = raw.completionTokens ?? 0; u.totalTokens = raw.totalTokens ?? (u.input + u.output); if let cached = raw.promptTokensDetails?.cachedTokens ?? raw.promptCacheHitTokens { u.cacheRead = cached; u.input = max(0, u.input - cached) }; if let written = raw.promptTokensDetails?.cacheWriteTokens { u.cacheWrite = written; u.input = max(0, u.input - written) }; AIUtilities.applyCost(model: model, usage: &u); partial.usage = u }
 }
 
 private struct ActiveTool { var index: Int; var id: String?; var name: String?; var args: String; var contentIndex: Int }

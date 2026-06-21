@@ -59,6 +59,22 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testCostCalculation() {
+        let model = Model(id: "priced", name: "Priced", api: .openAICompletions, provider: .openAI, cost: ModelCost(input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75))
+        var usage = Usage()
+        usage.input = 1000
+        usage.output = 500
+        usage.cacheRead = 200
+        usage.cacheWrite = 100
+        usage.cacheWrite1h = 25
+        let cost = AIUtilities.calculateCost(model: model, usage: usage)
+        XCTAssertEqual(cost.input, 0.003, accuracy: 0.0000001)
+        XCTAssertEqual(cost.output, 0.0075, accuracy: 0.0000001)
+        XCTAssertEqual(cost.cacheRead, 0.00006, accuracy: 0.0000001)
+        XCTAssertEqual(cost.cacheWrite, ((75.0 * 3.75) + (25.0 * 6.0)) / 1_000_000.0, accuracy: 0.0000001)
+        XCTAssertEqual(cost.total, cost.input + cost.output + cost.cacheRead + cost.cacheWrite, accuracy: 0.0000001)
+    }
+
     func testFauxProviderHelpers() async throws {
         let registration = await FauxProvider.register()
         await registration.setResponses([.message(FauxProvider.textMessage("hello world"))])

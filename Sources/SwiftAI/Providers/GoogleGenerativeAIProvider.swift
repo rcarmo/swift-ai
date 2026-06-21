@@ -85,7 +85,7 @@ public enum GoogleGenerativeAIProvider {
         if data == "[DONE]" { return }
         guard let raw = data.data(using: .utf8), let chunk = try? JSONDecoder().decode(GeminiChunk.self, from: raw) else { return }
         if let id = chunk.responseId { state.partial.responseId = id }
-        if let usage = chunk.usageMetadata { var u = Usage(); u.input = max(0, (usage.promptTokenCount ?? 0) - (usage.cachedContentTokenCount ?? 0)); u.output = (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0); u.cacheRead = usage.cachedContentTokenCount ?? 0; u.totalTokens = usage.totalTokenCount ?? (u.input + u.output + u.cacheRead); state.partial.usage = u }
+        if let usage = chunk.usageMetadata { var u = Usage(); u.input = max(0, (usage.promptTokenCount ?? 0) - (usage.cachedContentTokenCount ?? 0)); u.output = (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0); u.cacheRead = usage.cachedContentTokenCount ?? 0; u.totalTokens = usage.totalTokenCount ?? (u.input + u.output + u.cacheRead); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
         guard let candidate = chunk.candidates?.first else { return }
         for part in candidate.content?.parts ?? [] {
             if let text = part.text, !text.isEmpty {
@@ -115,5 +115,5 @@ public enum GoogleGenerativeAIProvider {
     private static func mapFinishReason(_ raw: String) -> StopReason { raw == "MAX_TOKENS" ? .length : (raw == "STOP" ? .stop : .error) }
 }
 
-private struct GoogleStreamState { var partial: Message; var started = false; var current: (type: String, index: Int)?; init(model: Model) { var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
+private struct GoogleStreamState { var model: Model; var partial: Message; var started = false; var current: (type: String, index: Int)?; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct GeminiChunk: Decodable { var candidates: [Candidate]?; var usageMetadata: UsageMetadata?; var responseId: String?; struct Candidate: Decodable { var content: Content?; var finishReason: String? }; struct Content: Decodable { var parts: [Part] }; struct Part: Decodable { var text: String?; var thought: Bool?; var thoughtSignature: String?; var functionCall: FunctionCall? }; struct FunctionCall: Decodable { var name: String; var args: [String: JSONValue]?; var id: String? }; struct UsageMetadata: Decodable { var promptTokenCount: Int?; var candidatesTokenCount: Int?; var totalTokenCount: Int?; var thoughtsTokenCount: Int?; var cachedContentTokenCount: Int? } }

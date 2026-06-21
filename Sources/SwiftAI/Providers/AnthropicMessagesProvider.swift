@@ -113,6 +113,7 @@ public enum AnthropicMessagesProvider {
             guard let raw = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data) else { return }
             state.partial.usage?.output = raw.usage?.outputTokens ?? 0
             state.partial.usage?.totalTokens = (state.partial.usage?.input ?? 0) + (state.partial.usage?.output ?? 0)
+            if var usage = state.partial.usage { AIUtilities.applyCost(model: state.model, usage: &usage); state.partial.usage = usage }
             state.partial.stopReason = stopReason(raw.delta.stopReason)
             if state.partial.stopReason == .error { state.partial.errorMessage = raw.delta.stopDetails?.explanation ?? "The model refused to complete the request" }
         case "message_stop": state.sawMessageStop = true
@@ -138,7 +139,7 @@ public enum AnthropicMessagesProvider {
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]) }
 }
 
-private struct AnthropicStreamState { var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; init(model: Model) { var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
+private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var usage: AnthropicUsage? } }
 private struct AnthropicUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var cacheReadInputTokens: Int?; var cacheCreationInputTokens: Int?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case cacheReadInputTokens = "cache_read_input_tokens"; case cacheCreationInputTokens = "cache_creation_input_tokens" } }
 private struct AnthropicContentBlockStart: Decodable { var index: Int; var contentBlock: Block; enum CodingKeys: String, CodingKey { case index; case contentBlock = "content_block" }; struct Block: Decodable { var type: String; var id: String?; var name: String? } }

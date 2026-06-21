@@ -86,11 +86,24 @@ def check_package_manifest() -> None:
     print("ok: SwiftPM manifest checks")
 
 
+def check_ci_workflow() -> None:
+    workflow = ROOT / ".github" / "workflows" / "ci.yml"
+    if not workflow.exists():
+        raise SystemExit("missing GitHub Actions workflow: .github/workflows/ci.yml")
+    text = workflow.read_text()
+    required = ["static-check:", "swift-test:", "make static-check", "make test", "swift-version: '5.9'"]
+    missing = [item for item in required if item not in text]
+    if missing:
+        raise SystemExit("CI workflow missing required entries: " + ", ".join(missing))
+    print("ok: CI workflow checks")
+
+
 def main() -> int:
     run_audit()
     check_delimiters()
     grep_guard()
     check_package_manifest()
+    check_ci_workflow()
     return 0
 
 

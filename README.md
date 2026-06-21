@@ -75,6 +75,8 @@ make static-check   # no Swift toolchain required
 make test           # requires Swift 5.9+
 ```
 
+GitHub Actions CI is provided for the static check plus Swift tests on Linux and macOS.
+
 ## License
 
 MIT.

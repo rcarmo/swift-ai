@@ -222,10 +222,7 @@ public enum OpenAICompletionsProvider {
         yield(.done(reason: reason, message: state.partial))
     }
 
-    private static func parseJSONObject(_ text: String) -> [String: JSONValue] {
-        guard let data = text.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data) else { return [:] }
-        return object
-    }
+    private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
 
     private static func stopReason(from finish: String?) -> StopReason {
         switch finish {

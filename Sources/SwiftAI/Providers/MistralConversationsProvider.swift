@@ -135,7 +135,7 @@ public enum MistralConversationsProvider {
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesReasoningEffort(_ model: Model) -> Bool { ["mistral-small-2603", "mistral-small-latest", "mistral-medium-3.5"].contains(model.id) }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "function": .object(["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters])]) }
-    private static func parseJSONObject(_ text: String) -> [String: JSONValue] { guard let data = text.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data) else { return [:] }; return object }
+    private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "length", "model_length": return .length; case "tool_calls": return .toolUse; case "error": return .error; default: return .stop } }
     private static func normalizeToolCallID(_ id: String) -> String { let filtered = id.filter { $0.isLetter || $0.isNumber }; if filtered.count == 9 { return String(filtered) }; return String(abs(id.hashValue)).prefix(9).padding(toLength: 9, withPad: "0", startingAt: 0).description }

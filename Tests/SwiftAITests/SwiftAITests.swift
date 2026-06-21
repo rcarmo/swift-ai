@@ -59,6 +59,13 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testPartialJSONParser() {
+        XCTAssertEqual(PartialJSONParser.closeJSON("{\"a\": [1"), "{\"a\": [1]}")
+        XCTAssertEqual(PartialJSONParser.parseObject("{\"q\": \"hel")?["q"], .string("hel"))
+        XCTAssertEqual(PartialJSONParser.parseObject("{\"n\": 1}")?["n"], .number(1))
+        XCTAssertNil(PartialJSONParser.parseObject(""))
+    }
+
     func testProviderEnvironmentResolution() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "router"]), "router")

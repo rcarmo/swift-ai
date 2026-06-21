@@ -22,7 +22,7 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         if let onProgress = callbacks.onProgress { await onProgress("Enabling models...") }
         await enableAllModels(token: credentials.access, enterpriseDomain: enterpriseDomain)
         let ids = try await fetchAvailableModelIDs(token: credentials.access, enterpriseDomain: enterpriseDomain)
-        credentials.extra = (credentials.extra ?? [:]).merging(["availableModelIds": .array(ids.map(JSONValue.string))]) { _, new in new }
+        credentials.extra = (credentials.extra ?? [:]).merging(["availableModelIds": .array(ids.map { .string($0) })]) { _, new in new }
         return credentials
     }
 
@@ -30,7 +30,7 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         let domain = credentials.extra?["enterpriseUrl"]?.stringValue ?? ""
         var refreshed = try await refreshGitHubCopilotAccessToken(refreshToken: credentials.refresh, enterpriseDomain: domain)
         let ids = try await fetchAvailableModelIDs(token: refreshed.access, enterpriseDomain: domain)
-        refreshed.extra = (refreshed.extra ?? [:]).merging(["availableModelIds": .array(ids.map(JSONValue.string))]) { _, new in new }
+        refreshed.extra = (refreshed.extra ?? [:]).merging(["availableModelIds": .array(ids.map { .string($0) })]) { _, new in new }
         return refreshed
     }
 

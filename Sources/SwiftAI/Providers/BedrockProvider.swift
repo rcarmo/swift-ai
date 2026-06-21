@@ -61,7 +61,7 @@ public enum BedrockProvider {
         if let temp = options?.temperature { inference["temperature"] = .number(temp) }
         if !inference.isEmpty { request["inferenceConfig"] = .object(inference) }
         if let tools = context.tools, !tools.isEmpty { request["toolConfig"] = .object(["tools": .array(tools.map(toolJSON))]) }
-        if let metadata = options?.requestMetadata, !metadata.isEmpty { request["requestMetadata"] = .object(metadata.mapValues(JSONValue.string)) }
+        if let metadata = options?.requestMetadata, !metadata.isEmpty { request["requestMetadata"] = .object(metadata.mapValues { .string($0) }) }
         return request
     }
 

@@ -50,6 +50,9 @@ def grep_guard() -> None:
     sources = "\n".join(p.read_text() for root in [ROOT / "Sources", ROOT / "Tests"] for p in root.rglob("*.swift"))
     if "private extension JSONValue" in sources:
         raise SystemExit("private extension JSONValue is disallowed; use public accessors in Types.swift")
+    for fragile in ["mapValues(JSONValue.string)", "map(JSONValue.string)"]:
+        if fragile in sources:
+            raise SystemExit(f"fragile enum-case function reference disallowed: {fragile}")
     for token in ["TODO", "fatalError"]:
         if token in sources:
             raise SystemExit(f"disallowed token in sources: {token}")

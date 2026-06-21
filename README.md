@@ -2,7 +2,7 @@
 
 SwiftPM library port of [`@earendil-works/pi-ai`](https://www.npmjs.com/package/@earendil-works/pi-ai), using [`go-ai`](https://github.com/rcarmo/go-ai) as the audited reference implementation.
 
-This package is an initial Swift port prepared for consumption as a SwiftPM library. It tracks upstream `@earendil-works/pi-ai` **0.79.9**. See `STATUS.json` for machine-readable parity/transport status, or `SwiftAIStatus` at runtime.
+This package is a SwiftPM library port prepared for consumption by Swift applications and services. It tracks upstream `@earendil-works/pi-ai` **0.79.9**. See `STATUS.json` for machine-readable parity/transport status, or `SwiftAIStatus` at runtime.
 
 ## What is implemented
 
@@ -61,12 +61,11 @@ options.env = ["OPENAI_API_KEY": "..."]
 
 ## Current limitations
 
-This is not yet a full provider-complete port. The SwiftPM package is structured so additional providers can be added incrementally under `Sources/SwiftAI/Providers/` while preserving the public API.
+The core SwiftPM target intentionally avoids bundling heavyweight vendor SDK/WebSocket transports. Runtime surfaces are provided, and heavyweight transports are pluggable where needed.
 
-- OpenAI-compatible provider still lacks some provider-specific header/retry/prompt-cache edge cases.
 - Bedrock has provider registration, ConverseStream request-building helpers, and a pluggable `BedrockTransport`; live AWS SigV4/event-stream transport is not bundled in this lightweight target.
-- Image-generation model discovery is ported, but the OpenRouter image generation runtime is not implemented yet.
-- OAuth flows are not ported yet.
+- Codex SSE is bundled; Codex WebSocket/session-cache transport is available through the pluggable `CodexTransport` surface.
+- Advanced vendor SDK-native retry behavior is not bundled where the corresponding vendor SDK is not bundled.
 - This container does not include `swift`, so compilation must be run on a Swift 5.9+ toolchain host.
 
 ## Development

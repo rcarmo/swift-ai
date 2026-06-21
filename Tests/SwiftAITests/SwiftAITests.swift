@@ -289,6 +289,30 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testAzureReasoningEventNormalization() throws {
+        let event: [String: JSONValue] = ["type": .string("response.reasoning_text.delta"), "delta": .string("why")]
+        XCTAssertEqual(AzureHelpers.normalizeReasoningEvent(event)["type"], .string("response.reasoning_summary_text.delta"))
+        let commentary: [String: JSONValue] = ["type": .string("response.output_item.done"), "item": .object(["id": .string("i"), "type": .string("message"), "phase": .string("commentary"), "content": .array([.object(["type": .string("output_text"), "text": .string("reason")])])])]
+        guard case .object(let item)? = AzureHelpers.normalizeReasoningEvent(commentary)["item"] else { return XCTFail("missing item") }
+        XCTAssertEqual(item["type"], .string("reasoning"))
+        let model = Model(id: "az", name: "Azure", api: .azureOpenAIResponses, provider: .azureOpenAI)
+        let sse = """
+        event: response.output_item.added
+        data: {"type":"response.output_item.added","item":{"id":"i","type":"message","phase":"commentary"}}
+
+        event: response.reasoning_text.delta
+        data: {"type":"response.reasoning_text.delta","delta":"why"}
+
+        event: response.output_item.done
+        data: {"type":"response.output_item.done","item":{"id":"i","type":"message","phase":"commentary","content":[{"type":"output_text","text":"why"}]}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+        guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.content.first?.type, "thinking")
+        XCTAssertEqual(message.content.first?.thinking, "why")
+    }
+
     func testAzureToolCallLimit() {
         let messages: [JSONValue] = [
             .object(["type": .string("function_call"), "name": .string("old"), "call_id": .string("1")]),

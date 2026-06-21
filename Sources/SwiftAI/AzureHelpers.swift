@@ -22,6 +22,79 @@ public struct ToolCallLimitResult: Equatable, Sendable {
 }
 
 public enum AzureHelpers {
+    public static func normalizeReasoningEvent(_ event: [String: JSONValue]) -> [String: JSONValue] {
+        guard case .string(let type)? = event["type"] else { return event }
+        switch type {
+        case "response.output_item.added":
+            guard case .object(let item)? = event["item"] else { return event }
+            if item["type"]?.stringValue == "message", item["phase"]?.stringValue == "commentary" {
+                var clone = event
+                clone["item"] = .object(["id": item["id"] ?? .null, "type": .string("reasoning"), "summary": .array([])])
+                return clone
+            }
+        case "response.content_part.added":
+            guard case .object(let part)? = event["part"] else { return event }
+            if part["type"]?.stringValue == "reasoning_text" || part["type"]?.stringValue == "output_text" {
+                var clone = event
+                clone["type"] = .string("response.reasoning_summary_part.added")
+                clone["part"] = .object(["type": .string("summary_text"), "text": part["text"] ?? .null])
+                return clone
+            }
+        case "response.reasoning_text.delta":
+            var clone = event
+            clone["type"] = .string("response.reasoning_summary_text.delta")
+            return clone
+        case "response.reasoning_text.done":
+            var clone = event
+            clone["type"] = .string("response.reasoning_summary_part.done")
+            clone["part"] = .object(["type": .string("summary_text"), "text": event["text"] ?? .null])
+            return clone
+        case "response.output_item.done":
+            guard case .object(let item)? = event["item"] else { return event }
+            if item["type"]?.stringValue == "reasoning", item["summary"] == nil {
+                var clone = event
+                clone["item"] = .object(adaptReasoningItem(item))
+                return clone
+            }
+            if item["type"]?.stringValue == "message", item["phase"]?.stringValue == "commentary" {
+                var clone = event
+                clone["item"] = .object(adaptCommentaryItem(item))
+                return clone
+            }
+        default:
+            break
+        }
+        return event
+    }
+
+    public static func normalizedReasoningEventNameAndData(eventName: String?, data: String) -> (String?, String) {
+        guard let raw = data.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: raw) else { return (eventName, data) }
+        let normalized = normalizeReasoningEvent(object)
+        let name = normalized["type"]?.stringValue ?? eventName
+        guard let encoded = try? JSONEncoder().encode(JSONValue.object(normalized)), let text = String(data: encoded, encoding: .utf8) else { return (name, data) }
+        return (name, text)
+    }
+
+    private static func adaptReasoningItem(_ item: [String: JSONValue]) -> [String: JSONValue] {
+        var summary: [JSONValue] = []
+        for partValue in item["content"]?.arrayValue ?? [] {
+            guard case .object(let part) = partValue, part["type"]?.stringValue == "reasoning_text" else { continue }
+            summary.append(.object(["type": .string("summary_text"), "text": part["text"] ?? .null]))
+        }
+        var result = item
+        result["summary"] = .array(summary)
+        return result
+    }
+
+    private static func adaptCommentaryItem(_ item: [String: JSONValue]) -> [String: JSONValue] {
+        var summary: [JSONValue] = []
+        for partValue in item["content"]?.arrayValue ?? [] {
+            guard case .object(let part) = partValue, part["type"]?.stringValue == "output_text" else { continue }
+            summary.append(.object(["type": .string("summary_text"), "text": part["text"] ?? .null]))
+        }
+        return ["id": item["id"] ?? .null, "type": .string("reasoning"), "summary": .array(summary)]
+    }
+
     public static func applyToolCallLimit(_ messages: [JSONValue], config original: ToolCallLimitConfig = .default) -> ToolCallLimitResult {
         var config = original
         if config.limit <= 0 { config.limit = 128 }

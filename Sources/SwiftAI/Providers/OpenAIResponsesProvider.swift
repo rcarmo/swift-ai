@@ -133,8 +133,13 @@ public enum OpenAIResponsesProvider {
 
     private static func process(event: SSEEvent, state: inout ResponsesStreamState, yield: (AIEvent) -> Void) {
         if !state.started { state.started = true; yield(.start(partial: state.partial)) }
-        guard let data = event.data.data(using: .utf8) else { return }
-        switch event.event {
+        var eventName = event.event
+        var eventData = event.data
+        if state.model.api == .azureOpenAIResponses {
+            (eventName, eventData) = AzureHelpers.normalizedReasoningEventNameAndData(eventName: event.event, data: event.data)
+        }
+        guard let data = eventData.data(using: .utf8) else { return }
+        switch eventName {
         case "response.created": if let raw = try? JSONDecoder().decode(ResponseCreated.self, from: data) { state.partial.responseId = raw.response?.id }
         case "response.output_item.added":
             guard let item = try? JSONDecoder().decode(ResponseOutputItemAdded.self, from: data) else { return }

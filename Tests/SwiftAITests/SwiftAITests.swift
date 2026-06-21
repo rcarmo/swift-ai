@@ -591,6 +591,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.cacheRead, 1)
     }
 
+    func testMistralErrorFinishEmitsError() {
+        let model = Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral)
+        let sse = """
+        data: {"choices":[{"delta":{"content":"bad"},"finish_reason":"error"}]}
+
+        """
+        let events = MistralConversationsProvider.processSSEText(sse, model: model)
+        XCTAssertTrue(events.contains { if case .error = $0 { return true }; return false })
+    }
+
     func testMistralRequestAndSSEProcessing() {
         let model = Model(id: "mistral-small-latest", name: "Mistral Small", api: .mistralConversations, provider: .mistral, baseUrl: "https://api.mistral.ai/v1", reasoning: true, thinkingLevelMap: [.low: "low"])
         var options = StreamOptions()

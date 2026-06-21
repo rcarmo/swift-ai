@@ -112,7 +112,12 @@ public enum MistralConversationsProvider {
         state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         let reason = stopReason(state.finishReason)
         state.partial.stopReason = reason
-        yield(.done(reason: reason, message: state.partial))
+        if reason == .error {
+            state.partial.errorMessage = "Provider finish_reason: \(state.finishReason ?? "error")"
+            yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "mistral error")))
+        } else {
+            yield(.done(reason: reason, message: state.partial))
+        }
     }
 
     private static func convertMessages(_ context: AIContext, model: Model) -> [JSONValue] {

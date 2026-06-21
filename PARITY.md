@@ -48,6 +48,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
 - OAuth flow surface now covers upstream providers: GitHub Copilot, OpenAI Codex, Anthropic, Google Gemini CLI, and Google Antigravity.
+- Provider environment/API-key resolution: upstream provider env var mapping, scoped env override, generic fallback names, explicit option API key override, cache-retention env handling, and authenticated sentinels for Vertex ADC/Bedrock credential presence.
 - Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
 - Request/response interception hooks are not implemented.
 - Full upstream transform/harness/session-resource helpers are not implemented.

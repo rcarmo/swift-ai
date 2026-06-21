@@ -6,7 +6,7 @@ import FoundationNetworking
 public enum OpenRouterImagesProvider {
     public static func generateImages(model: ImagesModel, context: ImagesContext, options: ImagesOptions?) async -> AssistantImages {
         var out = AssistantImages(api: model.api, provider: model.provider, model: model.id, stopReason: .stop, timestamp: Int64(Date().timeIntervalSince1970 * 1000))
-        guard let apiKey = ProviderEnvironment.apiKey(for: .openRouter, env: options?.env), !apiKey.isEmpty else {
+        guard let apiKey = options?.apiKey ?? ProviderEnvironment.apiKey(for: .openRouter, env: options?.env), !apiKey.isEmpty else {
             out.stopReason = .error
             out.errorMessage = "No API key available for provider: \(model.provider.rawValue)"
             return out

@@ -39,7 +39,7 @@ public enum OpenAIResponsesProvider {
     }
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
-        guard let key = ProviderEnvironment.apiKey(for: model.provider, env: options?.env), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
+        guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         var requestModel = model
         var base = model.baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         var suffix = "/responses"

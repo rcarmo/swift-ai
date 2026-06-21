@@ -59,6 +59,18 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testProviderEnvironmentResolution() {
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "router"]), "router")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_PROFILE": "default"]), "<authenticated>")
+        XCTAssertEqual(ProviderEnvironment.envFallbackName(.zaiCodingCN), "ZAI_CODING_CN_API_KEY")
+        var options = StreamOptions()
+        options.apiKey = "explicit"
+        let model = Model(id: "x", name: "x", api: .openAICompletions, provider: .openAI)
+        XCTAssertEqual(ProviderEnvironment.resolveAPIKey(model: model, options: options), "explicit")
+        XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(nil, env: ["PI_CACHE_RETENTION": "long"]), .long)
+    }
+
     func testThinkingHelpers() {
         let low = "low"
         let high = "high"

@@ -98,7 +98,7 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func makeRequest(model: Model, context: AIContext, options: StreamOptions?, stream: Bool) throws -> URLRequest {
-        guard let key = ProviderEnvironment.apiKey(for: model.provider, env: options?.env), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
+        guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         let url = URL(string: model.baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

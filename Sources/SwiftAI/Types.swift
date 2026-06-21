@@ -186,6 +186,7 @@ public struct RetryConfig: Codable, Equatable, Sendable { public var maxRetries:
 public struct StreamOptions: Codable, Equatable, Sendable {
     public var temperature: Double?
     public var maxTokens: Int?
+    public var apiKey: String?
     public var transport: Transport?
     public var cacheRetention: CacheRetention?
     public var sessionId: String?

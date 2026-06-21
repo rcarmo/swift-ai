@@ -15,14 +15,15 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - OpenAI-compatible compat detection, including v0.79.9 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
 - SSE parser.
-- Initial OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points.
+- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points.
+- OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 
 ## Known gaps vs upstream runtime parity
 
 The package is structurally consumable via SwiftPM, but provider-runtime parity is still incomplete:
 
-- OpenAI-compatible provider currently performs a non-streaming `/chat/completions` request and emits a final `.done`; full SSE delta/tool/thinking streaming is not yet ported.
+- OpenAI-compatible provider lacks some provider-specific header/retry/prompt-cache edge cases from `go-ai`.
 - OpenAI Responses / Azure Responses runtime is not implemented.
 - Anthropic Messages runtime is not implemented.
 - Google Gemini / Gemini CLI / Vertex runtime is not implemented.

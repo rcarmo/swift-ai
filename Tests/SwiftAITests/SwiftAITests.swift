@@ -59,6 +59,39 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testOpenAISSEProcessing() {
+        let model = Model(id: "gpt-test", name: "GPT Test", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com")
+        let sse = """
+        data: {"id":"chatcmpl_1","model":"actual","choices":[{"index":0,"delta":{"reasoning_content":"why"}}]}
+
+        data: {"choices":[{"index":0,"delta":{"content":"hel"}}]}
+
+        data: {"choices":[{"index":0,"delta":{"content":"lo","tool_calls":[{"index":0,"id":"call_1","function":{"name":"lookup","arguments":"{\\\"q\\\":"}}]}}]}
+
+        data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\\"x\\\"}"}}]},"finish_reason":"tool_calls"}]}
+
+        data: [DONE]
+
+        """
+        let events = OpenAICompletionsProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .toolUse)
+        XCTAssertEqual(message.responseId, "chatcmpl_1")
+        XCTAssertEqual(message.responseModel, "actual")
+        XCTAssertEqual(message.content.first?.type, "thinking")
+        XCTAssertEqual(message.content.first?.thinking, "why")
+        XCTAssertTrue(message.content.contains { $0.type == "text" && $0.text == "hello" })
+        XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
+    }
+
+    func testOpenAIStreamingRequestBuilder() {
+        let model = Model(id: "x", name: "x", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com")
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil, stream: true)
+        XCTAssertEqual(body["stream"], .bool(true))
+        guard case .object(let streamOptions)? = body["stream_options"] else { return XCTFail("missing stream_options") }
+        XCTAssertEqual(streamOptions["include_usage"], .bool(true))
+    }
+
     func testOpenAIRequestBuilder() {
         var compat = OpenAICompletionsCompat()
         compat.thinkingFormat = "chat-template"

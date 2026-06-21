@@ -90,6 +90,32 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testGoogleRequestURLAndSSEProcessing() throws {
+        let model = Model(id: "gemini-2.5-pro", name: "Gemini", api: .googleGenerativeAI, provider: .google, baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: true)
+        var options = StreamOptions()
+        options.reasoning = .low
+        let body = GoogleGenerativeAIProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        XCTAssertNotNil(body["contents"])
+        XCTAssertNotNil(body["generationConfig"])
+        let url = try GoogleGenerativeAIProvider.buildStreamURL(model: model, apiKey: "key", options: nil)
+        XCTAssertTrue(url.contains(":streamGenerateContent?alt=sse&key=key"))
+
+        let sse = """
+        data: {"responseId":"resp_1","candidates":[{"content":{"parts":[{"thought":true,"text":"why"}]}}]}
+
+        data: {"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":2,"totalTokenCount":6,"cachedContentTokenCount":1}}
+
+        """
+        let events = GoogleGenerativeAIProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.responseId, "resp_1")
+        XCTAssertEqual(message.content.first?.type, "thinking")
+        XCTAssertEqual(message.content.first?.thinking, "why")
+        XCTAssertTrue(message.content.contains { $0.type == "text" && $0.text == "ok" })
+        XCTAssertEqual(message.usage?.cacheRead, 1)
+    }
+
     func testMistralRequestAndSSEProcessing() {
         let model = Model(id: "mistral-small-latest", name: "Mistral Small", api: .mistralConversations, provider: .mistral, baseUrl: "https://api.mistral.ai/v1", reasoning: true, thinkingLevelMap: [.low: "low"])
         var options = StreamOptions()

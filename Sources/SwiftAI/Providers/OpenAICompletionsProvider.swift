@@ -83,14 +83,24 @@ public enum OpenAICompletionsProvider {
             let role = model.reasoning && compat.supportsDeveloperRole == true ? "developer" : "system"
             out.append(.object(["role": .string(role), "content": .string(AIUtilities.sanitizeSurrogates(system))]))
         }
+        var lastRole: Role?
         for message in AIUtilities.transformMessages(context.messages, for: model) {
+            if compat.requiresAssistantAfterToolResult == true, lastRole == .toolResult, message.role == .user {
+                out.append(.object(["role": .string("assistant"), "content": .string("I have processed the tool results.")]))
+            }
             let role: String = message.role == .toolResult ? "tool" : message.role.rawValue
-            let contentText = message.content.compactMap { block -> String? in
-                if block.type == "text" { return block.text }
-                if compat.requiresThinkingAsText == true, block.type == "thinking" { return block.thinking }
-                return nil
-            }.joined()
-            var obj: [String: JSONValue] = ["role": .string(role), "content": .string(contentText)]
+            let contentValue: JSONValue
+            if message.role == .user, message.content.contains(where: { $0.type == "image" }) {
+                contentValue = .array(openAIContentParts(message.content, leadingText: nil))
+            } else {
+                let contentText = message.content.compactMap { block -> String? in
+                    if block.type == "text" { return block.text }
+                    if compat.requiresThinkingAsText == true, block.type == "thinking" { return block.thinking }
+                    return nil
+                }.joined()
+                contentValue = .string(AIUtilities.sanitizeSurrogates(contentText))
+            }
+            var obj: [String: JSONValue] = ["role": .string(role), "content": contentValue]
             if message.role == .assistant {
                 let calls = message.content.filter { $0.type == "toolCall" }.map { block in
                     JSONValue.object(["id": .string(block.id ?? ""), "type": .string("function"), "function": .object(["name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))])])
@@ -102,11 +112,29 @@ public enum OpenAICompletionsProvider {
                 if compat.requiresToolResultName == true, let name = message.toolName { obj["name"] = .string(name) }
             }
             out.append(.object(obj))
+            if message.role == .toolResult {
+                let images = message.content.filter { $0.type == "image" }
+                if !images.isEmpty {
+                    if compat.requiresAssistantAfterToolResult == true { out.append(.object(["role": .string("assistant"), "content": .string("I have processed the tool results.")])) }
+                    out.append(.object(["role": .string("user"), "content": .array(openAIContentParts(images, leadingText: "Tool result image:"))]))
+                }
+            }
+            lastRole = message.role
         }
         return out
     }
 
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+
+    private static func openAIContentParts(_ blocks: [ContentBlock], leadingText: String?) -> [JSONValue] {
+        var parts: [JSONValue] = []
+        if let leadingText { parts.append(.object(["type": .string("text"), "text": .string(leadingText)])) }
+        for block in blocks {
+            if block.type == "text" { parts.append(.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])) }
+            if block.type == "image" { parts.append(.object(["type": .string("image_url"), "image_url": .object(["url": .string("data:\(block.mimeType ?? "application/octet-stream");base64,\(block.data ?? "")")])])) }
+        }
+        return parts
+    }
 
     private static func toolJSON(_ tool: Tool, compat: OpenAICompletionsCompat) -> JSONValue {
         var function: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]

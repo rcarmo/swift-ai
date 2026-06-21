@@ -663,6 +663,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
     }
 
+    func testOpenAIMultimodalAndToolResultReplay() {
+        var compat = OpenAICompletionsCompat()
+        compat.requiresAssistantAfterToolResult = true
+        let model = Model(id: "chat", name: "Chat", api: .openAICompletions, provider: .openAI, input: ["text", "image"], completionsCompat: compat)
+        var result = Message(role: .toolResult, content: [.text("ok"), .image(data: "abc", mimeType: "image/png")])
+        result.toolCallId = "call"
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [Message(role: .user, content: [.text("see"), .image(data: "img", mimeType: "image/png")]), result, .user("next")]), options: nil)
+        guard case .array(let messages)? = body["messages"] else { return XCTFail("missing messages") }
+        guard case .object(let first) = messages[0], case .array(let firstContent)? = first["content"] else { return XCTFail("missing user multimodal") }
+        XCTAssertEqual(firstContent.count, 2)
+        XCTAssertTrue(messages.contains { if case .object(let obj) = $0 { return obj["role"] == .string("assistant") && obj["content"] == .string("I have processed the tool results.") }; return false })
+        XCTAssertTrue(messages.contains { if case .object(let obj) = $0, obj["role"] == .string("user"), case .array(let content)? = obj["content"] { return content.count == 2 }; return false })
+    }
+
     func testOpenAIToolCallReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresToolResultName = true

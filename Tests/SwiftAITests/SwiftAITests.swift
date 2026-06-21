@@ -533,6 +533,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testAnthropicToolUseAndResultRequest() {
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "call.1", name: "lookup", arguments: ["q": .string("x")])])
+        assistant.stopReason = .toolUse
+        var result = Message(role: .toolResult, content: [.text("ok")])
+        result.toolCallId = "call.1"
+        result.toolName = "lookup"
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant, result]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let a) = messages[0], case .array(let ac)? = a["content"], case .object(let toolUse) = ac[0], case .object(let r) = messages[1], case .array(let rc)? = r["content"], case .object(let toolResult) = rc[0] else { return XCTFail("missing anthropic tool blocks") }
+        XCTAssertEqual(toolUse["type"], .string("tool_use"))
+        XCTAssertEqual(toolUse["id"], .string("call_1"))
+        XCTAssertEqual(toolResult["type"], .string("tool_result"))
+        XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
+    }
+
     func testAnthropicCacheControlRequest() {
         let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsLongCacheRetention: true))
         var options = StreamOptions()

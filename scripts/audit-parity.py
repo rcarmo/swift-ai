@@ -163,6 +163,15 @@ def main() -> int:
     if missing_image_runtime:
         failures.append("missing image API bootstrap registrations: " + ", ".join(missing_image_runtime))
 
+    status_bundled = set(status.get("bundledRuntimeProviders", []))
+    # STATUS labels Codex as SSE to distinguish it from optional WebSocket transport.
+    normalized_status_bundled = {"openai-codex-responses" if x == "openai-codex-responses-sse" else x for x in status_bundled}
+    missing_status_runtime = sorted(text_apis - normalized_status_bundled - {"bedrock-converse-stream"})
+    if missing_status_runtime:
+        failures.append("STATUS bundledRuntimeProviders missing generated APIs: " + ", ".join(missing_status_runtime))
+    if "openrouter-images" not in status.get("bundledRuntimeProviders", []):
+        failures.append("STATUS bundledRuntimeProviders missing image API: openrouter-images")
+
     if failures:
         for failure in failures:
             print("FAIL:", failure)

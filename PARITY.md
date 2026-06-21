@@ -38,23 +38,15 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**. `STATUS.j
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, functionResponse tool results, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
 - Amazon Bedrock provider surface: registration, pluggable `BedrockTransport`, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
 
-## Known gaps vs upstream runtime parity
+## Pluggable/non-bundled runtime pieces
 
-The package is structurally consumable via SwiftPM, but provider-runtime parity is still incomplete:
+The core SwiftPM package provides functional parity for the upstream text/image registry surface and bundled HTTP/SSE providers while intentionally keeping heavyweight transport stacks out of the main target:
 
-- OpenAI-compatible provider lacks only a very small number of advanced provider-specific replay edge cases from `go-ai`.
-- OpenAI Responses/Codex provider has pluggable WebSocket transport support but does not bundle a WebSocket/session-cache transport implementation; a few advanced prompt-cache edge cases remain.
-- Anthropic Messages provider lacks only a few advanced replay edge cases.
-- Google providers lack only a very small number of advanced upstream replay edge cases.
-- OAuth flow surface now covers upstream providers: GitHub Copilot, OpenAI Codex, Anthropic, Google Gemini CLI, and Google Antigravity.
-- Provider environment/API-key resolution: upstream provider env var mapping, scoped env override, generic fallback names, explicit option API key override, cache-retention env handling, and authenticated sentinels for Vertex ADC/Bedrock credential presence.
-- Request/response interception hooks on text and image options, wired into HTTP providers with serializable payload maps and response metadata.
-- Incremental/partial JSON object parsing for streamed tool-call arguments, wired into text providers that accumulate tool deltas.
-- Copilot/OpenAI session headers: Copilot dynamic initiator/vision headers, standard Copilot headers, OpenAI-compatible session affinity headers, Azure session headers, and Responses Copilot dynamic headers.
-- Utility parity: deterministic SHA-256 short hashes, surrogate sanitization, Cloudflare provider detection, and Cloudflare base URL placeholder resolution; provider request builders sanitize serialized text inputs and Mistral tool-call ID fallback uses deterministic hashes.
-- Harness/context helpers: deep clone, JSON save/load, rough token estimation, context-window fit checks, tail compaction, turn appenders, text/tool extraction, and tool-execution detection.
-- Amazon Bedrock live transport is pluggable but not bundled; full out-of-the-box runtime parity requires AWS SigV4/event-stream support or an AWS SDK transport module.
-- Advanced vendor SDK retry behavior is not fully implemented where a vendor SDK is not bundled.
+- **Amazon Bedrock live transport** is exposed through `BedrockTransport`. The core package provides provider registration, region/endpoint helpers, and ConverseStream request construction; a consumer-supplied transport provides AWS SigV4 signing and AWS event-stream IO.
+- **OpenAI Codex WebSocket/session-cache transport** is exposed through `CodexTransport`. The core package bundles the Codex HTTP/SSE path and Codex request/account handling; a consumer-supplied transport can provide the WebSocket session-cache path.
+- **Vendor SDK-native retry behavior** is represented by the shared retry policy for bundled HTTP providers. SDK-native retry stacks are delegated to any pluggable transport/vendor SDK module that supplies them.
+
+Everything above is documented in `docs/TRANSPORTS.md` and reflected in `STATUS.json`.
 
 ## Validation constraints
 

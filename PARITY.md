@@ -29,6 +29,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.
 - GitHub Copilot OAuth provider: device-code login, token refresh, Copilot model policy enablement, available-model fetching/filtering, and base URL extraction.
+- OpenAI Codex OAuth provider: Auth0 device-code login, token polling, refresh-token exchange, and API-key extraction.
 - Anthropic Messages provider: request construction, thinking budgets/adaptive thinking, beta headers, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Mistral Conversations provider: request construction, reasoning/prompt mode handling, tools, SSE parsing for text/reasoning/tool events, usage, and stop reasons.
 - Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
@@ -44,7 +45,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Google provider lacks some upstream signature/tool-result edge cases.
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
-- OAuth flows other than GitHub Copilot are not implemented.
+- OAuth flows other than GitHub Copilot and OpenAI Codex are not implemented.
 - Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
 - Request/response interception hooks are not implemented.
 - Full upstream transform/harness/session-resource helpers are not implemented.

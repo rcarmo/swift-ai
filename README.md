@@ -17,7 +17,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - OpenAI Chat Completions provider exposed through the common async stream/complete API, with SSE event parsing for text, thinking, tool calls, usage, and finish reasons.
 - OpenAI Responses and Azure OpenAI Responses provider with SSE parsing, reasoning, prompt cache fields, and Azure configuration resolution.
 - Shared HTTP retry/backoff helper for 429/5xx responses and `Retry-After`.
-- OAuth framework plus GitHub Copilot OAuth/model availability support.
+- OAuth framework plus GitHub Copilot and OpenAI Codex OAuth support.
 - Anthropic Messages provider with SSE parsing for text, thinking, tool calls, usage, and stop reasons.
 - Mistral Conversations provider with reasoning/prompt mode and SSE event parsing.
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.
@@ -58,7 +58,7 @@ options.env = ["OPENAI_API_KEY": "..."]
 This is not yet a full provider-complete port. The SwiftPM package is structured so additional providers can be added incrementally under `Sources/SwiftAI/Providers/` while preserving the public API.
 
 - OpenAI-compatible provider still lacks some provider-specific header/retry/prompt-cache edge cases.
-- Bedrock, Gemini CLI and non-Copilot OAuth providers are type/registry placeholders, not runtime implementations yet.
+- Bedrock, Gemini CLI and remaining OAuth providers are type/registry placeholders, not runtime implementations yet.
 - Image-generation model discovery is ported, but the OpenRouter image generation runtime is not implemented yet.
 - OAuth flows are not ported yet.
 - This container does not include `swift`, so compilation must be run on a Swift 5.9+ toolchain host.

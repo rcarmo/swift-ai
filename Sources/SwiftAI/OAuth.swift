@@ -76,5 +76,6 @@ public struct DeviceFlowResponse: Decodable, Sendable {
     public var verificationURI: String
     public var interval: Int
     public var expiresIn: Int
+    public init(deviceCode: String, userCode: String, verificationURI: String, interval: Int, expiresIn: Int) { self.deviceCode = deviceCode; self.userCode = userCode; self.verificationURI = verificationURI; self.interval = interval; self.expiresIn = expiresIn }
     enum CodingKeys: String, CodingKey { case deviceCode = "device_code"; case userCode = "user_code"; case verificationURI = "verification_uri"; case interval; case expiresIn = "expires_in" }
 }

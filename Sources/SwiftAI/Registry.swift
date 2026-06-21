@@ -39,6 +39,7 @@ public enum SwiftAI {
         await AIRegistry.shared.register(APIProvider(api: .googleVertex, stream: GoogleGenerativeAIProvider.stream))
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: OpenRouterImagesProvider.generateImages))
         await OAuthRegistry.shared.register(GitHubCopilotOAuthProvider())
+        await OAuthRegistry.shared.register(OpenAICodexOAuthProvider())
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

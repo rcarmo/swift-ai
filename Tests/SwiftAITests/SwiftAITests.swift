@@ -170,6 +170,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(await registration.pendingResponseCount(), 0)
     }
 
+    func testCodexOAuthProviderShape() {
+        let provider = OpenAICodexOAuthProvider()
+        let creds = OAuthCredentials(refresh: "r", access: "a", expires: 0)
+        XCTAssertEqual(provider.id, "openai-codex")
+        XCTAssertEqual(provider.name, "OpenAI Codex")
+        XCTAssertEqual(provider.apiKey(credentials: creds), "a")
+        let models = [Model(id: "codex", name: "Codex", api: .openAICodexResponses, provider: .openAICodex)]
+        XCTAssertEqual(provider.modifyModels(models, credentials: creds).count, 1)
+    }
+
     func testOAuthPKCEAndCopilotHelpers() throws {
         let pair = try OAuthUtilities.generatePKCE()
         XCTAssertFalse(pair.verifier.isEmpty)

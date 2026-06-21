@@ -9,6 +9,7 @@ This is intentionally toolchain-light so it can run even in containers without
 """
 from __future__ import annotations
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -20,6 +21,8 @@ STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
 REGISTRY = ROOT / "Sources" / "SwiftAI" / "Registry.swift"
+MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
+IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
 EXPECTED_TEXT_MODELS = 979
@@ -54,6 +57,14 @@ def raw_values(*paths: Path) -> set[str]:
     return out
 
 
+def embedded_registry(path: Path) -> list[dict]:
+    match = re.search(r'encodedRegistry\s*=\s*#"""\n(.*?)\n"""#', path.read_text(), re.S)
+    if not match:
+        raise SystemExit(f"missing embedded registry in {path.relative_to(ROOT)}")
+    compact = "".join(match.group(1).split())
+    return json.loads(base64.b64decode(compact))
+
+
 def registered_api_raw_values() -> tuple[set[str], set[str]]:
     registry = REGISTRY.read_text()
     text_cases = enum_cases(TYPES)
@@ -71,6 +82,8 @@ def main() -> int:
     images = json.loads(IMAGE_MODELS.read_text())
     status = json.loads(STATUS.read_text())
     swift_status = SWIFT_STATUS.read_text()
+    embedded_text = embedded_registry(MODELS_GENERATED)
+    embedded_images = embedded_registry(IMAGE_MODELS_GENERATED)
     raw = raw_values(TYPES, IMAGES)
 
     failures: list[str] = []
@@ -81,8 +94,10 @@ def main() -> int:
 
     checks = [
         (len(text), EXPECTED_TEXT_MODELS, "text model count"),
+        (len(embedded_text), len(text), "embedded text model count"),
         (len(text_providers), EXPECTED_TEXT_PROVIDERS, "text provider count"),
         (len(images), EXPECTED_IMAGE_MODELS, "image model count"),
+        (len(embedded_images), len(images), "embedded image model count"),
         (len(image_providers), EXPECTED_IMAGE_PROVIDERS, "image provider count"),
         (status["registries"]["textModels"], len(text), "STATUS text model count"),
         (status["registries"]["textProviders"], len(text_providers), "STATUS text provider count"),
@@ -94,6 +109,15 @@ def main() -> int:
     for got, want, label in checks:
         if got != want:
             failures.append(f"{label}: got {got}, want {want}")
+
+    text_ids = {(m["provider"], m["id"]) for m in text}
+    embedded_text_ids = {(m["provider"], m["id"]) for m in embedded_text}
+    if text_ids != embedded_text_ids:
+        failures.append("embedded text registry IDs differ from source JSON")
+    image_ids = {(m["provider"], m["id"]) for m in images}
+    embedded_image_ids = {(m["provider"], m["id"]) for m in embedded_images}
+    if image_ids != embedded_image_ids:
+        failures.append("embedded image registry IDs differ from source JSON")
 
     missing = sorted((text_providers | text_apis | image_providers | image_apis) - raw)
     if missing:

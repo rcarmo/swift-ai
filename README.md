@@ -21,6 +21,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Anthropic Messages provider with SSE parsing for text, thinking, tool calls, usage, and stop reasons.
 - Mistral Conversations provider with reasoning/prompt mode and SSE event parsing.
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.
+- Faux provider/test double for credential-free SwiftPM tests.
 - Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
 - Full embedded image model catalog: 34 OpenRouter image models.
 

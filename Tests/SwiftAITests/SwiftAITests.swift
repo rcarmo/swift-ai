@@ -59,6 +59,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testFauxProviderHelpers() async throws {
+        let registration = await FauxProvider.register()
+        await registration.setResponses([.message(FauxProvider.textMessage("hello world"))])
+        guard let model = await registration.model() else { return XCTFail("missing faux model") }
+        let message = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]))
+        XCTAssertEqual(message.content.first?.text, "hello world")
+        XCTAssertEqual(await registration.pendingResponseCount(), 0)
+    }
+
     func testOAuthPKCEAndCopilotHelpers() throws {
         let pair = try OAuthUtilities.generatePKCE()
         XCTAssertFalse(pair.verifier.isEmpty)

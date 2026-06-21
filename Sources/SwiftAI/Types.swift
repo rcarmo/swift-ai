@@ -11,6 +11,7 @@ public enum API: String, Codable, Sendable {
     case googleGeminiCLI = "google-gemini-cli"
     case googleVertex = "google-vertex"
     case mistralConversations = "mistral-conversations"
+    case faux = "faux"
 }
 
 public enum Provider: String, Codable, Hashable, Sendable {
@@ -51,6 +52,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
     case antLing = "ant-ling"
     case nvidia = "nvidia"
     case zaiCodingCN = "zai-coding-cn"
+    case faux = "faux"
 }
 
 public enum ThinkingLevel: String, Codable, Sendable { case minimal, low, medium, high, xhigh }

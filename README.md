@@ -64,7 +64,7 @@ options.env = ["OPENAI_API_KEY": "..."]
 This is not yet a full provider-complete port. The SwiftPM package is structured so additional providers can be added incrementally under `Sources/SwiftAI/Providers/` while preserving the public API.
 
 - OpenAI-compatible provider still lacks some provider-specific header/retry/prompt-cache edge cases.
-- Bedrock has provider registration and ConverseStream request-building helpers, but live transport requires AWS SigV4/event-stream support and is not bundled in this lightweight target.
+- Bedrock has provider registration, ConverseStream request-building helpers, and a pluggable `BedrockTransport`; live AWS SigV4/event-stream transport is not bundled in this lightweight target.
 - Image-generation model discovery is ported, but the OpenRouter image generation runtime is not implemented yet.
 - OAuth flows are not ported yet.
 - This container does not include `swift`, so compilation must be run on a Swift 5.9+ toolchain host.

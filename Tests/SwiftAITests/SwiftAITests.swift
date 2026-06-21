@@ -403,6 +403,14 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testBedrockPluggableTransport() async throws {
+        await BedrockTransportRegistry.shared.setTransport(FakeBedrockTransport())
+        defer { Task { await BedrockTransportRegistry.shared.setTransport(nil) } }
+        let model = Model(id: "bedrock", name: "Bedrock", api: .bedrockConverseStream, provider: .amazonBedrock)
+        let message = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]))
+        XCTAssertEqual(message.content.first?.text, "bedrock ok")
+    }
+
     func testBedrockRequestAndRegionHelpers() {
         XCTAssertEqual(BedrockProvider.arnRegion("arn:aws:bedrock:us-west-2:123:foundation-model/x"), "us-west-2")
         XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime.eu-central-1.amazonaws.com"), "eu-central-1")
@@ -592,4 +600,18 @@ private actor CleanupBox {
     private var items: [String] = []
     func append(_ value: String) { items.append(value) }
     func values() -> [String] { items }
+}
+
+private struct FakeBedrockTransport: BedrockTransport {
+    func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
+        AsyncStream { continuation in
+            var message = Message(role: .assistant, content: [.text("bedrock ok")])
+            message.api = model.api
+            message.provider = model.provider
+            message.model = model.id
+            message.stopReason = .stop
+            continuation.yield(.done(reason: .stop, message: message))
+            continuation.finish()
+        }
+    }
 }

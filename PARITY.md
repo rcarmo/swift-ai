@@ -36,7 +36,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Mistral Conversations provider: request construction, reasoning/prompt mode handling, tools, SSE parsing for text/reasoning/tool events, usage, and stop reasons.
 - Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
-- Amazon Bedrock provider surface: registration, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
+- Amazon Bedrock provider surface: registration, pluggable `BedrockTransport`, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
 
 ## Known gaps vs upstream runtime parity
 
@@ -55,7 +55,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Copilot/OpenAI session headers: Copilot dynamic initiator/vision headers, standard Copilot headers, OpenAI-compatible session affinity headers, Azure session headers, and Responses Copilot dynamic headers.
 - Utility parity: deterministic SHA-256 short hashes, surrogate sanitization, Cloudflare provider detection, and Cloudflare base URL placeholder resolution; provider request builders sanitize serialized text inputs and Mistral tool-call ID fallback uses deterministic hashes.
 - Harness/context helpers: deep clone, JSON save/load, rough token estimation, context-window fit checks, tail compaction, turn appenders, text/tool extraction, and tool-execution detection.
-- Amazon Bedrock live transport is not bundled; full runtime parity requires AWS SigV4/event-stream support or an AWS SDK transport module.
+- Amazon Bedrock live transport is pluggable but not bundled; full out-of-the-box runtime parity requires AWS SigV4/event-stream support or an AWS SDK transport module.
 - Advanced vendor SDK retry behavior is not fully implemented where a vendor SDK is not bundled.
 
 ## Validation constraints

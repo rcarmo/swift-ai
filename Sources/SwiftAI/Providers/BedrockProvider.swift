@@ -1,11 +1,27 @@
 import Foundation
 
+public protocol BedrockTransport: Sendable {
+    func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent>
+}
+
+public actor BedrockTransportRegistry {
+    public static let shared = BedrockTransportRegistry()
+    private var transport: (any BedrockTransport)?
+    public func setTransport(_ transport: (any BedrockTransport)?) { self.transport = transport }
+    public func current() -> (any BedrockTransport)? { transport }
+}
+
 public enum BedrockProvider {
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
-                let message = Message(role: .assistant, content: [])
-                continuation.yield(.error(reason: .error, message: message, error: AIError.provider("Amazon Bedrock runtime requires AWS SigV4/event-stream transport; request building helpers are available but live transport is not bundled in this lightweight SwiftPM target")))
+                let request = buildConverseRequest(model: model, context: context, options: options)
+                if let transport = await BedrockTransportRegistry.shared.current() {
+                    for await event in transport.stream(request: request, model: model, context: context, options: options) { continuation.yield(event) }
+                } else {
+                    let message = Message(role: .assistant, content: [])
+                    continuation.yield(.error(reason: .error, message: message, error: AIError.provider("Amazon Bedrock runtime requires a BedrockTransport implementation for AWS SigV4/event-stream transport")))
+                }
                 continuation.finish()
             }
         }

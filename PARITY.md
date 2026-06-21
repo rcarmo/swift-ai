@@ -61,11 +61,11 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 The current container does not include a Swift toolchain (`swift` is not installed), so this repo has been statically checked here and should be compiled/tested with Swift 5.9+ on a Swift host using:
 
 ```bash
-swift test
+make test
 ```
 
 A toolchain-light static validation gate is available and has been used in this container:
 
 ```bash
-python3 scripts/static-check.py
+make static-check
 ```

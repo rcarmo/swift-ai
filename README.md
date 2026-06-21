@@ -72,8 +72,8 @@ This is not yet a full provider-complete port. The SwiftPM package is structured
 ## Development
 
 ```bash
-swift test
-python3 scripts/static-check.py
+make static-check   # no Swift toolchain required
+make test           # requires Swift 5.9+
 ```
 
 ## License

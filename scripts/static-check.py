@@ -56,10 +56,27 @@ def grep_guard() -> None:
     print("ok: source guard checks")
 
 
+def check_package_manifest() -> None:
+    manifest = (ROOT / "Package.swift").read_text()
+    required = [
+        'name: "swift-ai"',
+        '.library(name: "SwiftAI", targets: ["SwiftAI"])',
+        '.target(name: "SwiftAI"',
+        '.testTarget(name: "SwiftAITests"',
+        'https://github.com/apple/swift-crypto.git',
+        '.product(name: "Crypto", package: "swift-crypto")',
+    ]
+    missing = [item for item in required if item not in manifest]
+    if missing:
+        raise SystemExit("Package.swift missing required SwiftPM declarations: " + ", ".join(missing))
+    print("ok: SwiftPM manifest checks")
+
+
 def main() -> int:
     run_audit()
     check_delimiters()
     grep_guard()
+    check_package_manifest()
     return 0
 
 

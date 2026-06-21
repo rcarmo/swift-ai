@@ -179,6 +179,7 @@ public enum OpenAIResponsesProvider {
         case "response.output_item.done": closeCurrent(state: &state, yield: yield)
         case "response.completed": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.partial.responseId = raw.response?.id ?? state.partial.responseId; applyUsage(raw.response?.usage, state: &state); state.partial.stopReason = mapStatus(raw.response?.status); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
         case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.partial.stopReason = .error; state.partial.errorMessage = raw.response?.error?.message ?? raw.error?.message ?? "response failed"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "response failed"))) }
+        case "error": if let raw = try? JSONDecoder().decode(ResponseAPIError.self, from: data) { state.partial.stopReason = .error; state.partial.errorMessage = "API error \(raw.code ?? "unknown"): \(raw.message ?? "")"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "API error"))) }
         default: break
         }
     }
@@ -249,3 +250,4 @@ private struct ResponseDelta: Decodable { var delta: String? }
 private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var usage: ResponseUsage? } }
 private struct ResponseUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var totalTokens: Int?; var inputTokenDetails: InputTokenDetails?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case totalTokens = "total_tokens"; case inputTokenDetails = "input_tokens_details" }; struct InputTokenDetails: Decodable { var cachedTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens" } } }
 private struct ResponseFailed: Decodable { var response: FailedResponse?; var error: Failure?; struct FailedResponse: Decodable { var error: Failure? }; struct Failure: Decodable { var message: String?; var code: String? } }
+private struct ResponseAPIError: Decodable { var code: String?; var message: String? }

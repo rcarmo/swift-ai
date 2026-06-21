@@ -397,6 +397,13 @@ final class SwiftAITests: XCTestCase {
         """
         let events = OpenAIResponsesProvider.processSSEText(failed, model: model)
         XCTAssertTrue(events.contains { if case .error = $0 { return true }; return false })
+        let apiError = """
+        event: error
+        data: {"code":"bad_request","message":"bad"}
+
+        """
+        let apiEvents = OpenAIResponsesProvider.processSSEText(apiError, model: model)
+        XCTAssertTrue(apiEvents.contains { if case .error = $0 { return true }; return false })
     }
 
     func testOpenAIResponsesStatusMapping() {

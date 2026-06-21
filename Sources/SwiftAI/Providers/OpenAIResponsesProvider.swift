@@ -181,8 +181,55 @@ public enum OpenAIResponsesProvider {
     private static func finish(state: inout ResponsesStreamState, yield: (AIEvent) -> Void) { if !state.started { state.started = true; yield(.start(partial: state.partial)) }; closeCurrent(state: &state, yield: yield); state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000); if state.partial.stopReason == nil { state.partial.stopReason = .stop }; yield(.done(reason: state.partial.stopReason ?? .stop, message: state.partial)) }
     private static func applyUsage(_ raw: ResponseUsage?, state: inout ResponsesStreamState) { guard let raw else { return }; var u = Usage(); u.input = raw.inputTokens ?? 0; u.output = raw.outputTokens ?? 0; u.totalTokens = raw.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
 
-    private static func convertInput(model: Model, context: AIContext) -> [JSONValue] { var out: [JSONValue] = []; if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string(model.reasoning ? "developer" : "system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }; for msg in AIUtilities.transformMessages(context.messages, for: model) { if msg.role == .user { out.append(.object(["role": .string("user"), "content": .array(msg.content.compactMap(userContent))])) } else if msg.role == .assistant { out.append(.object(["type": .string("message"), "role": .string("assistant"), "content": .array(msg.content.filter { $0.type == "text" }.map { .object(["type": .string("output_text"), "text": .string($0.text ?? "")]) })])) } else { out.append(.object(["type": .string("function_call_output"), "call_id": .string(msg.toolCallId ?? ""), "output": .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n")))])) } }; return out }
+    private static func convertInput(model: Model, context: AIContext) -> [JSONValue] {
+        var out: [JSONValue] = []
+        if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string(model.reasoning ? "developer" : "system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
+        for msg in AIUtilities.transformMessages(context.messages, for: model) {
+            switch msg.role {
+            case .user:
+                out.append(.object(["role": .string("user"), "content": .array(msg.content.compactMap(userContent))]))
+            case .assistant:
+                out.append(contentsOf: assistantItems(msg, model: model))
+            case .toolResult:
+                let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
+                out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n")))]))
+            }
+        }
+        return out
+    }
+
+    private static func assistantItems(_ msg: Message, model: Model) -> [JSONValue] {
+        var items: [JSONValue] = []
+        var textIndex = 0
+        for block in msg.content {
+            switch block.type {
+            case "thinking":
+                if let sig = block.thinkingSignature, let data = sig.data(using: .utf8), let value = try? JSONDecoder().decode(JSONValue.self, from: data) { items.append(value) }
+            case "text":
+                var item: [String: JSONValue] = ["type": .string("message"), "role": .string("assistant"), "content": .array([.object(["type": .string("output_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])]), "status": .string("completed")]
+                if let sig = block.textSignature, let data = sig.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+                    let fallback = textIndex == 0 ? "msg_pi" : "msg_pi_\(textIndex)"
+                    item["id"] = .string(object["id"]?.stringValue ?? fallback)
+                    if let phase = object["phase"] { item["phase"] = phase }
+                }
+                textIndex += 1
+                items.append(.object(item))
+            case "toolCall":
+                let rawID = block.id ?? ""
+                let parts = rawID.split(separator: "|", maxSplits: 1).map(String.init)
+                let callID = normalizeResponsesIDPart(parts.first ?? rawID)
+                var item: [String: JSONValue] = ["type": .string("function_call"), "call_id": .string(callID), "name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))]
+                if parts.count == 2 { item["id"] = .string(normalizeResponsesIDPart(parts[1].hasPrefix("fc_") ? parts[1] : "fc_" + parts[1])) }
+                items.append(.object(item))
+            default:
+                break
+            }
+        }
+        return items
+    }
     private static func userContent(_ block: ContentBlock) -> JSONValue? { if block.type == "text" { return .object(["type": .string("input_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]) }; if block.type == "image" { return .object(["type": .string("input_image"), "detail": .string("auto"), "image_url": .string("data:\(block.mimeType ?? "application/octet-stream");base64,\(block.data ?? "")")]) }; return nil }
+    private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
+    private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]) }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }

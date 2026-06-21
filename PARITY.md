@@ -17,7 +17,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - SSE parser.
 - OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported and developer-role system prompts for reasoning models when compatible.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
-- OpenAI Responses/Azure Responses/OpenAI Codex provider: request construction, Azure config resolution (including deployment maps and base URL normalization), Azure tool-call history trimming, Azure reasoning event normalization, Codex URL/account headers, pluggable Codex transport, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
+- OpenAI Responses/Azure Responses/OpenAI Codex provider: request construction, assistant reasoning/text/tool-call replay items, Azure config resolution (including deployment maps and base URL normalization), Azure tool-call history trimming, Azure reasoning event normalization, Codex URL/account headers, pluggable Codex transport, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
 - Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text and image provider usage where metadata is available.
 - Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.
@@ -43,7 +43,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 The package is structurally consumable via SwiftPM, but provider-runtime parity is still incomplete:
 
 - OpenAI-compatible provider lacks a small number of provider-specific replay/prompt-cache edge cases from `go-ai`.
-- OpenAI Responses/Codex provider has pluggable WebSocket transport support but does not bundle a WebSocket/session-cache transport implementation; some upstream replay/signature/prompt-cache edge cases remain.
+- OpenAI Responses/Codex provider has pluggable WebSocket transport support but does not bundle a WebSocket/session-cache transport implementation; a few advanced prompt-cache edge cases remain.
 - Anthropic Messages provider lacks some advanced replay/tool-result edge cases.
 - Google providers lack a small number of advanced upstream tool-result edge cases.
 - OAuth flow surface now covers upstream providers: GitHub Copilot, OpenAI Codex, Anthropic, Google Gemini CLI, and Google Antigravity.

@@ -365,6 +365,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try OpenAIResponsesProvider.extractCodexAccountID("h.\(payloadPart).s"), "acct")
     }
 
+    func testOpenAIResponsesAssistantReplayItems() throws {
+        let reasoningSig = "{\"type\":\"reasoning\",\"summary\":[]}"
+        let textSig = "{\"id\":\"msg_1\",\"phase\":\"final\"}"
+        var assistant = Message(role: .assistant, content: [ContentBlock.thinking("why", signature: reasoningSig), ContentBlock.text("answer", signature: textSig), ContentBlock.toolCall(id: "call|item", name: "lookup", arguments: ["q": .string("x")])])
+        assistant.api = .openAIResponses
+        assistant.provider = .openAI
+        assistant.model = "gpt"
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let input)? = body["input"] else { return XCTFail("missing input") }
+        XCTAssertTrue(input.contains { if case .object(let obj) = $0 { return obj["type"] == .string("reasoning") }; return false })
+        XCTAssertTrue(input.contains { if case .object(let obj) = $0 { return obj["id"] == .string("msg_1") && obj["phase"] == .string("final") }; return false })
+        XCTAssertTrue(input.contains { if case .object(let obj) = $0 { return obj["type"] == .string("function_call") && obj["call_id"] == .string("call") }; return false })
+    }
+
     func testOpenAIResponsesRequestAzureAndSSE() throws {
         let model = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .openAI, baseUrl: "https://api.openai.com/v1", reasoning: true)
         var options = StreamOptions()

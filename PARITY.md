@@ -36,6 +36,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Mistral Conversations provider: request construction, reasoning/prompt mode handling, tools, SSE parsing for text/reasoning/tool events, usage, and stop reasons.
 - Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
+- Amazon Bedrock provider surface: registration, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
 
 ## Known gaps vs upstream runtime parity
 
@@ -53,6 +54,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Incremental/partial JSON object parsing for streamed tool-call arguments, wired into text providers that accumulate tool deltas.
 - Copilot/OpenAI session headers: Copilot dynamic initiator/vision headers, standard Copilot headers, OpenAI-compatible session affinity headers, Azure session headers, and Responses Copilot dynamic headers.
 - Utility parity: deterministic SHA-256 short hashes and surrogate sanitization; provider request builders sanitize serialized text inputs and Mistral tool-call ID fallback uses deterministic hashes.
+- Amazon Bedrock live transport is not bundled; full runtime parity requires AWS SigV4/event-stream support or an AWS SDK transport module.
 - Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
 - Full upstream transform/harness/session-resource helpers are not implemented.
 

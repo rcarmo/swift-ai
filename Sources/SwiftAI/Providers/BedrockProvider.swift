@@ -1,0 +1,82 @@
+import Foundation
+
+public enum BedrockProvider {
+    public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
+        AsyncStream { continuation in
+            Task {
+                let message = Message(role: .assistant, content: [])
+                continuation.yield(.error(reason: .error, message: message, error: AIError.provider("Amazon Bedrock runtime requires AWS SigV4/event-stream transport; request building helpers are available but live transport is not bundled in this lightweight SwiftPM target")))
+                continuation.finish()
+            }
+        }
+    }
+
+    public static func configuredRegion(model: Model, options: StreamOptions?, env: ProviderEnv? = nil) -> String {
+        if let arn = arnRegion(model.id), !arn.isEmpty { return arn }
+        if let region = options?.region, !region.isEmpty { return region }
+        if let region = ProviderEnvironment.value("AWS_REGION", env: env), !region.isEmpty { return region }
+        if let region = ProviderEnvironment.value("AWS_DEFAULT_REGION", env: env), !region.isEmpty { return region }
+        if let endpoint = standardEndpointRegion(model.baseUrl), !endpoint.isEmpty, options?.profile == nil { return endpoint }
+        return "us-east-1"
+    }
+
+    public static func arnRegion(_ modelId: String) -> String? {
+        let parts = modelId.split(separator: ":")
+        guard parts.count >= 4, parts[0] == "arn", parts[2].hasPrefix("bedrock") else { return nil }
+        return String(parts[3])
+    }
+
+    public static func standardEndpointRegion(_ baseURL: String) -> String? {
+        guard let host = URL(string: baseURL)?.host?.lowercased() else { return nil }
+        let prefix = "bedrock-runtime."
+        let fipsPrefix = "bedrock-runtime-fips."
+        let rest: String
+        if host.hasPrefix(prefix) { rest = String(host.dropFirst(prefix.count)) }
+        else if host.hasPrefix(fipsPrefix) { rest = String(host.dropFirst(fipsPrefix.count)) }
+        else { return nil }
+        return rest.components(separatedBy: ".amazonaws.com").first?.components(separatedBy: ".amazonaws.com.cn").first
+    }
+
+    public static func buildConverseRequest(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
+        var request: [String: JSONValue] = ["modelId": .string(model.id), "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model)))]
+        if let system = context.systemPrompt, !system.isEmpty { request["system"] = .array([.object(["text": .string(AIUtilities.sanitizeSurrogates(system))])]) }
+        var inference: [String: JSONValue] = [:]
+        if let max = options?.maxTokens { inference["maxTokens"] = .number(Double(max)) }
+        if let temp = options?.temperature { inference["temperature"] = .number(temp) }
+        if !inference.isEmpty { request["inferenceConfig"] = .object(inference) }
+        if let tools = context.tools, !tools.isEmpty { request["toolConfig"] = .object(["tools": .array(tools.map(toolJSON))]) }
+        if let metadata = options?.requestMetadata, !metadata.isEmpty { request["requestMetadata"] = .object(metadata.mapValues(JSONValue.string)) }
+        return request
+    }
+
+    private static func convertMessages(_ messages: [Message]) -> [JSONValue] {
+        messages.compactMap { msg in
+            switch msg.role {
+            case .user:
+                return .object(["role": .string("user"), "content": .array(msg.content.compactMap(contentBlock))])
+            case .assistant:
+                return .object(["role": .string("assistant"), "content": .array(msg.content.compactMap(contentBlock))])
+            case .toolResult:
+                let text = AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n"))
+                let result: [String: JSONValue] = [
+                    "toolUseId": .string(msg.toolCallId ?? ""),
+                    "content": .array([.object(["text": .string(text)])]),
+                    "status": .string(msg.isError == true ? "error" : "success")
+                ]
+                return .object(["role": .string("user"), "content": .array([.object(["toolResult": .object(result)])])])
+            }
+        }
+    }
+
+    private static func contentBlock(_ block: ContentBlock) -> JSONValue? {
+        switch block.type {
+        case "text": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])
+        case "image": return .object(["image": .object(["format": .string((block.mimeType ?? "image/png").components(separatedBy: "/").last ?? "png"), "source": .object(["bytes": .string(block.data ?? "")])])])
+        case "toolCall": return .object(["toolUse": .object(["toolUseId": .string(block.id ?? ""), "name": .string(block.name ?? ""), "input": .object(block.arguments ?? [:])])])
+        case "thinking": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])
+        default: return nil
+        }
+    }
+
+    private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["toolSpec": .object(["name": .string(tool.name), "description": .string(tool.description), "inputSchema": .object(["json": tool.parameters])])]) }
+}

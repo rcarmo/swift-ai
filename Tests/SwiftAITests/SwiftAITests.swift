@@ -314,6 +314,18 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testBedrockRequestAndRegionHelpers() {
+        XCTAssertEqual(BedrockProvider.arnRegion("arn:aws:bedrock:us-west-2:123:foundation-model/x"), "us-west-2")
+        XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime.eu-central-1.amazonaws.com"), "eu-central-1")
+        let model = Model(id: "anthropic.claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock, baseUrl: "https://bedrock-runtime.eu-central-1.amazonaws.com")
+        XCTAssertEqual(BedrockProvider.configuredRegion(model: model, options: nil), "eu-central-1")
+        let body = BedrockProvider.buildConverseRequest(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")], tools: [Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))]), options: nil)
+        XCTAssertEqual(body["modelId"], .string("anthropic.claude"))
+        XCTAssertNotNil(body["messages"])
+        XCTAssertNotNil(body["system"])
+        XCTAssertNotNil(body["toolConfig"])
+    }
+
     func testGeminiCLIRequestAndSSEProcessing() {
         let model = Model(id: "gemini-cli", name: "Gemini CLI", api: .googleGeminiCLI, provider: .googleGeminiCLI, reasoning: true)
         var options = StreamOptions()

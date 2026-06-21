@@ -380,6 +380,27 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try OpenAIResponsesProvider.extractCodexAccountID("h.\(payloadPart).s"), "acct")
     }
 
+    func testOpenAIResponsesStatusMapping() {
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        let incomplete = """
+        event: response.completed
+        data: {"response":{"id":"r","status":"incomplete"}}
+
+        """
+        guard case .done(let reason, _)? = OpenAIResponsesProvider.processSSEText(incomplete, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .length)
+        let toolUse = """
+        event: response.output_item.added
+        data: {"item":{"type":"function_call","call_id":"c","name":"lookup"}}
+
+        event: response.completed
+        data: {"response":{"id":"r","status":"completed"}}
+
+        """
+        guard case .done(let toolReason, _)? = OpenAIResponsesProvider.processSSEText(toolUse, model: model).last else { return XCTFail("missing tool done") }
+        XCTAssertEqual(toolReason, .toolUse)
+    }
+
     func testOpenAIResponsesDefaultReasoning() {
         let model = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .openAI, reasoning: true)
         let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)

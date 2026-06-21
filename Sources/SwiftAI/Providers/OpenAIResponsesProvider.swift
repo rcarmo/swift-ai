@@ -177,7 +177,7 @@ public enum OpenAIResponsesProvider {
         case "response.reasoning_summary_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + raw; yield(.thinkingDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.function_call_arguments.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.toolArgs[idx, default: ""] += raw; yield(.toolCallDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.output_item.done": closeCurrent(state: &state, yield: yield)
-        case "response.completed": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.partial.responseId = raw.response?.id ?? state.partial.responseId; applyUsage(raw.response?.usage, state: &state); state.partial.stopReason = .stop }
+        case "response.completed": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.partial.responseId = raw.response?.id ?? state.partial.responseId; applyUsage(raw.response?.usage, state: &state); state.partial.stopReason = mapStatus(raw.response?.status); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
         case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.partial.stopReason = .error; state.partial.errorMessage = raw.response?.error?.message ?? raw.error?.message ?? "response failed" }
         default: break
         }
@@ -239,12 +239,13 @@ public enum OpenAIResponsesProvider {
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]) }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
+    private static func mapStatus(_ status: String?) -> StopReason { switch status { case "incomplete": return .length; case "failed", "cancelled": return .error; default: return .stop } }
 }
 
 private struct ResponsesStreamState { var model: Model; var partial: Message; var started = false; var current: (type: String, index: Int)?; var toolArgs: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct ResponseCreated: Decodable { var response: Inner?; struct Inner: Decodable { var id: String? } }
 private struct ResponseOutputItemAdded: Decodable { var item: Item; struct Item: Decodable { var type: String; var id: String?; var callId: String?; var name: String?; enum CodingKeys: String, CodingKey { case type, id, name; case callId = "call_id" } } }
 private struct ResponseDelta: Decodable { var delta: String? }
-private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var usage: ResponseUsage? } }
+private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var usage: ResponseUsage? } }
 private struct ResponseUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var totalTokens: Int?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case totalTokens = "total_tokens" } }
 private struct ResponseFailed: Decodable { var response: FailedResponse?; var error: Failure?; struct FailedResponse: Decodable { var error: Failure? }; struct Failure: Decodable { var message: String?; var code: String? } }

@@ -17,7 +17,7 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
 
     public func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials {
         let device = try await startDeviceFlow()
-        await callbacks.onAuth?(OAuthAuthInfo(url: device.verificationURI, instructions: "Enter code: \(device.userCode)"))
+        if let onAuth = callbacks.onAuth { await onAuth(OAuthAuthInfo(url: device.verificationURI, instructions: "Enter code: \(device.userCode)")) }
         return try await pollForToken(deviceCode: device.deviceCode, interval: device.interval, expiresIn: device.expiresIn)
     }
 

@@ -17,7 +17,7 @@ public struct AnthropicOAuthProvider: OAuthProvider {
     public func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials {
         let pkce = try OAuthUtilities.generatePKCE()
         let url = authorizationURL(challenge: pkce.challenge)
-        await callbacks.onAuth?(OAuthAuthInfo(url: url, instructions: "Complete login in your browser and paste the returned code"))
+        if let onAuth = callbacks.onAuth { await onAuth(OAuthAuthInfo(url: url, instructions: "Complete login in your browser and paste the returned code")) }
         guard let code = try await callbacks.onPrompt?(OAuthPrompt(message: "Anthropic OAuth code", placeholder: "code", allowEmpty: false)), !code.isEmpty else {
             throw AIError.provider("Anthropic OAuth requires an authorization code")
         }

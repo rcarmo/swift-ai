@@ -16,10 +16,10 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         let enterpriseDomain = OAuthUtilities.normalizeDomain(domainInput) ?? ""
         let domain = enterpriseDomain.isEmpty ? "github.com" : enterpriseDomain
         let device = try await startDeviceFlow(domain: domain)
-        await callbacks.onAuth?(OAuthAuthInfo(url: device.verificationURI, instructions: "Enter code: \(device.userCode)"))
+        if let onAuth = callbacks.onAuth { await onAuth(OAuthAuthInfo(url: device.verificationURI, instructions: "Enter code: \(device.userCode)")) }
         let githubToken = try await pollForAccessToken(domain: domain, device: device)
         var credentials = try await refreshGitHubCopilotAccessToken(refreshToken: githubToken, enterpriseDomain: enterpriseDomain)
-        await callbacks.onProgress?("Enabling models...")
+        if let onProgress = callbacks.onProgress { await onProgress("Enabling models...") }
         await enableAllModels(token: credentials.access, enterpriseDomain: enterpriseDomain)
         let ids = try await fetchAvailableModelIDs(token: credentials.access, enterpriseDomain: enterpriseDomain)
         credentials.extra = (credentials.extra ?? [:]).merging(["availableModelIds": .array(ids.map(JSONValue.string))]) { _, new in new }

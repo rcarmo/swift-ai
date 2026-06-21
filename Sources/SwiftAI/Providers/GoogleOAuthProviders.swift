@@ -33,11 +33,12 @@ public enum GoogleOAuthFlow {
     public static let scopes = "openid https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/generative-language"
 
     public static func login(callbacks: OAuthLoginCallbacks, providerName: String) async throws -> OAuthCredentials {
-        let projectID = try await callbacks.onPrompt?(OAuthPrompt(message: "Google Cloud project ID", placeholder: "my-project-id", allowEmpty: false)).trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let projectRaw = try await callbacks.onPrompt?(OAuthPrompt(message: "Google Cloud project ID", placeholder: "my-project-id", allowEmpty: false)) ?? ""
+        let projectID = projectRaw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !projectID.isEmpty else { throw AIError.provider("project ID is required") }
         let pkce = try OAuthUtilities.generatePKCE()
         let url = authorizationURL(challenge: pkce.challenge)
-        await callbacks.onAuth?(OAuthAuthInfo(url: url, instructions: "Complete Google login for \(providerName) and paste the returned code"))
+        if let onAuth = callbacks.onAuth { await onAuth(OAuthAuthInfo(url: url, instructions: "Complete Google login for \(providerName) and paste the returned code")) }
         guard let code = try await callbacks.onPrompt?(OAuthPrompt(message: "Google OAuth code", placeholder: "code", allowEmpty: false)), !code.isEmpty else { throw AIError.provider("Google OAuth requires an authorization code") }
         var credentials = try await exchangeCode(code, verifier: pkce.verifier)
         credentials.extra = ["projectId": .string(projectID)]

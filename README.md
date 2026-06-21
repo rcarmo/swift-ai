@@ -15,7 +15,8 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Context overflow and basic tool argument validation helpers.
 - SSE parser.
 - Initial non-streaming OpenAI Chat Completions provider exposed through the common async stream/complete API.
-- Seed built-in model catalog for representative OpenAI/Anthropic/Google/DeepSeek/OpenRouter models.
+- Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
+- Full embedded image model catalog: 34 OpenRouter image models.
 
 ## Usage
 
@@ -45,7 +46,8 @@ This is not yet a full provider-complete port. The SwiftPM package is structured
 
 - OpenAI-compatible provider currently uses non-streaming `/chat/completions` and emits a final `.done` event.
 - Anthropic, Google, Mistral, Bedrock, OAuth and image providers are type/registry placeholders, not runtime implementations yet.
-- The generated registry is currently a seed catalog, not the full upstream 979-model registry.
+- Image-generation model discovery is ported, but the OpenRouter image generation runtime is not implemented yet.
+- OAuth flows are not ported yet.
 - This container does not include `swift`, so compilation must be run on a Swift 5.9+ toolchain host.
 
 ## Development

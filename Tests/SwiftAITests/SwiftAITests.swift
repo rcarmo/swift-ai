@@ -30,6 +30,25 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(detected.chatTemplateKwargs?["enable_thinking"]?.variable, "thinking.enabled")
     }
 
+    func testGeneratedModelRegistryMetadata() throws {
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.79.9")
+        XCTAssertEqual(BuiltinModels.modelCount, 979)
+        XCTAssertEqual(BuiltinModels.providerCount, 35)
+        let models = try BuiltinModels.all()
+        XCTAssertEqual(models.count, 979)
+        XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
+        XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
+    }
+
+    func testGeneratedImageModelRegistryMetadata() throws {
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.79.9")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 34)
+        XCTAssertEqual(BuiltinImageModels.providerCount, 1)
+        let models = try BuiltinImageModels.all()
+        XCTAssertEqual(models.count, 34)
+        XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
+    }
+
     func testOpenAIRequestBuilder() {
         var compat = OpenAICompletionsCompat()
         compat.thinkingFormat = "chat-template"

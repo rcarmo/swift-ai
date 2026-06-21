@@ -29,6 +29,7 @@ public actor AIRegistry {
 public enum SwiftAI {
     public static func bootstrap() async {
         await BuiltinModels.registerAll()
+        await BuiltinImageModels.registerAll()
         await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: OpenAICompletionsProvider.stream))
     }
 

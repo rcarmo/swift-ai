@@ -48,6 +48,9 @@ def check_delimiters() -> None:
 
 def grep_guard() -> None:
     sources = "\n".join(p.read_text() for root in [ROOT / "Sources", ROOT / "Tests"] for p in root.rglob("*.swift"))
+    types = (ROOT / "Sources" / "SwiftAI" / "Types.swift").read_text()
+    if "public indirect enum JSONValue" not in types:
+        raise SystemExit("JSONValue is recursive and must remain an indirect enum")
     if "private extension JSONValue" in sources:
         raise SystemExit("private extension JSONValue is disallowed; use public accessors in Types.swift")
     for fragile in ["mapValues(JSONValue.string)", "map(JSONValue.string)"]:

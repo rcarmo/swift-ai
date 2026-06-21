@@ -62,7 +62,7 @@ public enum StopReason: String, Codable, Sendable { case stop, length, toolUse, 
 public enum CacheRetention: String, Codable, Sendable { case none, short, long }
 public enum Transport: String, Codable, Sendable { case sse, websocket, webSocketCached = "websocket-cached", auto }
 
-public enum JSONValue: Codable, Equatable, Sendable {
+public indirect enum JSONValue: Codable, Equatable, Sendable {
     case null
     case bool(Bool)
     case number(Double)

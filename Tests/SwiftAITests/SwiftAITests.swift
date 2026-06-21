@@ -59,6 +59,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testDiagnosticsAndLogger() async throws {
+        struct SampleError: Error {}
+        XCTAssertEqual(Diagnostics.formatThrownValue("x"), "x")
+        let diagnostic = Diagnostics.createAssistantMessageDiagnostic(type: "test", error: SampleError(), details: ["k": .string("v")])
+        XCTAssertEqual(diagnostic.type, "test")
+        XCTAssertEqual(diagnostic.details?["k"], .string("v"))
+        var message = Message.user("hi")
+        Diagnostics.appendAssistantMessageDiagnostic(diagnostic, to: &message)
+        XCTAssertEqual(message.diagnostics?.count, 1)
+        await LoggerRegistry.shared.setLogger(DiscardLogger())
+        await LoggerRegistry.shared.info("ok", ["provider": "test"])
+    }
+
     func testPromptCacheAndSessionResources() async throws {
         XCTAssertEqual(PromptCache.clampOpenAIKey(String(repeating: "x", count: 80)).count, 64)
         let registry = SessionResourceRegistry.shared

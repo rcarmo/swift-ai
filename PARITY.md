@@ -22,6 +22,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text-provider usage where metadata is available.
 - Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.
 - Prompt cache helpers and session-resource cleanup registry, with OpenAI prompt-cache key clamping wired into Chat Completions and Responses requests.
+- Diagnostics and logging helpers: thrown-value formatting, serializable assistant diagnostics, diagnostic append helper, pluggable discard/stderr logger, and global logger actor.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.

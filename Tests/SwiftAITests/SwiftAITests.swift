@@ -289,6 +289,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testAzureResponsesHelpers() throws {
+        XCTAssertEqual(OpenAIResponsesProvider.parseAzureDeploymentNameMap("gpt-5=prod, other = dep2")["other"], "dep2")
+        XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://res.openai.azure.com"), "https://res.openai.azure.com/openai/v1")
+        XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://res.openai.azure.com/openai"), "https://res.openai.azure.com/openai/v1")
+        var options = StreamOptions()
+        options.env = ["AZURE_OPENAI_BASE_URL": "https://res.openai.azure.com", "AZURE_OPENAI_DEPLOYMENT_NAME_MAP": "model=dep"]
+        let cfg = try OpenAIResponsesProvider.resolveAzureConfig(model: Model(id: "model", name: "M", api: .azureOpenAIResponses, provider: .azureOpenAI), options: options)
+        XCTAssertTrue(cfg.baseURL.contains("/openai/v1/deployments/dep"))
+    }
+
     func testCodexResponsesHelpers() throws {
         XCTAssertEqual(OpenAIResponsesProvider.resolveCodexURL(""), "https://api.openai.com/v1/codex/responses")
         XCTAssertEqual(OpenAIResponsesProvider.resolveCodexURL("https://api.openai.com/v1"), "https://api.openai.com/v1/codex/responses")

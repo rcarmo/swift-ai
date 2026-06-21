@@ -43,15 +43,38 @@ public enum OpenAIResponsesProvider {
         return account
     }
 
+    public static func parseAzureDeploymentNameMap(_ value: String) -> [String: String] {
+        var out: [String: String] = [:]
+        for entry in value.split(separator: ",") {
+            let parts = entry.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            if parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty { out[parts[0]] = parts[1] }
+        }
+        return out
+    }
+
+    public static func normalizeAzureBaseURL(_ baseURL: String) throws -> String {
+        var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        guard var components = URLComponents(string: trimmed), let host = components.host, components.scheme != nil else { throw AIError.provider("invalid Azure OpenAI base URL: \(baseURL)") }
+        let isAzureHost = host.hasSuffix(".openai.azure.com") || host.hasSuffix(".cognitiveservices.azure.com")
+        let path = (components.path as NSString).standardizingPath
+        if isAzureHost && (path.isEmpty || path == "/" || path == "/openai") {
+            components.path = "/openai/v1"
+            components.query = nil
+        }
+        guard let url = components.url?.absoluteString else { throw AIError.provider("invalid Azure OpenAI base URL: \(baseURL)") }
+        return url.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
     public static func resolveAzureConfig(model: Model, options: StreamOptions?) throws -> (baseURL: String, deployment: String, apiVersion: String) {
         let env = options?.env ?? [:]
         let apiVersion = options?.azureApiVersion ?? env["AZURE_OPENAI_API_VERSION"] ?? "v1"
-        let deployment = options?.azureDeploymentName ?? model.id
+        let mappedDeployment = parseAzureDeploymentNameMap(env["AZURE_OPENAI_DEPLOYMENT_NAME_MAP"] ?? "")[model.id]
+        let deployment = options?.azureDeploymentName ?? mappedDeployment ?? model.id
         var base = options?.azureBaseUrl ?? env["AZURE_OPENAI_BASE_URL"] ?? model.baseUrl
         if base.isEmpty, let resource = options?.azureResourceName ?? env["AZURE_OPENAI_RESOURCE_NAME"], !resource.isEmpty { base = "https://\(resource).openai.azure.com/openai/v1" }
         guard !base.isEmpty else { throw AIError.provider("Azure OpenAI base URL is required") }
-        base = base.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        if !base.contains("/openai") { base += "/openai/v1" }
+        base = try normalizeAzureBaseURL(base)
         return (base + "/deployments/\(deployment.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? deployment)", deployment, apiVersion)
     }
 

@@ -17,7 +17,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - SSE parser.
 - OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
-- OpenAI Responses/Azure Responses/OpenAI Codex SSE provider: request construction, Azure config resolution, Codex URL/account headers, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
+- OpenAI Responses/Azure Responses/OpenAI Codex SSE provider: request construction, Azure config resolution (including deployment maps and base URL normalization), Codex URL/account headers, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
 - Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text and image provider usage where metadata is available.
 - Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.

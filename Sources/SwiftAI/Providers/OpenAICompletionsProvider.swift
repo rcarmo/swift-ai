@@ -112,7 +112,7 @@ public enum OpenAICompletionsProvider {
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
         let request = try makeRequest(model: model, context: context, options: options, stream: true)
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
         var state = StreamState(model: model)
@@ -130,7 +130,7 @@ public enum OpenAICompletionsProvider {
 
     private static func request(model: Model, context: AIContext, options: StreamOptions?) async throws -> Message {
         let request = try makeRequest(model: model, context: context, options: options, stream: false)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(options: options))
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)

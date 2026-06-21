@@ -15,6 +15,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Context overflow and basic tool argument validation helpers.
 - SSE parser.
 - OpenAI Chat Completions provider exposed through the common async stream/complete API, with SSE event parsing for text, thinking, tool calls, usage, and finish reasons.
+- Shared HTTP retry/backoff helper for 429/5xx responses and `Retry-After`.
 - Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
 - Full embedded image model catalog: 34 OpenRouter image models.
 

@@ -59,6 +59,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testRetryPolicy() {
+        var options = StreamOptions()
+        options.maxRetries = 3
+        options.maxRetryDelayMs = 1_000
+        let policy = RetryPolicy(options: options)
+        XCTAssertEqual(policy.maxRetries, 3)
+        XCTAssertEqual(policy.maxDelayMs, 1_000)
+        XCTAssertEqual(policy.delayNanoseconds(attempt: 1), 250_000_000)
+        XCTAssertEqual(policy.delayNanoseconds(attempt: 10), 1_000_000_000)
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 429))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 500))
+        XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
+    }
+
     func testOpenAISSEProcessing() {
         let model = Model(id: "gpt-test", name: "GPT Test", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com")
         let sse = """

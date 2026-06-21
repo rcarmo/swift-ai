@@ -21,7 +21,7 @@ public enum OpenRouterImagesProvider {
             for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
             for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
             request.httpBody = try JSONEncoder().encode(payload)
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(options: options))
             guard let http = response as? HTTPURLResponse else {
                 out.stopReason = .error; out.errorMessage = "non-HTTP response"; return out
             }

@@ -20,6 +20,7 @@ STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
 REGISTRY = ROOT / "Sources" / "SwiftAI" / "Registry.swift"
+SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
 EXPECTED_TEXT_MODELS = 979
 EXPECTED_TEXT_PROVIDERS = 35
@@ -69,6 +70,7 @@ def main() -> int:
     text = json.loads(TEXT_MODELS.read_text())
     images = json.loads(IMAGE_MODELS.read_text())
     status = json.loads(STATUS.read_text())
+    swift_status = SWIFT_STATUS.read_text()
     raw = raw_values(TYPES, IMAGES)
 
     failures: list[str] = []
@@ -96,6 +98,19 @@ def main() -> int:
     missing = sorted((text_providers | text_apis | image_providers | image_apis) - raw)
     if missing:
         failures.append("missing Swift enum raw values: " + ", ".join(missing))
+
+    swift_status_checks = {
+        "upstreamVersion": status["upstream"]["version"],
+        "textModelCount": str(len(text)),
+        "textProviderCount": str(len(text_providers)),
+        "textAPICount": str(len(text_apis)),
+        "imageModelCount": str(len(images)),
+        "imageProviderCount": str(len(image_providers)),
+        "imageAPICount": str(len(image_apis)),
+    }
+    for key, expected in swift_status_checks.items():
+        if expected not in swift_status:
+            failures.append(f"SwiftAIStatus missing/aligned value for {key}: {expected}")
 
     missing_sources = [path for path in REQUIRED_SOURCES if not (ROOT / path).exists()]
     if missing_sources:

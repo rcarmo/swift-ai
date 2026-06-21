@@ -43,6 +43,14 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(decoded.thinkingLevelMap?.keys.contains(.xhigh) == true)
     }
 
+    func testSwiftAIStatusConstants() {
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.79.9")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 979)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 34)
+        XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
+        XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
+    }
+
     func testGeneratedModelRegistryMetadata() throws {
         XCTAssertEqual(BuiltinModels.upstreamVersion, "0.79.9")
         XCTAssertEqual(BuiltinModels.modelCount, 979)

@@ -73,6 +73,7 @@ This is not yet a full provider-complete port. The SwiftPM package is structured
 
 ```bash
 swift test
+python3 scripts/audit-parity.py
 ```
 
 ## License

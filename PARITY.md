@@ -65,3 +65,9 @@ The current container does not include a Swift toolchain (`swift` is not install
 ```bash
 swift test
 ```
+
+A toolchain-light registry parity audit is available and has been used in this container:
+
+```bash
+python3 scripts/audit-parity.py
+```

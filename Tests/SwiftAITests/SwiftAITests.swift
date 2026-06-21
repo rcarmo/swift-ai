@@ -35,9 +35,10 @@ final class SwiftAITests: XCTestCase {
         {"id":"m","name":"M","api":"openai-completions","provider":"openai","baseUrl":"","reasoning":true,"thinkingLevelMap":{"off":"none","xhigh":null},"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1}
         """.data(using: .utf8)!
         let model = try JSONDecoder().decode(Model.self, from: json)
-        XCTAssertEqual(model.thinkingLevelMap?[.off] ?? nil, "none")
-        XCTAssertTrue(model.thinkingLevelMap?.keys.contains(.xhigh) == true)
-        XCTAssertNil(model.thinkingLevelMap?[.xhigh] ?? nil)
+        guard let thinkingMap = model.thinkingLevelMap else { return XCTFail("missing thinking map") }
+        XCTAssertEqual(thinkingMap[.off]!, Optional("none"))
+        XCTAssertTrue(thinkingMap.keys.contains(.xhigh))
+        XCTAssertNil(thinkingMap[.xhigh]!)
         let encoded = try JSONEncoder().encode(model)
         let decoded = try JSONDecoder().decode(Model.self, from: encoded)
         XCTAssertTrue(decoded.thinkingLevelMap?.keys.contains(.xhigh) == true)

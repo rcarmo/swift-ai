@@ -61,9 +61,9 @@ def grep_guard() -> None:
         raise SystemExit("FauxRegistration.models must remain nonisolated for Swift actor access")
     if "private extension JSONValue" in sources:
         raise SystemExit("private extension JSONValue is disallowed; use public accessors in Types.swift")
-    for fragile in ["mapValues(JSONValue.string)", "map(JSONValue.string)"]:
+    for fragile in ["mapValues(JSONValue.string)", "map(JSONValue.string)", "?? nil"]:
         if fragile in sources:
-            raise SystemExit(f"fragile enum-case function reference disallowed: {fragile}")
+            raise SystemExit(f"fragile Swift pattern disallowed: {fragile}")
     for token in ["TODO", "fatalError"]:
         if token in sources:
             raise SystemExit(f"disallowed token in sources: {token}")

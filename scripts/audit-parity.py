@@ -136,6 +136,16 @@ def main() -> int:
         if expected not in swift_status:
             failures.append(f"SwiftAIStatus missing/aligned value for {key}: {expected}")
 
+    transport_doc = status.get("transportDocumentation")
+    if not transport_doc or not (ROOT / transport_doc).exists():
+        failures.append("STATUS transportDocumentation is missing or points to a missing file")
+    transport_protocols = {item.get("protocol") for item in status.get("pluggableTransports", [])}
+    for protocol in ["BedrockTransport", "CodexTransport"]:
+        if protocol not in transport_protocols:
+            failures.append(f"STATUS missing pluggable transport protocol: {protocol}")
+        elif transport_doc and protocol not in (ROOT / transport_doc).read_text():
+            failures.append(f"transport docs do not mention protocol: {protocol}")
+
     missing_sources = [path for path in REQUIRED_SOURCES if not (ROOT / path).exists()]
     if missing_sources:
         failures.append("missing required parity source files: " + ", ".join(missing_sources))

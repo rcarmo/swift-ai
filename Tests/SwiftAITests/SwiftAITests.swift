@@ -380,6 +380,17 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try OpenAIResponsesProvider.extractCodexAccountID("h.\(payloadPart).s"), "acct")
     }
 
+    func testOpenAIResponsesFailedEventEmitsError() {
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        let failed = """
+        event: response.failed
+        data: {"response":{"error":{"message":"bad"}}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(failed, model: model)
+        XCTAssertTrue(events.contains { if case .error = $0 { return true }; return false })
+    }
+
     func testOpenAIResponsesStatusMapping() {
         let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
         let incomplete = """

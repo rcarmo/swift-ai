@@ -48,7 +48,7 @@ public enum OpenAIResponsesProvider {
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
-        if cacheRetention == .long, model.responsesCompat?.supportsLongCacheRetention != false { body["prompt_cache_retention"] = .string("24h") }
+        if cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
         return body
     }
 
@@ -241,6 +241,10 @@ public enum OpenAIResponsesProvider {
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func mapStatus(_ status: String?) -> StopReason { switch status { case "incomplete": return .length; case "failed", "cancelled": return .error; default: return .stop } }
+    private static func responsesSupportsLongCacheRetention(_ model: Model) -> Bool {
+        if AIUtilities.isCloudflareProvider(model.provider) { return false }
+        return model.responsesCompat?.supportsLongCacheRetention != false
+    }
 }
 
 private struct ResponsesStreamState { var model: Model; var partial: Message; var started = false; var current: (type: String, index: Int)?; var toolArgs: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }

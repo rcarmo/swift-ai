@@ -21,7 +21,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**. `STATUS.j
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
 - Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text and image provider usage where metadata is available.
 - Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.
-- Prompt cache helpers and session-resource cleanup registry, with OpenAI prompt-cache key clamping and env-driven cache retention wired into Chat Completions and Responses requests.
+- Prompt cache helpers and session-resource cleanup registry, with OpenAI prompt-cache key clamping, env-driven cache retention, and provider-specific long-retention suppression wired into Chat Completions and Responses requests.
 - Diagnostics and logging helpers: thrown-value formatting, serializable assistant diagnostics, diagnostic append helper, pluggable discard/stderr logger, and global logger actor.
 - Context overflow and JSON Schema tool argument validation helpers, including required fields, primitive type checks, and string enum checks.
 - Simple-options/thinking helpers: supported level discovery, xhigh clamping, nearest-level clamping, provider-specific thinking value mapping, default thinking budgets, and max-token/thinking-budget adjustment.

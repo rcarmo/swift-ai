@@ -209,6 +209,9 @@ final class SwiftAITests: XCTestCase {
         let responsesModel = Model(id: "resp", name: "Resp", api: .openAIResponses, provider: .openAI)
         let responsesBody = OpenAIResponsesProvider.buildRequestBody(model: responsesModel, context: AIContext(messages: [.user("hi")]), options: options)
         XCTAssertEqual(responsesBody["prompt_cache_retention"], .string("24h"))
+        let cloudflare = Model(id: "cf", name: "CF", api: .openAIResponses, provider: .cloudflareAIGateway)
+        let cloudflareBody = OpenAIResponsesProvider.buildRequestBody(model: cloudflare, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(cloudflareBody["prompt_cache_retention"])
     }
 
     func testPromptCacheAndSessionResources() async throws {

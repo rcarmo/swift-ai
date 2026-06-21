@@ -34,6 +34,8 @@ public enum OpenAICompletionsProvider {
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
         if let maxTokens = options?.maxTokens { body[maxTokensField] = .number(Double(maxTokens)) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
+        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
+        if options?.cacheRetention == .long, compat.supportsLongCacheRetention == true { body["prompt_cache_retention"] = .string("24h") }
         if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body) }
         return body
     }

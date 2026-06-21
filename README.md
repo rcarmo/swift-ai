@@ -24,6 +24,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Faux provider/test double for credential-free SwiftPM tests.
 - Token cost calculation utilities wired into provider usage metadata.
 - Message transformation helpers for cross-provider replay, image downgrade, and synthetic tool results.
+- Prompt-cache helpers and session-resource cleanup registry.
 - Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
 - Full embedded image model catalog: 34 OpenRouter image models.
 

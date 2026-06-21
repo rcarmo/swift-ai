@@ -59,6 +59,18 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testPromptCacheAndSessionResources() async throws {
+        XCTAssertEqual(PromptCache.clampOpenAIKey(String(repeating: "x", count: 80)).count, 64)
+        let registry = SessionResourceRegistry.shared
+        let box = CleanupBox()
+        let unregister = await registry.register { sessionId in await box.append(sessionId) }
+        try await registry.cleanup(sessionId: "s1")
+        XCTAssertEqual(await box.values(), ["s1"])
+        await unregister()
+        try await registry.cleanup(sessionId: "s2")
+        XCTAssertEqual(await box.values(), ["s1"])
+    }
+
     func testMessageTransform() {
         let textOnlyModel = Model(id: "target", name: "Target", api: .openAICompletions, provider: .openAI, input: ["text"])
         var assistant = Message(role: .assistant, content: [ContentBlock.thinking("private"), ContentBlock.toolCall(id: "call1", name: "tool", arguments: [:])])
@@ -308,4 +320,10 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(kwargs["enable_thinking"], .bool(true))
         XCTAssertEqual(kwargs["effort"], .string("high"))
     }
+}
+
+private actor CleanupBox {
+    private var items: [String] = []
+    func append(_ value: String) { items.append(value) }
+    func values() -> [String] { items }
 }

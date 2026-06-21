@@ -27,6 +27,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Prompt-cache helpers and session-resource cleanup registry.
 - Diagnostics and pluggable logging helpers.
 - Context overflow detection and JSON Schema tool argument validation helpers.
+- Simple-options/thinking level and token-budget helpers.
 - Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
 - Full embedded image model catalog: 34 OpenRouter image models.
 

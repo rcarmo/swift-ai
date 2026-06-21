@@ -59,6 +59,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testThinkingHelpers() {
+        let low = "low"
+        let high = "high"
+        let model = Model(id: "reasoner", name: "Reasoner", api: .openAICompletions, provider: .openAI, reasoning: true, thinkingLevelMap: [.low: low, .high: high, .xhigh: nil])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: nil), [.off])
+        XCTAssertEqual(AIUtilities.clampReasoning(.xhigh), .high)
+        XCTAssertEqual(AIUtilities.clampThinkingLevel(model: model, level: .minimal), .low)
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: model, level: .low), "low")
+        XCTAssertFalse(AIUtilities.supportsXHigh(model: model))
+        let adjusted = AIUtilities.adjustMaxTokensForThinking(baseMaxTokens: 1000, modelMaxTokens: 2500, level: .low)
+        XCTAssertEqual(adjusted.maxTokens, 2500)
+        XCTAssertEqual(adjusted.thinkingBudget, 2048)
+    }
+
     func testContextOverflowAndToolValidation() throws {
         var overflow = Message(role: .assistant, content: [])
         overflow.stopReason = .error

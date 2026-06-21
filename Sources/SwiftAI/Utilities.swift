@@ -1,6 +1,57 @@
 import Foundation
 
 public enum AIUtilities {
+    private static let extendedThinkingLevels: [ModelThinkingLevel] = [.off, .minimal, .low, .medium, .high, .xhigh]
+
+    public static func clampReasoning(_ level: ThinkingLevel) -> ThinkingLevel { level == .xhigh ? .high : level }
+
+    public static func supportedThinkingLevels(model: Model?) -> [ModelThinkingLevel] {
+        guard let model, model.reasoning else { return [.off] }
+        var out: [ModelThinkingLevel] = []
+        for level in extendedThinkingLevels {
+            if let map = model.thinkingLevelMap, let maybe = map[level], maybe == nil { continue }
+            if level == .xhigh && model.thinkingLevelMap?[level] == nil { continue }
+            out.append(level)
+        }
+        return out.isEmpty ? [.off] : out
+    }
+
+    public static func clampThinkingLevel(model: Model?, level: ModelThinkingLevel) -> ModelThinkingLevel {
+        let available = supportedThinkingLevels(model: model)
+        if available.contains(level) { return level }
+        guard let idx = extendedThinkingLevels.firstIndex(of: level) else { return available.first ?? .off }
+        for candidate in extendedThinkingLevels[idx...] where available.contains(candidate) { return candidate }
+        if idx > 0 { for candidate in extendedThinkingLevels[..<idx].reversed() where available.contains(candidate) { return candidate } }
+        return available.first ?? .off
+    }
+
+    public static func mapThinkingLevel(model: Model?, level: ModelThinkingLevel) -> String? {
+        let clamped = clampThinkingLevel(model: model, level: level)
+        if let map = model?.thinkingLevelMap, let maybe = map[clamped] { return maybe }
+        return clamped == .off ? "none" : clamped.rawValue
+    }
+
+    public static func defaultThinkingBudgets() -> ThinkingBudgets { ThinkingBudgets(minimal: 1024, low: 2048, medium: 8192, high: 16_384) }
+
+    public static func adjustMaxTokensForThinking(baseMaxTokens: Int, modelMaxTokens: Int, level: ThinkingLevel, custom: ThinkingBudgets? = nil) -> (maxTokens: Int, thinkingBudget: Int) {
+        let defaults = defaultThinkingBudgets()
+        let level = clampReasoning(level)
+        let budget: Int
+        switch level {
+        case .minimal: budget = custom?.minimal ?? defaults.minimal ?? 1024
+        case .low: budget = custom?.low ?? defaults.low ?? 2048
+        case .medium: budget = custom?.medium ?? defaults.medium ?? 8192
+        case .high, .xhigh: budget = custom?.high ?? defaults.high ?? 16_384
+        }
+        let minOutputTokens = 1024
+        var maxTokens = baseMaxTokens + budget
+        if modelMaxTokens > 0, maxTokens > modelMaxTokens { maxTokens = modelMaxTokens }
+        if maxTokens < 0 { maxTokens = 0 }
+        var thinkingBudget = budget
+        if maxTokens <= thinkingBudget { thinkingBudget = max(0, maxTokens - minOutputTokens) }
+        return (maxTokens, thinkingBudget)
+    }
+
     public static func calculateCost(model: Model?, usage: Usage?) -> CostBreakdown {
         guard let model, let usage else { return CostBreakdown() }
         let million = 1_000_000.0
@@ -16,11 +67,6 @@ public enum AIUtilities {
     }
 
     public static func applyCost(model: Model, usage: inout Usage) { usage.cost = calculateCost(model: model, usage: usage) }
-
-    public static func supportedThinkingLevels(model: Model?) -> [ModelThinkingLevel] {
-        guard let model, let map = model.thinkingLevelMap else { return [] }
-        return map.keys.sorted { $0.rawValue < $1.rawValue }
-    }
 
     public static func supportsXHigh(model: Model?) -> Bool { supportedThinkingLevels(model: model).contains(.xhigh) }
     public static func modelsAreEqual(_ a: Model?, _ b: Model?) -> Bool { guard let a, let b else { return false }; return a.id == b.id && a.provider == b.provider }

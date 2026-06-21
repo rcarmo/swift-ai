@@ -57,8 +57,7 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func mappedThinkingEffort(model: Model, effort: String) -> String {
-        guard let level = ModelThinkingLevel(rawValue: effort), let map = model.thinkingLevelMap, let maybeValue = map[level], let value = maybeValue else { return effort }
-        return value
+        AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort
     }
 
     private static func buildChatTemplateKwargs(model: Model, compat: OpenAICompletionsCompat, effort: String?) -> [String: JSONValue]? {

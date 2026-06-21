@@ -129,7 +129,7 @@ public enum MistralConversationsProvider {
         return out
     }
 
-    private static func mappedThinkingEffort(model: Model, effort: String) -> String { guard let level = ModelThinkingLevel(rawValue: effort), let map = model.thinkingLevelMap, let maybe = map[level], let value = maybe else { return effort }; return value }
+    private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesReasoningEffort(_ model: Model) -> Bool { ["mistral-small-2603", "mistral-small-latest", "mistral-medium-3.5"].contains(model.id) }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "function": .object(["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters])]) }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { guard let data = text.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data) else { return [:] }; return object }

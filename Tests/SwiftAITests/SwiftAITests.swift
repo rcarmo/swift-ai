@@ -551,6 +551,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
     }
 
+    func testOpenAIDeveloperRoleSystemPrompt() {
+        var compat = OpenAICompletionsCompat()
+        compat.supportsDeveloperRole = true
+        let model = Model(id: "reasoner", name: "Reasoner", api: .openAICompletions, provider: .openAI, reasoning: true, completionsCompat: compat)
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "rules", messages: [.user("hi")]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let first) = messages[0] else { return XCTFail("missing messages") }
+        XCTAssertEqual(first["role"], .string("developer"))
+    }
+
     func testOpenAIStreamingRequestBuilder() {
         let model = Model(id: "x", name: "x", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com")
         let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil, stream: true)

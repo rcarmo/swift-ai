@@ -39,6 +39,8 @@ This package is a SwiftPM library port prepared for consumption by Swift applica
 
 ## Usage
 
+See `docs/USAGE.md` for SwiftPM dependency snippets, streaming examples, OAuth setup, and pluggable transport notes.
+
 ```swift
 import SwiftAI
 

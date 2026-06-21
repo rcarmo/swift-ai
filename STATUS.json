@@ -65,5 +65,6 @@
     "Codex WebSocket/session-cache transport implementation",
     "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
   ],
-  "transportDocumentation": "docs/TRANSPORTS.md"
+  "transportDocumentation": "docs/TRANSPORTS.md",
+  "usageDocumentation": "docs/USAGE.md"
 }

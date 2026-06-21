@@ -105,6 +105,15 @@ public enum OpenAICompletionsProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         if stream { request.setValue("text/event-stream", forHTTPHeaderField: "Accept") }
+        let compat = Compat.detect(for: model)
+        if let session = options?.sessionId, !session.isEmpty, compat.sendSessionAffinityHeaders == true {
+            request.setValue(session, forHTTPHeaderField: "session_id")
+            request.setValue(session, forHTTPHeaderField: "x-client-request-id")
+            request.setValue(session, forHTTPHeaderField: "x-session-affinity")
+        }
+        if model.provider == .githubCopilot {
+            for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) }
+        }
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         var payload = buildRequestBody(model: model, context: context, options: options, stream: stream)

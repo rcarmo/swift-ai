@@ -42,7 +42,12 @@ public enum AnthropicMessagesProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue(apiVersion, forHTTPHeaderField: "Anthropic-Version")
-        request.setValue(key, forHTTPHeaderField: "X-Api-Key")
+        if model.provider == .githubCopilot {
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            for (k, v) in AIUtilities.copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
+        } else {
+            request.setValue(key, forHTTPHeaderField: "X-Api-Key")
+        }
         let betas = betaHeaders(model: model, context: context)
         if !betas.isEmpty { request.setValue(betas.joined(separator: ","), forHTTPHeaderField: "Anthropic-Beta") }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }

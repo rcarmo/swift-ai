@@ -71,6 +71,26 @@ public enum AIUtilities {
     public static func supportsXHigh(model: Model?) -> Bool { supportedThinkingLevels(model: model).contains(.xhigh) }
     public static func modelsAreEqual(_ a: Model?, _ b: Model?) -> Bool { guard let a, let b else { return false }; return a.id == b.id && a.provider == b.provider }
 
+    public static func inferCopilotInitiator(_ messages: [Message]) -> String { messages.last?.role == .user || messages.isEmpty ? "user" : "agent" }
+
+    public static func hasCopilotVisionInput(_ messages: [Message]) -> Bool {
+        messages.contains { ($0.role == .user || $0.role == .toolResult) && $0.content.contains { $0.type == "image" } }
+    }
+
+    public static func buildCopilotDynamicHeaders(_ messages: [Message]) -> [String: String] {
+        var headers = ["X-Initiator": inferCopilotInitiator(messages), "Openai-Intent": "conversation-edits"]
+        if hasCopilotVisionInput(messages) { headers["Copilot-Vision-Request"] = "true" }
+        return headers
+    }
+
+    public static func copilotHeaders(intent: String? = nil) -> [String: String] {
+        var headers = ["User-Agent": "GitHubCopilotChat/0.35.0", "Editor-Version": "vscode/1.107.0", "Editor-Plugin-Version": "copilot-chat/0.35.0", "Copilot-Integration-Id": "vscode-chat"]
+        if let intent, !intent.isEmpty { headers["openai-intent"] = intent }
+        return headers
+    }
+
+    public static func azureSessionHeaders(_ sessionId: String) -> [String: String] { sessionId.isEmpty ? [:] : ["session_id": sessionId, "x-client-request-id": sessionId, "x-ms-client-request-id": sessionId] }
+
     public static func transformMessages(_ messages: [Message], for model: Model?) -> [Message] {
         guard let model else { return messages }
         let downgraded = downgradeUnsupportedImages(messages, for: model)

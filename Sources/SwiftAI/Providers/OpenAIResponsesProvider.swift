@@ -74,7 +74,11 @@ public enum OpenAIResponsesProvider {
             request.setValue("pi", forHTTPHeaderField: "originator")
             request.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
         }
-        if let session = options?.sessionId, !session.isEmpty { if model.responsesCompat?.sendSessionIdHeader != false { request.setValue(session, forHTTPHeaderField: "session_id") }; request.setValue(session, forHTTPHeaderField: "x-client-request-id") }
+        if let session = options?.sessionId, !session.isEmpty {
+            if model.api == .azureOpenAIResponses { for (k, v) in AIUtilities.azureSessionHeaders(session) { request.setValue(v, forHTTPHeaderField: k) } }
+            else { if model.responsesCompat?.sendSessionIdHeader != false { request.setValue(session, forHTTPHeaderField: "session_id") }; request.setValue(session, forHTTPHeaderField: "x-client-request-id") }
+        }
+        if model.provider == .githubCopilot { for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) } }
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         request.httpBody = try JSONEncoder().encode(body)

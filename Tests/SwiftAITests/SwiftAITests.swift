@@ -59,6 +59,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testCopilotAndSessionHeaders() {
+        XCTAssertEqual(AIUtilities.inferCopilotInitiator([.user("hi")]), "user")
+        var assistant = Message(role: .assistant, content: [.text("ok")])
+        XCTAssertEqual(AIUtilities.inferCopilotInitiator([assistant]), "agent")
+        XCTAssertEqual(AIUtilities.buildCopilotDynamicHeaders([Message(role: .user, content: [.image(data: "x", mimeType: "image/png")])])["Copilot-Vision-Request"], "true")
+        XCTAssertEqual(AIUtilities.copilotHeaders(intent: "chat")["openai-intent"], "chat")
+        XCTAssertEqual(AIUtilities.azureSessionHeaders("s")["x-ms-client-request-id"], "s")
+    }
+
     func testPartialJSONParser() {
         XCTAssertEqual(PartialJSONParser.closeJSON("{\"a\": [1"), "{\"a\": [1]}")
         XCTAssertEqual(PartialJSONParser.parseObject("{\"q\": \"hel")?["q"], .string("hel"))

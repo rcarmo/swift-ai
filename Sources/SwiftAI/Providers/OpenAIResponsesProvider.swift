@@ -46,8 +46,9 @@ public enum OpenAIResponsesProvider {
             body["reasoning"] = .object(["effort": .string(mappedThinkingEffort(model: model, effort: reasoning.rawValue)), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")])
         }
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
-        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
-        if options?.cacheRetention == .long, model.responsesCompat?.supportsLongCacheRetention != false { body["prompt_cache_retention"] = .string("24h") }
+        let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
+        if let session = options?.sessionId, !session.isEmpty, cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
+        if cacheRetention == .long, model.responsesCompat?.supportsLongCacheRetention != false { body["prompt_cache_retention"] = .string("24h") }
         return body
     }
 

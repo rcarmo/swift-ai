@@ -187,6 +187,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(Harness.toolCalls(in: assistant).count, 1)
     }
 
+    func testEnvDrivenPromptCacheRetention() {
+        var options = StreamOptions()
+        options.sessionId = String(repeating: "s", count: 80)
+        options.env = ["PI_CACHE_RETENTION": "long"]
+        var compat = OpenAICompletionsCompat()
+        compat.supportsLongCacheRetention = true
+        let chatModel = Model(id: "chat", name: "Chat", api: .openAICompletions, provider: .openAI, completionsCompat: compat)
+        let chatBody = OpenAICompletionsProvider.buildRequestBody(model: chatModel, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual((chatBody["prompt_cache_key"]?.stringValue ?? "").count, 64)
+        XCTAssertEqual(chatBody["prompt_cache_retention"], .string("24h"))
+        let responsesModel = Model(id: "resp", name: "Resp", api: .openAIResponses, provider: .openAI)
+        let responsesBody = OpenAIResponsesProvider.buildRequestBody(model: responsesModel, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(responsesBody["prompt_cache_retention"], .string("24h"))
+    }
+
     func testPromptCacheAndSessionResources() async throws {
         XCTAssertEqual(PromptCache.clampOpenAIKey(String(repeating: "x", count: 80)).count, 64)
         let registry = SessionResourceRegistry.shared

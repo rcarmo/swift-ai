@@ -65,6 +65,7 @@ The core SwiftPM target intentionally avoids bundling heavyweight vendor SDK/Web
 
 - Bedrock has provider registration, ConverseStream request-building helpers, and a pluggable `BedrockTransport`; live AWS SigV4/event-stream transport is not bundled in this lightweight target.
 - Codex SSE is bundled; Codex WebSocket/session-cache transport is available through the pluggable `CodexTransport` surface.
+- See `docs/TRANSPORTS.md` for pluggable transport examples.
 - Advanced vendor SDK-native retry behavior is not bundled where the corresponding vendor SDK is not bundled.
 - This container does not include `swift`, so compilation must be run on a Swift 5.9+ toolchain host.
 

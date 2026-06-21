@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(CryptoKit)
-import CryptoKit
-#endif
+import Crypto
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -55,13 +53,9 @@ public enum OAuthUtilities {
     public static func generatePKCE() throws -> PKCEPair {
         let bytes = (0..<32).map { _ in UInt8.random(in: UInt8.min...UInt8.max) }
         let verifier = base64URLEncode(Data(bytes))
-        #if canImport(CryptoKit)
         let digest = SHA256.hash(data: Data(verifier.utf8))
         let challenge = base64URLEncode(Data(digest))
         return PKCEPair(verifier: verifier, challenge: challenge)
-        #else
-        throw AIError.provider("CryptoKit is required for PKCE SHA-256")
-        #endif
     }
 
     public static func base64URLEncode(_ data: Data) -> String {

@@ -35,7 +35,20 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
 }
 
 public struct OpenAIResponsesCompat: Codable, Equatable, Sendable { public var promptCacheKey: Bool?; public init(promptCacheKey: Bool? = nil) { self.promptCacheKey = promptCacheKey } }
-public struct AnthropicMessagesCompat: Codable, Equatable, Sendable { public var cacheControl: Bool?; public init(cacheControl: Bool? = nil) { self.cacheControl = cacheControl } }
+public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
+    public var supportsEagerToolInputStreaming: Bool?
+    public var supportsLongCacheRetention: Bool?
+    public var allowEmptySignature: Bool?
+    public var supportsTemperature: Bool?
+    public var forceAdaptiveThinking: Bool?
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil) {
+        self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
+        self.supportsLongCacheRetention = supportsLongCacheRetention
+        self.allowEmptySignature = allowEmptySignature
+        self.supportsTemperature = supportsTemperature
+        self.forceAdaptiveThinking = forceAdaptiveThinking
+    }
+}
 
 public enum Compat {
     public static func detect(baseUrl: String) -> OpenAICompletionsCompat { detect(provider: nil, modelId: nil, baseUrl: baseUrl) }

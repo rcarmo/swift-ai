@@ -90,6 +90,44 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testAnthropicRequestAndSSEProcessing() {
+        let model = Model(id: "claude-test", name: "Claude Test", api: .anthropicMessages, provider: .anthropic, baseUrl: "https://api.anthropic.com", reasoning: true, maxTokens: 4096)
+        var options = StreamOptions()
+        options.reasoning = .low
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["model"], .string("claude-test"))
+        XCTAssertEqual(body["stream"], .bool(true))
+        XCTAssertNotNil(body["thinking"])
+
+        let sse = """
+        event: message_start
+        data: {"message":{"id":"msg_1","usage":{"input_tokens":5}}}
+
+        event: content_block_start
+        data: {"index":0,"content_block":{"type":"text"}}
+
+        event: content_block_delta
+        data: {"index":0,"delta":{"type":"text_delta","text":"hi"}}
+
+        event: content_block_stop
+        data: {"index":0}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}
+
+        event: message_stop
+        data: {}
+
+        """
+        let events = AnthropicMessagesProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.responseId, "msg_1")
+        XCTAssertEqual(message.content.first?.text, "hi")
+        XCTAssertEqual(message.usage?.input, 5)
+        XCTAssertEqual(message.usage?.output, 2)
+    }
+
     func testOpenAISSEProcessing() {
         let model = Model(id: "gpt-test", name: "GPT Test", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com")
         let sse = """

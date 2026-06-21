@@ -26,6 +26,23 @@ public enum OpenAIResponsesProvider {
         return body
     }
 
+    public static func resolveCodexURL(_ baseURL: String) -> String {
+        if baseURL.isEmpty { return "https://api.openai.com/v1/codex/responses" }
+        let normalized = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if normalized.hasSuffix("/codex") { return normalized + "/responses" }
+        return normalized + "/codex/responses"
+    }
+
+    public static func extractCodexAccountID(_ token: String) throws -> String {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3 else { throw AIError.provider("invalid token") }
+        var payload = String(parts[1])
+        while payload.count % 4 != 0 { payload += "=" }
+        payload = payload.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        guard let data = Data(base64Encoded: payload), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data), let auth = object["https://api.openai.com/auth"]?.objectValue, let account = auth["chatgpt_account_id"]?.stringValue, !account.isEmpty else { throw AIError.provider("no chatgpt_account_id in token") }
+        return account
+    }
+
     public static func resolveAzureConfig(model: Model, options: StreamOptions?) throws -> (baseURL: String, deployment: String, apiVersion: String) {
         let env = options?.env ?? [:]
         let apiVersion = options?.azureApiVersion ?? env["AZURE_OPENAI_API_VERSION"] ?? "v1"
@@ -43,6 +60,7 @@ public enum OpenAIResponsesProvider {
         var requestModel = model
         var base = model.baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         var suffix = "/responses"
+        if model.api == .openAICodexResponses { base = resolveCodexURL(model.baseUrl); suffix = "" }
         if model.api == .azureOpenAIResponses { let cfg = try resolveAzureConfig(model: model, options: options); base = cfg.baseURL; suffix = "/responses?api-version=\(cfg.apiVersion.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cfg.apiVersion)"; requestModel.id = cfg.deployment }
         var body = buildRequestBody(model: requestModel, context: context, options: options)
         if let hook = options?.onPayload { body = try await hook(body, model) }
@@ -51,6 +69,11 @@ public enum OpenAIResponsesProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        if model.api == .openAICodexResponses {
+            request.setValue(try extractCodexAccountID(key), forHTTPHeaderField: "chatgpt-account-id")
+            request.setValue("pi", forHTTPHeaderField: "originator")
+            request.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
+        }
         if let session = options?.sessionId, !session.isEmpty { if model.responsesCompat?.sendSessionIdHeader != false { request.setValue(session, forHTTPHeaderField: "session_id") }; request.setValue(session, forHTTPHeaderField: "x-client-request-id") }
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }

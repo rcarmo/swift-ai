@@ -245,6 +245,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testCodexResponsesHelpers() throws {
+        XCTAssertEqual(OpenAIResponsesProvider.resolveCodexURL(""), "https://api.openai.com/v1/codex/responses")
+        XCTAssertEqual(OpenAIResponsesProvider.resolveCodexURL("https://api.openai.com/v1"), "https://api.openai.com/v1/codex/responses")
+        let payload: JSONValue = .object(["https://api.openai.com/auth": .object(["chatgpt_account_id": .string("acct")])])
+        let payloadData = try JSONEncoder().encode(payload)
+        let payloadPart = payloadData.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        XCTAssertEqual(try OpenAIResponsesProvider.extractCodexAccountID("h.\(payloadPart).s"), "acct")
+    }
+
     func testOpenAIResponsesRequestAzureAndSSE() throws {
         let model = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .openAI, baseUrl: "https://api.openai.com/v1", reasoning: true)
         var options = StreamOptions()

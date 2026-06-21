@@ -17,7 +17,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - OpenAI Chat Completions provider exposed through the common async stream/complete API, with SSE event parsing for text, thinking, tool calls, usage, and finish reasons.
 - OpenAI Responses and Azure OpenAI Responses provider with SSE parsing, reasoning, prompt cache fields, and Azure configuration resolution.
 - Shared HTTP retry/backoff helper for 429/5xx responses and `Retry-After`.
-- OAuth framework plus GitHub Copilot and OpenAI Codex OAuth support.
+- OAuth framework plus GitHub Copilot, OpenAI Codex, and Anthropic OAuth support.
 - Anthropic Messages provider with SSE parsing for text, thinking, tool calls, usage, and stop reasons.
 - Mistral Conversations provider with reasoning/prompt mode and SSE event parsing.
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.

@@ -40,6 +40,7 @@ public enum SwiftAI {
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: OpenRouterImagesProvider.generateImages))
         await OAuthRegistry.shared.register(GitHubCopilotOAuthProvider())
         await OAuthRegistry.shared.register(OpenAICodexOAuthProvider())
+        await OAuthRegistry.shared.register(AnthropicOAuthProvider())
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

@@ -170,6 +170,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(await registration.pendingResponseCount(), 0)
     }
 
+    func testAnthropicOAuthProviderShape() {
+        let provider = AnthropicOAuthProvider()
+        let url = provider.authorizationURL(challenge: "challenge")
+        XCTAssertEqual(provider.id, "anthropic")
+        XCTAssertTrue(url.contains("code_challenge=challenge"))
+        XCTAssertTrue(url.contains("client_id="))
+        XCTAssertEqual(provider.apiKey(credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)), "a")
+    }
+
     func testCodexOAuthProviderShape() {
         let provider = OpenAICodexOAuthProvider()
         let creds = OAuthCredentials(refresh: "r", access: "a", expires: 0)

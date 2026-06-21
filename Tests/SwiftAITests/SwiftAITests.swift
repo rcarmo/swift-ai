@@ -465,7 +465,7 @@ final class SwiftAITests: XCTestCase {
         data: {}
 
         event: response.completed
-        data: {"response":{"id":"resp_1","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5}}}
+        data: {"response":{"id":"resp_1","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5,"input_tokens_details":{"cached_tokens":1}}}}
 
         """
         let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
@@ -473,6 +473,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(reason, .stop)
         XCTAssertEqual(message.responseId, "resp_1")
         XCTAssertEqual(message.content.first?.text, "hi")
+        XCTAssertEqual(message.usage?.input, 2)
+        XCTAssertEqual(message.usage?.cacheRead, 1)
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 

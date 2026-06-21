@@ -106,7 +106,32 @@ public enum GoogleGenerativeAIProvider {
     private static func closeCurrent(state: inout GoogleStreamState, yield: (AIEvent) -> Void) { guard let current = state.current else { return }; let block = state.partial.content[current.index]; if current.type == "text" { yield(.textEnd(contentIndex: current.index, content: block.text ?? "", partial: state.partial)) } else { yield(.thinkingEnd(contentIndex: current.index, content: block.thinking ?? "", partial: state.partial)) }; state.current = nil }
     private static func finish(state: inout GoogleStreamState, yield: (AIEvent) -> Void) { if !state.started { state.started = true; yield(.start(partial: state.partial)) }; closeCurrent(state: &state, yield: yield); state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000); if state.partial.stopReason == nil { state.partial.stopReason = .stop }; yield(.done(reason: state.partial.stopReason ?? .stop, message: state.partial)) }
 
-    private static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] { messages.compactMap { msg in var parts: [JSONValue] = []; for block in msg.content { if block.type == "text" { parts.append(.object(["text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])) } else if block.type == "image" { parts.append(.object(["inlineData": .object(["mimeType": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])])) } else if block.type == "toolCall" { parts.append(.object(["functionCall": .object(["name": .string(block.name ?? ""), "args": .object(block.arguments ?? [:]), "id": .string(normalizeToolCallID(block.id ?? ""))])])) } }; if parts.isEmpty { return nil }; return .object(["role": .string(msg.role == .assistant ? "model" : "user"), "parts": .array(parts)]) } }
+    private static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] {
+        messages.compactMap { msg in
+            let sameModel = msg.provider == model.provider && msg.api == model.api && msg.model == model.id
+            var parts: [JSONValue] = []
+            for block in msg.content {
+                if block.type == "text" {
+                    var part: [String: JSONValue] = ["text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]
+                    if sameModel, let sig = block.textSignature, isValidBase64Signature(sig) { part["thoughtSignature"] = .string(sig) }
+                    parts.append(.object(part))
+                } else if block.type == "thinking" {
+                    var part: [String: JSONValue] = ["text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? "")), "thought": .bool(true)]
+                    if sameModel, let sig = block.thinkingSignature, isValidBase64Signature(sig) { part["thoughtSignature"] = .string(sig) }
+                    parts.append(.object(part))
+                } else if block.type == "image" {
+                    parts.append(.object(["inlineData": .object(["mimeType": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])]))
+                } else if block.type == "toolCall" {
+                    var fc: [String: JSONValue] = ["name": .string(block.name ?? ""), "args": .object(block.arguments ?? [:]), "id": .string(normalizeToolCallID(block.id ?? ""))]
+                    var part: [String: JSONValue] = ["functionCall": .object(fc)]
+                    if sameModel, let sig = block.thoughtSignature, isValidBase64Signature(sig) { part["thoughtSignature"] = .string(sig) }
+                    parts.append(.object(part))
+                }
+            }
+            if parts.isEmpty { return nil }
+            return .object(["role": .string(msg.role == .assistant ? "model" : "user"), "parts": .array(parts)])
+        }
+    }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesThinkingLevel(_ model: Model) -> Bool { model.id.lowercased().contains("gemini-3") || model.id.lowercased().contains("gemma-4") || model.id == "gemini-flash-latest" || model.id == "gemini-flash-lite-latest" }
     private static func googleThinkingLevel(_ effort: String, model: Model) -> String { switch effort { case "minimal": return "MINIMAL"; case "low": return model.id.lowercased().contains("gemini-3") && model.id.lowercased().contains("pro") ? "LOW" : "LOW"; case "medium": return "MEDIUM"; case "high": return "HIGH"; default: return effort.uppercased() } }
@@ -114,6 +139,10 @@ public enum GoogleGenerativeAIProvider {
     private static func disabledThinkingConfig(model: Model) -> JSONValue { usesThinkingLevel(model) ? .object(["thinkingLevel": .string(model.id.lowercased().contains("pro") ? "LOW" : "MINIMAL")]) : .object(["thinkingBudget": .number(0)]) }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["name": .string(tool.name), "description": .string(tool.description), "parametersJsonSchema": tool.parameters]) }
     private static func normalizeToolCallID(_ id: String) -> String { let out = String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }); return String(out.prefix(64)) }
+    private static func isValidBase64Signature(_ sig: String) -> Bool {
+        if sig.isEmpty || sig.count % 4 != 0 { return false }
+        return sig.allSatisfy { $0.isLetter || $0.isNumber || $0 == "+" || $0 == "/" || $0 == "=" }
+    }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func mapFinishReason(_ raw: String) -> StopReason { raw == "MAX_TOKENS" ? .length : (raw == "STOP" ? .stop : .error) }
 }

@@ -452,6 +452,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.content.first?.text, "ok")
     }
 
+    func testGoogleSameModelSignatureReplay() {
+        let sig = "QUJDRA=="
+        let model = Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google)
+        var assistant = Message(role: .assistant, content: [ContentBlock(type: "thinking", thinking: "why", thinkingSignature: sig), ContentBlock.toolCall(id: "call", name: "lookup", arguments: [:])])
+        assistant.api = model.api
+        assistant.provider = model.provider
+        assistant.model = model.id
+        assistant.content[1].thoughtSignature = sig
+        let body = GoogleGenerativeAIProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let contents)? = body["contents"], case .object(let first) = contents[0], case .array(let parts)? = first["parts"], case .object(let thinking) = parts[0], case .object(let tool) = parts[1] else { return XCTFail("missing parts") }
+        XCTAssertEqual(thinking["thoughtSignature"], .string(sig))
+        XCTAssertEqual(tool["thoughtSignature"], .string(sig))
+    }
+
     func testGoogleRequestURLAndSSEProcessing() throws {
         let model = Model(id: "gemini-2.5-pro", name: "Gemini", api: .googleGenerativeAI, provider: .google, baseUrl: "https://generativelanguage.googleapis.com/v1beta", reasoning: true)
         var options = StreamOptions()

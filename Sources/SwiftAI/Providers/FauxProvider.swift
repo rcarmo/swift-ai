@@ -12,7 +12,7 @@ public struct FauxModelDef: Equatable, Sendable { public var id: String; public 
 public struct FauxOptions: Equatable, Sendable { public var models: [FauxModelDef]; public var tokensPerSecond: Int; public init(models: [FauxModelDef] = [FauxModelDef()], tokensPerSecond: Int = 1000) { self.models = models; self.tokensPerSecond = tokensPerSecond } }
 
 public actor FauxRegistration {
-    public let models: [Model]
+    public nonisolated let models: [Model]
     public private(set) var state = FauxState()
     private var responses: [FauxResponseStep] = []
     private let tokensPerSecond: Int
@@ -52,7 +52,7 @@ public actor FauxRegistration {
 public enum FauxProvider {
     public static func register(options: FauxOptions = FauxOptions()) async -> FauxRegistration {
         let registration = FauxRegistration(options: options)
-        for model in await registration.models { await AIRegistry.shared.register(model) }
+        for model in registration.models { await AIRegistry.shared.register(model) }
         await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, context, options in stream(registration: registration, model: model, context: context, options: options) }))
         return registration
     }

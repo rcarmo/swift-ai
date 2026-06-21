@@ -51,6 +51,9 @@ def grep_guard() -> None:
     types = (ROOT / "Sources" / "SwiftAI" / "Types.swift").read_text()
     if "public indirect enum JSONValue" not in types:
         raise SystemExit("JSONValue is recursive and must remain an indirect enum")
+    faux = (ROOT / "Sources" / "SwiftAI" / "Providers" / "FauxProvider.swift").read_text()
+    if "public nonisolated let models" not in faux:
+        raise SystemExit("FauxRegistration.models must remain nonisolated for Swift actor access")
     if "private extension JSONValue" in sources:
         raise SystemExit("private extension JSONValue is disallowed; use public accessors in Types.swift")
     for fragile in ["mapValues(JSONValue.string)", "map(JSONValue.string)"]:

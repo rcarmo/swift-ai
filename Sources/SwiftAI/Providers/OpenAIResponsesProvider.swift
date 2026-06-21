@@ -39,7 +39,12 @@ public enum OpenAIResponsesProvider {
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
         if let t = options?.temperature { body["temperature"] = .number(t) }
         if let max = options?.maxTokens { body["max_output_tokens"] = .number(Double(max)) }
-        if let reasoning = options?.reasoning, model.reasoning { body["reasoning"] = .object(["effort": .string(mappedThinkingEffort(model: model, effort: reasoning.rawValue)), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")]) }
+        if model.reasoning {
+            let effort = options?.reasoning.map { mappedThinkingEffort(model: model, effort: $0.rawValue) } ?? (model.provider == .githubCopilot ? "" : "medium")
+            if !effort.isEmpty { body["reasoning"] = .object(["effort": .string(effort), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")]) }
+        } else if let reasoning = options?.reasoning {
+            body["reasoning"] = .object(["effort": .string(mappedThinkingEffort(model: model, effort: reasoning.rawValue)), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")])
+        }
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if options?.cacheRetention == .long, model.responsesCompat?.supportsLongCacheRetention != false { body["prompt_cache_retention"] = .string("24h") }

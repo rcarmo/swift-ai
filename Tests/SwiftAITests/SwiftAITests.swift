@@ -365,6 +365,17 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try OpenAIResponsesProvider.extractCodexAccountID("h.\(payloadPart).s"), "acct")
     }
 
+    func testOpenAIResponsesDefaultReasoning() {
+        let model = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .openAI, reasoning: true)
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)
+        guard case .object(let reasoning)? = body["reasoning"] else { return XCTFail("missing reasoning") }
+        XCTAssertEqual(reasoning["effort"], .string("medium"))
+        XCTAssertEqual(body["include"], .array([.string("reasoning.encrypted_content")]))
+        let copilot = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .githubCopilot, reasoning: true)
+        let copilotBody = OpenAIResponsesProvider.buildRequestBody(model: copilot, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertNil(copilotBody["reasoning"])
+    }
+
     func testOpenAIResponsesAssistantReplayItems() throws {
         let reasoningSig = "{\"type\":\"reasoning\",\"summary\":[]}"
         let textSig = "{\"id\":\"msg_1\",\"phase\":\"final\"}"

@@ -24,6 +24,21 @@ EXPECTED_TEXT_MODELS = 979
 EXPECTED_TEXT_PROVIDERS = 35
 EXPECTED_IMAGE_MODELS = 34
 EXPECTED_IMAGE_PROVIDERS = 1
+REQUIRED_SOURCES = [
+    "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
+    "Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift",
+    "Sources/SwiftAI/Providers/AnthropicMessagesProvider.swift",
+    "Sources/SwiftAI/Providers/GoogleGenerativeAIProvider.swift",
+    "Sources/SwiftAI/Providers/GoogleGeminiCLIProvider.swift",
+    "Sources/SwiftAI/Providers/MistralConversationsProvider.swift",
+    "Sources/SwiftAI/Providers/OpenRouterImagesProvider.swift",
+    "Sources/SwiftAI/Providers/BedrockProvider.swift",
+    "Sources/SwiftAI/OAuth.swift",
+    "Sources/SwiftAI/AzureHelpers.swift",
+    "Sources/SwiftAI/Harness.swift",
+    "Sources/SwiftAI/PartialJSON.swift",
+    "Sources/SwiftAI/Retry.swift",
+]
 
 
 def enum_cases(path: Path) -> dict[str, str]:
@@ -73,6 +88,10 @@ def main() -> int:
     missing = sorted((text_providers | text_apis | image_providers | image_apis) - raw)
     if missing:
         failures.append("missing Swift enum raw values: " + ", ".join(missing))
+
+    missing_sources = [path for path in REQUIRED_SOURCES if not (ROOT / path).exists()]
+    if missing_sources:
+        failures.append("missing required parity source files: " + ", ".join(missing_sources))
 
     registered_text_apis, registered_image_apis = registered_api_raw_values()
     missing_text_runtime = sorted(text_apis - registered_text_apis)

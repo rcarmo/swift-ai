@@ -3,11 +3,29 @@ import Foundation
 import FoundationNetworking
 #endif
 
+public protocol CodexTransport: Sendable {
+    func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent>
+}
+
+public actor CodexTransportRegistry {
+    public static let shared = CodexTransportRegistry()
+    private var transport: (any CodexTransport)?
+    public func setTransport(_ transport: (any CodexTransport)?) { self.transport = transport }
+    public func current() -> (any CodexTransport)? { transport }
+}
+
 public enum OpenAIResponsesProvider {
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
-                do { try await streamRequest(model: model, context: context, options: options, continuation: continuation) }
+                do {
+                    if model.api == .openAICodexResponses, let transport = await CodexTransportRegistry.shared.current() {
+                        let request = buildRequestBody(model: model, context: context, options: options)
+                        for await event in transport.stream(request: request, model: model, context: context, options: options) { continuation.yield(event) }
+                    } else {
+                        try await streamRequest(model: model, context: context, options: options, continuation: continuation)
+                    }
+                }
                 catch { continuation.yield(.error(reason: .error, message: nil, error: error)) }
                 continuation.finish()
             }

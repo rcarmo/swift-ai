@@ -403,6 +403,14 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.totalTokens, 5)
     }
 
+    func testCodexPluggableTransport() async throws {
+        await CodexTransportRegistry.shared.setTransport(FakeCodexTransport())
+        defer { Task { await CodexTransportRegistry.shared.setTransport(nil) } }
+        let model = Model(id: "codex", name: "Codex", api: .openAICodexResponses, provider: .openAICodex)
+        let message = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]))
+        XCTAssertEqual(message.content.first?.text, "codex ok")
+    }
+
     func testBedrockPluggableTransport() async throws {
         await BedrockTransportRegistry.shared.setTransport(FakeBedrockTransport())
         defer { Task { await BedrockTransportRegistry.shared.setTransport(nil) } }
@@ -606,6 +614,20 @@ private struct FakeBedrockTransport: BedrockTransport {
     func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             var message = Message(role: .assistant, content: [.text("bedrock ok")])
+            message.api = model.api
+            message.provider = model.provider
+            message.model = model.id
+            message.stopReason = .stop
+            continuation.yield(.done(reason: .stop, message: message))
+            continuation.finish()
+        }
+    }
+}
+
+private struct FakeCodexTransport: CodexTransport {
+    func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
+        AsyncStream { continuation in
+            var message = Message(role: .assistant, content: [.text("codex ok")])
             message.api = model.api
             message.provider = model.provider
             message.model = model.id

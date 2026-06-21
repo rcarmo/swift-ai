@@ -15,7 +15,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Context overflow and basic tool argument validation helpers.
 - SSE parser.
 - OpenAI Chat Completions provider exposed through the common async stream/complete API, with SSE event parsing for text, thinking, tool calls, usage, finish reasons, and strict-mode tool schemas.
-- OpenAI Responses, Azure OpenAI Responses, and OpenAI Codex SSE provider with parsing, reasoning, prompt cache fields, Azure configuration, and Codex account headers.
+- OpenAI Responses, Azure OpenAI Responses, and OpenAI Codex provider with parsing, reasoning, prompt cache fields, Azure configuration, Codex account headers, and pluggable Codex transport.
 - Shared HTTP retry/backoff helper with upstream no-retry defaults, opt-in default retry config, 429/5xx handling, jitter, and `Retry-After` caps.
 - OAuth framework plus GitHub Copilot, OpenAI Codex, Anthropic, Gemini CLI, and Antigravity OAuth support.
 - Provider environment/API-key resolution matching upstream env names and scoped overrides.

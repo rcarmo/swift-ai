@@ -7,34 +7,58 @@ public struct RetryPolicy: Equatable, Sendable {
     public var maxRetries: Int
     public var maxDelayMs: Int
     public var baseDelayMs: Int
+    public var backoffMultiplier: Double
+    public var jitterFraction: Double
+    public var maxRetryDelayMs: Int
+    public var retryableStatuses: [Int]?
 
-    public init(maxRetries: Int = 0, maxDelayMs: Int = 30_000, baseDelayMs: Int = 250) {
-        self.maxRetries = maxRetries
+    public init(maxRetries: Int = 0, maxDelayMs: Int = 60_000, baseDelayMs: Int = 1_000, backoffMultiplier: Double = 2.0, jitterFraction: Double = 0.25, maxRetryDelayMs: Int = 60_000, retryableStatuses: [Int]? = nil) {
+        self.maxRetries = max(0, maxRetries)
         self.maxDelayMs = maxDelayMs
         self.baseDelayMs = baseDelayMs
+        self.backoffMultiplier = backoffMultiplier
+        self.jitterFraction = max(0, jitterFraction)
+        self.maxRetryDelayMs = maxRetryDelayMs
+        self.retryableStatuses = retryableStatuses
     }
 
+    public static func `default`() -> RetryPolicy { RetryPolicy(maxRetries: 3) }
+    public static func noRetry() -> RetryPolicy { RetryPolicy(maxRetries: 0) }
+
     public init(options: StreamOptions?) {
-        self.maxRetries = options?.maxRetries ?? 0
-        self.maxDelayMs = options?.maxRetryDelayMs ?? 30_000
-        self.baseDelayMs = 250
+        if let cfg = options?.retryConfig {
+            self.init(maxRetries: cfg.maxRetries ?? 3, maxRetryDelayMs: options?.maxRetryDelayMs ?? cfg.maxDelayMs ?? 60_000)
+        } else if let maxRetryDelayMs = options?.maxRetryDelayMs {
+            self.init(maxRetries: 3, maxRetryDelayMs: maxRetryDelayMs)
+        } else {
+            self = .noRetry()
+        }
     }
 
     public init(options: ImagesOptions?) {
-        self.maxRetries = options?.maxRetries ?? 0
-        self.maxDelayMs = options?.maxRetryDelayMs ?? 30_000
-        self.baseDelayMs = 250
+        if let maxRetries = options?.maxRetries, maxRetries > 0 { self.init(maxRetries: maxRetries, maxRetryDelayMs: options?.maxRetryDelayMs ?? 60_000) }
+        else if let maxRetryDelayMs = options?.maxRetryDelayMs { self.init(maxRetries: 3, maxRetryDelayMs: maxRetryDelayMs) }
+        else { self = .noRetry() }
     }
 
-    public func delayNanoseconds(attempt: Int, retryAfterMs: Int? = nil) -> UInt64 {
-        let exponential = min(maxDelayMs, baseDelayMs * (1 << max(0, attempt - 1)))
-        let chosen = min(maxDelayMs, max(exponential, retryAfterMs ?? 0))
-        return UInt64(chosen) * 1_000_000
+    public func delayMilliseconds(attempt: Int, retryAfterMs: Int? = nil) throws -> Int {
+        if let retryAfterMs, retryAfterMs > 0 {
+            if maxRetryDelayMs > 0, retryAfterMs > maxRetryDelayMs { throw AIError.provider("server requested retry delay of \(retryAfterMs)ms exceeds cap of \(maxRetryDelayMs)ms") }
+            return retryAfterMs
+        }
+        let exponential = Double(baseDelayMs) * pow(backoffMultiplier <= 0 ? 2.0 : backoffMultiplier, Double(max(0, attempt - 1)))
+        let jittered = exponential * (1.0 + (jitterFraction > 0 ? Double.random(in: -jitterFraction...jitterFraction) : 0))
+        return min(maxDelayMs, max(0, Int(jittered)))
     }
+
+    public func delayNanoseconds(attempt: Int, retryAfterMs: Int? = nil) throws -> UInt64 { UInt64(try delayMilliseconds(attempt: attempt, retryAfterMs: retryAfterMs)) * 1_000_000 }
 }
 
 public enum HTTPRetry {
-    public static func shouldRetry(statusCode: Int) -> Bool { statusCode == 429 || statusCode >= 500 }
+    public static func shouldRetry(statusCode: Int, policy: RetryPolicy = .default()) -> Bool {
+        if let statuses = policy.retryableStatuses { return statuses.contains(statusCode) }
+        return [429, 500, 502, 503, 504].contains(statusCode)
+    }
 
     public static func retryAfterMs(headers: [AnyHashable: Any]) -> Int? {
         let value = header(headers, "Retry-After") ?? header(headers, "retry-after")
@@ -54,16 +78,16 @@ public enum HTTPRetry {
         for attempt in 0...policy.maxRetries {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                if let http = response as? HTTPURLResponse, shouldRetry(statusCode: http.statusCode), attempt < policy.maxRetries {
+                if let http = response as? HTTPURLResponse, shouldRetry(statusCode: http.statusCode, policy: policy), attempt < policy.maxRetries {
                     let retryAfter = retryAfterMs(headers: http.allHeaderFields)
-                    try await Task.sleep(nanoseconds: policy.delayNanoseconds(attempt: attempt + 1, retryAfterMs: retryAfter))
+                    try await Task.sleep(nanoseconds: try policy.delayNanoseconds(attempt: attempt + 1, retryAfterMs: retryAfter))
                     continue
                 }
                 return (data, response)
             } catch {
                 lastError = error
                 if attempt >= policy.maxRetries { throw error }
-                try await Task.sleep(nanoseconds: policy.delayNanoseconds(attempt: attempt + 1))
+                try await Task.sleep(nanoseconds: try policy.delayNanoseconds(attempt: attempt + 1))
             }
         }
         throw lastError ?? AIError.provider("retry failed")
@@ -74,16 +98,16 @@ public enum HTTPRetry {
         for attempt in 0...policy.maxRetries {
             do {
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                if let http = response as? HTTPURLResponse, shouldRetry(statusCode: http.statusCode), attempt < policy.maxRetries {
+                if let http = response as? HTTPURLResponse, shouldRetry(statusCode: http.statusCode, policy: policy), attempt < policy.maxRetries {
                     let retryAfter = retryAfterMs(headers: http.allHeaderFields)
-                    try await Task.sleep(nanoseconds: policy.delayNanoseconds(attempt: attempt + 1, retryAfterMs: retryAfter))
+                    try await Task.sleep(nanoseconds: try policy.delayNanoseconds(attempt: attempt + 1, retryAfterMs: retryAfter))
                     continue
                 }
                 return (bytes, response)
             } catch {
                 lastError = error
                 if attempt >= policy.maxRetries { throw error }
-                try await Task.sleep(nanoseconds: policy.delayNanoseconds(attempt: attempt + 1))
+                try await Task.sleep(nanoseconds: try policy.delayNanoseconds(attempt: attempt + 1))
             }
         }
         throw lastError ?? AIError.provider("retry failed")

@@ -293,18 +293,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(filtered.map(\.id), ["keep", "other"])
     }
 
-    func testRetryPolicy() {
+    func testRetryPolicy() throws {
+        XCTAssertEqual(RetryPolicy(options: Optional<StreamOptions>.none).maxRetries, 0)
         var options = StreamOptions()
-        options.maxRetries = 3
         options.maxRetryDelayMs = 1_000
         let policy = RetryPolicy(options: options)
         XCTAssertEqual(policy.maxRetries, 3)
-        XCTAssertEqual(policy.maxDelayMs, 1_000)
-        XCTAssertEqual(policy.delayNanoseconds(attempt: 1), 250_000_000)
-        XCTAssertEqual(policy.delayNanoseconds(attempt: 10), 1_000_000_000)
-        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 429))
-        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 500))
-        XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
+        XCTAssertEqual(policy.maxRetryDelayMs, 1_000)
+        XCTAssertGreaterThan(try policy.delayNanoseconds(attempt: 1), 0)
+        XCTAssertThrowsError(try policy.delayMilliseconds(attempt: 1, retryAfterMs: 2_000))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 429, policy: policy))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 500, policy: policy))
+        XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 501, policy: RetryPolicy(retryableStatuses: [429])))
+        XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400, policy: policy))
     }
 
     func testAzureReasoningEventNormalization() throws {

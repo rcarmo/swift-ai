@@ -249,6 +249,7 @@ public struct StreamOptions: Sendable {
     public var sessionId: String?
     public var headers: [String: String]?
     public var maxRetryDelayMs: Int?
+    public var retryConfig: RetryConfig?
     public var metadata: [String: JSONValue]?
     public var env: ProviderEnv?
     public var region: String?

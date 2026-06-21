@@ -26,7 +26,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - Context overflow and JSON Schema tool argument validation helpers, including required fields, primitive type checks, and string enum checks.
 - Simple-options/thinking helpers: supported level discovery, xhigh clamping, nearest-level clamping, provider-specific thinking value mapping, default thinking budgets, and max-token/thinking-budget adjustment.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
-- Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
+- Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including upstream no-retry defaults, opt-in default retry config via `maxRetryDelayMs`, retryable status set, exponential backoff/jitter, and `Retry-After` cap handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.
 - GitHub Copilot OAuth provider: device-code login, token refresh, Copilot model policy enablement, available-model fetching/filtering, and base URL extraction.
 - OpenAI Codex OAuth provider: Auth0 device-code login, token polling, refresh-token exchange, and API-key extraction.
@@ -56,7 +56,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - Utility parity: deterministic SHA-256 short hashes, surrogate sanitization, Cloudflare provider detection, and Cloudflare base URL placeholder resolution; provider request builders sanitize serialized text inputs and Mistral tool-call ID fallback uses deterministic hashes.
 - Harness/context helpers: deep clone, JSON save/load, rough token estimation, context-window fit checks, tail compaction, turn appenders, text/tool extraction, and tool-execution detection.
 - Amazon Bedrock live transport is not bundled; full runtime parity requires AWS SigV4/event-stream support or an AWS SDK transport module.
-- Provider-specific retry defaults and advanced SDK retry behavior are not fully implemented.
+- Advanced vendor SDK retry behavior is not fully implemented where a vendor SDK is not bundled.
 
 ## Validation constraints
 

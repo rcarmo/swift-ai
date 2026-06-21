@@ -15,7 +15,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - OpenAI-compatible compat detection, including v0.79.9 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
 - SSE parser.
-- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported and developer-role system prompts for reasoning models when compatible.
+- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported, developer-role system prompts for reasoning models when compatible, assistant tool-call replay, and tool-result name replay when required.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
 - OpenAI Responses/Azure Responses/OpenAI Codex provider: request construction, assistant reasoning/text/tool-call replay items, Azure config resolution (including deployment maps and base URL normalization), Azure tool-call history trimming, Azure reasoning event normalization, Codex URL/account headers, pluggable Codex transport, default reasoning/include behavior, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
@@ -42,7 +42,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 
 The package is structurally consumable via SwiftPM, but provider-runtime parity is still incomplete:
 
-- OpenAI-compatible provider lacks only a small number of advanced provider-specific replay edge cases from `go-ai`.
+- OpenAI-compatible provider lacks only a very small number of advanced provider-specific replay edge cases from `go-ai`.
 - OpenAI Responses/Codex provider has pluggable WebSocket transport support but does not bundle a WebSocket/session-cache transport implementation; a few advanced prompt-cache edge cases remain.
 - Anthropic Messages provider lacks only a few advanced replay edge cases.
 - Google providers lack only a small number of advanced upstream replay edge cases.

@@ -91,11 +91,22 @@ public enum OpenAICompletionsProvider {
                 return nil
             }.joined()
             var obj: [String: JSONValue] = ["role": .string(role), "content": .string(contentText)]
-            if message.role == .toolResult, let id = message.toolCallId { obj["tool_call_id"] = .string(id) }
+            if message.role == .assistant {
+                let calls = message.content.filter { $0.type == "toolCall" }.map { block in
+                    JSONValue.object(["id": .string(block.id ?? ""), "type": .string("function"), "function": .object(["name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))])])
+                }
+                if !calls.isEmpty { obj["tool_calls"] = .array(calls) }
+            }
+            if message.role == .toolResult, let id = message.toolCallId {
+                obj["tool_call_id"] = .string(id)
+                if compat.requiresToolResultName == true, let name = message.toolName { obj["name"] = .string(name) }
+            }
             out.append(.object(obj))
         }
         return out
     }
+
+    private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
 
     private static func toolJSON(_ tool: Tool, compat: OpenAICompletionsCompat) -> JSONValue {
         var function: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]

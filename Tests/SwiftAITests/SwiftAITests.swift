@@ -663,6 +663,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
     }
 
+    func testOpenAIToolCallReplay() {
+        var compat = OpenAICompletionsCompat()
+        compat.requiresToolResultName = true
+        let model = Model(id: "chat", name: "Chat", api: .openAICompletions, provider: .openAI, completionsCompat: compat)
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "call", name: "lookup", arguments: ["q": .string("x")])])
+        var result = Message(role: .toolResult, content: [.text("ok")])
+        result.toolCallId = "call"
+        result.toolName = "lookup"
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant, result]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let first) = messages[0], case .array(let calls)? = first["tool_calls"], case .object(let second) = messages[1] else { return XCTFail("missing replay tool calls") }
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(second["tool_call_id"], .string("call"))
+        XCTAssertEqual(second["name"], .string("lookup"))
+    }
+
     func testOpenAIDeveloperRoleSystemPrompt() {
         var compat = OpenAICompletionsCompat()
         compat.supportsDeveloperRole = true

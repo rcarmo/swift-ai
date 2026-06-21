@@ -14,7 +14,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - OpenAI-compatible compat detection, including `chat-template` thinking kwargs.
 - Context overflow and basic tool argument validation helpers.
 - SSE parser.
-- OpenAI Chat Completions provider exposed through the common async stream/complete API, with SSE event parsing for text, thinking, tool calls, usage, and finish reasons.
+- OpenAI Chat Completions provider exposed through the common async stream/complete API, with SSE event parsing for text, thinking, tool calls, usage, finish reasons, and strict-mode tool schemas.
 - OpenAI Responses, Azure OpenAI Responses, and OpenAI Codex SSE provider with parsing, reasoning, prompt cache fields, Azure configuration, and Codex account headers.
 - Shared HTTP retry/backoff helper for 429/5xx responses and `Retry-After`.
 - OAuth framework plus GitHub Copilot, OpenAI Codex, Anthropic, Gemini CLI, and Antigravity OAuth support.
@@ -28,7 +28,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.
 - Google Gemini CLI / Cloud Code Assist provider with OAuth JSON credentials and wrapped Gemini SSE parsing.
 - Faux provider/test double for credential-free SwiftPM tests.
-- Token cost calculation utilities wired into provider usage metadata.
+- Token cost calculation utilities wired into text and image provider usage metadata.
 - Message transformation helpers for cross-provider replay, image downgrade, and synthetic tool results.
 - Prompt-cache helpers and session-resource cleanup registry.
 - Diagnostics and pluggable logging helpers.

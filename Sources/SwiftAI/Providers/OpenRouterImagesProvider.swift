@@ -37,7 +37,7 @@ public enum OpenRouterImagesProvider {
             }
             let decoded = try JSONDecoder().decode(OpenRouterImageResponse.self, from: data)
             out.responseId = decoded.id
-            if let usage = decoded.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); out.usage = u }
+            if let usage = decoded.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(imageModel: model, usage: &u); out.usage = u }
             if let text = decoded.choices.first?.message.content, !text.isEmpty { out.output.append(ImageOutput(type: "text", text: text)) }
             for image in decoded.choices.first?.message.images ?? [] {
                 guard let url = image.urlValue, url.hasPrefix("data:") else { continue }

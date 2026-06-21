@@ -193,6 +193,9 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(cost.cacheRead, 0.00006, accuracy: 0.0000001)
         XCTAssertEqual(cost.cacheWrite, ((75.0 * 3.75) + (25.0 * 6.0)) / 1_000_000.0, accuracy: 0.0000001)
         XCTAssertEqual(cost.total, cost.input + cost.output + cost.cacheRead + cost.cacheWrite, accuracy: 0.0000001)
+        let imageModel = ImagesModel(id: "img", name: "Image", api: .openRouterImages, provider: .openRouter, cost: ModelCost(input: 2, output: 4))
+        var imageUsage = Usage(); imageUsage.input = 1000; imageUsage.output = 1000
+        XCTAssertEqual(AIUtilities.calculateCost(imageModel: imageModel, usage: imageUsage).total, 0.006, accuracy: 0.0000001)
     }
 
     func testFauxProviderHelpers() async throws {
@@ -480,7 +483,10 @@ final class SwiftAITests: XCTestCase {
         let model = Model(id: "x", name: "x", api: .openAICompletions, provider: .openAI, baseUrl: "https://example.com", reasoning: true, thinkingLevelMap: [.high: "high"], completionsCompat: compat)
         var options = StreamOptions()
         options.reasoning = .high
-        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [tool]), options: options)
+        guard case .array(let tools)? = body["tools"], case .object(let toolObject) = tools[0], case .object(let function)? = toolObject["function"] else { return XCTFail("missing strict tool") }
+        XCTAssertEqual(function["strict"], .bool(true))
         guard case .object(let kwargs)? = body["chat_template_kwargs"] else { return XCTFail("missing kwargs") }
         XCTAssertEqual(kwargs["enable_thinking"], .bool(true))
         XCTAssertEqual(kwargs["effort"], .string("high"))

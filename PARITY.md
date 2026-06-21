@@ -15,11 +15,11 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - OpenAI-compatible compat detection, including v0.79.9 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
 - SSE parser.
-- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points.
+- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
 - OpenAI Responses/Azure Responses/OpenAI Codex SSE provider: request construction, Azure config resolution, Codex URL/account headers, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
-- Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text-provider usage where metadata is available.
+- Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text and image provider usage where metadata is available.
 - Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.
 - Prompt cache helpers and session-resource cleanup registry, with OpenAI prompt-cache key clamping wired into Chat Completions and Responses requests.
 - Diagnostics and logging helpers: thrown-value formatting, serializable assistant diagnostics, diagnostic append helper, pluggable discard/stderr logger, and global logger actor.

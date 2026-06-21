@@ -20,6 +20,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**.
 - OpenAI Responses/Azure Responses provider: request construction, Azure config resolution, reasoning/include support, prompt-cache fields, SSE parsing for text/reasoning/tool events, failures, completion usage, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
 - Cost calculation utilities matching upstream per-million-token pricing, including cache read/write and Anthropic-style 1h cache writes; wired into streamed text-provider usage where metadata is available.
+- Message transformation helpers: cross-provider thinking replay rules, unsupported-image downgrade, assistant error trimming, and synthetic tool results for orphaned tool calls; wired into provider request builders.
 - OpenRouter image generation provider request/response path, including multimodal payload construction and `data:` URL image extraction.
 - Shared HTTP retry/backoff helper wired into OpenAI-compatible text and OpenRouter image providers, including 429/5xx retry and `Retry-After` handling.
 - OAuth core framework: credentials, auth/prompt callbacks, provider registry, PKCE utilities, and device-flow response shape.
@@ -36,7 +37,7 @@ The package is structurally consumable via SwiftPM, but provider-runtime parity 
 - OpenAI Responses provider lacks some upstream replay/signature/prompt-cache edge cases.
 - Anthropic Messages provider lacks full prompt-cache replay/tool-result edge cases.
 - Google Gemini CLI runtime is not implemented.
-- Google provider lacks some upstream transform/signature/tool-result edge cases.
+- Google provider lacks some upstream signature/tool-result edge cases.
 - Bedrock Converse runtime is not implemented.
 - OpenAI Codex runtime is not implemented.
 - OAuth flows other than GitHub Copilot are not implemented.

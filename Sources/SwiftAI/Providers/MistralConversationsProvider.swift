@@ -15,7 +15,7 @@ public enum MistralConversationsProvider {
     }
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
-        var body: [String: JSONValue] = ["model": .string(model.id), "stream": .bool(true), "messages": .array(convertMessages(context))]
+        var body: [String: JSONValue] = ["model": .string(model.id), "stream": .bool(true), "messages": .array(convertMessages(context, model: model))]
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
         if let maxTokens = options?.maxTokens { body["max_tokens"] = .number(Double(maxTokens)) }
         if let reasoning = options?.reasoning, model.reasoning {
@@ -112,10 +112,10 @@ public enum MistralConversationsProvider {
         yield(.done(reason: reason, message: state.partial))
     }
 
-    private static func convertMessages(_ context: AIContext) -> [JSONValue] {
+    private static func convertMessages(_ context: AIContext, model: Model) -> [JSONValue] {
         var out: [JSONValue] = []
         if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string("system"), "content": .string(system)])) }
-        for msg in context.messages {
+        for msg in AIUtilities.transformMessages(context.messages, for: model) {
             switch msg.role {
             case .user: out.append(.object(["role": .string("user"), "content": .string(msg.content.compactMap(\.text).joined())]))
             case .assistant:

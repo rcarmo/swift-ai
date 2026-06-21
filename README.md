@@ -23,6 +23,7 @@ This package is an initial Swift port prepared for consumption as a SwiftPM libr
 - Google Gemini/Vertex REST provider with thinking config, multimodal/tool request support, and SSE event parsing.
 - Faux provider/test double for credential-free SwiftPM tests.
 - Token cost calculation utilities wired into provider usage metadata.
+- Message transformation helpers for cross-provider replay, image downgrade, and synthetic tool results.
 - Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
 - Full embedded image model catalog: 34 OpenRouter image models.
 

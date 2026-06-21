@@ -59,6 +59,23 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
     }
 
+    func testMessageTransform() {
+        let textOnlyModel = Model(id: "target", name: "Target", api: .openAICompletions, provider: .openAI, input: ["text"])
+        var assistant = Message(role: .assistant, content: [ContentBlock.thinking("private"), ContentBlock.toolCall(id: "call1", name: "tool", arguments: [:])])
+        assistant.api = .anthropicMessages
+        assistant.provider = .anthropic
+        assistant.model = "other"
+        let messages: [Message] = [
+            Message(role: .user, content: [.image(data: "abc", mimeType: "image/png")]),
+            assistant,
+            Message.user("next")
+        ]
+        let transformed = AIUtilities.transformMessages(messages, for: textOnlyModel)
+        XCTAssertEqual(transformed.first?.content.first?.text, "(image omitted: model does not support images)")
+        XCTAssertTrue(transformed.contains { $0.role == .assistant && $0.content.first?.type == "text" && $0.content.first?.text == "private" })
+        XCTAssertTrue(transformed.contains { $0.role == .toolResult && $0.toolCallId == "call1" && $0.isError == true })
+    }
+
     func testCostCalculation() {
         let model = Model(id: "priced", name: "Priced", api: .openAICompletions, provider: .openAI, cost: ModelCost(input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75))
         var usage = Usage()

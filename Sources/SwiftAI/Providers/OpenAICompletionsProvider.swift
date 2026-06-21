@@ -26,7 +26,7 @@ public enum OpenAICompletionsProvider {
         var body: [String: JSONValue] = [
             "model": .string(model.id),
             "stream": .bool(stream),
-            "messages": .array(convertMessages(context: context, compat: compat))
+            "messages": .array(convertMessages(model: model, context: context, compat: compat))
         ]
         if stream, compat.supportsUsageInStreaming != false { body["stream_options"] = .object(["include_usage": .bool(true)]) }
         if compat.supportsStore != false { body["store"] = .bool(false) }
@@ -75,10 +75,10 @@ public enum OpenAICompletionsProvider {
         return out.isEmpty ? nil : out
     }
 
-    private static func convertMessages(context: AIContext, compat: OpenAICompletionsCompat) -> [JSONValue] {
+    private static func convertMessages(model: Model, context: AIContext, compat: OpenAICompletionsCompat) -> [JSONValue] {
         var out: [JSONValue] = []
         if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string("system"), "content": .string(system)])) }
-        for message in context.messages {
+        for message in AIUtilities.transformMessages(context.messages, for: model) {
             let role: String = message.role == .toolResult ? "tool" : message.role.rawValue
             let contentText = message.content.compactMap { block -> String? in
                 if block.type == "text" { return block.text }

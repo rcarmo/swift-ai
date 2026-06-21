@@ -23,7 +23,7 @@ public enum AnthropicMessagesProvider {
             "model": .string(model.id),
             "max_tokens": .number(Double(options?.maxTokens ?? model.maxTokens)),
             "stream": .bool(true),
-            "messages": .array(convertMessages(context.messages))
+            "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model)))
         ]
         if let system = context.systemPrompt, !system.isEmpty { body["system"] = .string(system) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }

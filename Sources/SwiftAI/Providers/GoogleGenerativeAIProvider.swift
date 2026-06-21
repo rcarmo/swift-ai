@@ -17,7 +17,7 @@ public enum GoogleGenerativeAIProvider {
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
         var body: [String: JSONValue] = [:]
         if let system = context.systemPrompt, !system.isEmpty { body["systemInstruction"] = .object(["parts": .array([.object(["text": .string(system)])])]) }
-        body["contents"] = .array(convertMessages(model: model, messages: context.messages))
+        body["contents"] = .array(convertMessages(model: model, messages: AIUtilities.transformMessages(context.messages, for: model)))
         var gen: [String: JSONValue] = [:]
         if let t = options?.temperature { gen["temperature"] = .number(t) }
         if let max = options?.maxTokens { gen["maxOutputTokens"] = .number(Double(max)) }

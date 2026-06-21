@@ -163,6 +163,20 @@ def main() -> int:
     if missing_image_runtime:
         failures.append("missing image API bootstrap registrations: " + ", ".join(missing_image_runtime))
 
+    status_oauth = set(status.get("oauthProviders", []))
+    registry_text = REGISTRY.read_text()
+    oauth_registered = set(re.findall(r'OAuthRegistry\.shared\.register\((\w+)\(', registry_text))
+    oauth_class_to_id = {
+        "GitHubCopilotOAuthProvider": "github-copilot",
+        "OpenAICodexOAuthProvider": "openai-codex",
+        "AnthropicOAuthProvider": "anthropic",
+        "GoogleGeminiCLIOAuthProvider": "google-gemini-cli",
+        "GoogleAntigravityOAuthProvider": "google-antigravity",
+    }
+    registered_oauth_ids = {oauth_class_to_id[name] for name in oauth_registered if name in oauth_class_to_id}
+    if status_oauth != registered_oauth_ids:
+        failures.append("STATUS oauthProviders differ from bootstrap registrations: status=" + ",".join(sorted(status_oauth)) + " registered=" + ",".join(sorted(registered_oauth_ids)))
+
     status_bundled = set(status.get("bundledRuntimeProviders", []))
     # STATUS labels Codex as SSE to distinguish it from optional WebSocket transport.
     normalized_status_bundled = {"openai-codex-responses" if x == "openai-codex-responses-sse" else x for x in status_bundled}

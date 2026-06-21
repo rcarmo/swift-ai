@@ -15,7 +15,9 @@ public enum OpenAIResponsesProvider {
     }
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
-        var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(convertInput(model: model, context: context)), "stream": .bool(true), "store": .bool(false)]
+        var input = convertInput(model: model, context: context)
+        if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
+        var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
         if let t = options?.temperature { body["temperature"] = .number(t) }
         if let max = options?.maxTokens { body["max_output_tokens"] = .number(Double(max)) }

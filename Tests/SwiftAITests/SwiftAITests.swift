@@ -289,6 +289,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400))
     }
 
+    func testAzureToolCallLimit() {
+        let messages: [JSONValue] = [
+            .object(["type": .string("function_call"), "name": .string("old"), "call_id": .string("1")]),
+            .object(["type": .string("function_call_output"), "call_id": .string("1"), "output": .string("older output")]),
+            .object(["type": .string("function_call"), "name": .string("new"), "call_id": .string("2")]),
+            .object(["type": .string("function_call_output"), "call_id": .string("2"), "output": .string("newer output")])
+        ]
+        let result = AzureHelpers.applyToolCallLimit(messages, config: ToolCallLimitConfig(limit: 1, summaryMax: 100, outputChars: 20))
+        XCTAssertEqual(result.toolCallTotal, 2)
+        XCTAssertEqual(result.toolCallRemoved, 1)
+        XCTAssertTrue(result.summaryText.contains("old"))
+        XCTAssertEqual(result.messages.count, 3)
+    }
+
     func testAzureResponsesHelpers() throws {
         XCTAssertEqual(OpenAIResponsesProvider.parseAzureDeploymentNameMap("gpt-5=prod, other = dep2")["other"], "dep2")
         XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://res.openai.azure.com"), "https://res.openai.azure.com/openai/v1")

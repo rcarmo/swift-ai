@@ -911,6 +911,24 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
     }
 
+    func testAnthropicAdaptiveThinkingModelMetadata() throws {
+        let models = try BuiltinModels.all()
+        let flagged = models
+            .filter { $0.api == .anthropicMessages && $0.anthropicCompat?.forceAdaptiveThinking == true }
+            .map { "\($0.provider.rawValue)/\($0.id)" }
+            .sorted()
+        for expected in [
+            "anthropic/claude-fable-5",
+            "anthropic/claude-opus-4-8",
+            "cloudflare-ai-gateway/claude-fable-5",
+            "opencode/claude-opus-4-8",
+            "vercel-ai-gateway/anthropic/claude-opus-4.8"
+        ] {
+            XCTAssertTrue(flagged.contains(expected), expected)
+        }
+        XCTAssertTrue(flagged.allSatisfy { $0.contains("opus-4-6") || $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus.4.8") || $0.contains("sonnet-4-6") || $0.contains("sonnet-4.6") || $0.contains("fable-5") || $0.contains("fable.5") })
+    }
+
     func testAnthropicTemperatureCompat() throws {
         let opus47 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-opus-4-7" })
         let opus48 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-opus-4-8" })

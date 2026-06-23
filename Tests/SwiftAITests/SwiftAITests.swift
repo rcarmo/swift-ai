@@ -20,6 +20,14 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(events[0].id, "7")
     }
 
+    func testSSEParserMultilineStickyIDAndRetry() {
+        let parser = SSEParser()
+        let events = parser.parse("id: 7\nretry: 2500\nevent: chunk\ndata: a\ndata: b\n\ndata: c\n\n")
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events[0], SSEEvent(event: "chunk", data: "a\nb", id: "7", retry: 2500))
+        XCTAssertEqual(events[1], SSEEvent(event: nil, data: "c", id: "7", retry: 2500))
+    }
+
     func testCompatChatTemplateOverride() {
         var compat = OpenAICompletionsCompat()
         compat.thinkingFormat = "chat-template"

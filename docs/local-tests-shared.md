@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **188**
-- Adapted in Swift semantic tests: **63**
+- Adapted in Swift semantic tests: **66**
 - Partial/pluggable transport coverage: **9**
-- Pending direct Swift adaptation: **116**
+- Pending direct Swift adaptation: **113**
 
 ## Highest-priority pending buckets
 
@@ -205,6 +205,6 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestGetAPIKeyKeepsValidCredential` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: Get APIKey Keeps Valid Credential |
 | PENDING | `TestOAuthRegistryRoundTrip` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: OAuth Registry Round Trip |
 | PENDING | `TestParseSSESurfacesReaderErrors` | `transports/sse/sse_error_test.go` | `—` | streaming/event transport behavior: Parse SSESurfaces Reader Errors |
-| PENDING | `TestParseSSE` | `transports/sse/sse_test.go` | `—` | streaming/event transport behavior: Parse SSE |
-| PENDING | `TestParseMultilineData` | `transports/sse/sse_test.go` | `—` | Parse Multiline Data |
-| PENDING | `TestParseStickyIDAndRetry` | `transports/sse/sse_test.go` | `—` | retry/cancellation robustness: Parse Sticky IDAnd Retry |
+| ADAPTED | `TestParseSSE` | `transports/sse/sse_test.go` | `testSSEParser` | streaming/event transport behavior: Parse SSE |
+| ADAPTED | `TestParseMultilineData` | `transports/sse/sse_test.go` | `testSSEParserMultilineStickyIDAndRetry` | Parse Multiline Data |
+| ADAPTED | `TestParseStickyIDAndRetry` | `transports/sse/sse_test.go` | `testSSEParserMultilineStickyIDAndRetry` | retry/cancellation robustness: Parse Sticky IDAnd Retry |

@@ -2,7 +2,7 @@
   "upstream": {
     "package": "@earendil-works/pi-ai",
     "version": "0.80.2",
-    "reference": "go-ai v0.80.2"
+    "reference": "direct upstream inspection"
   },
   "swiftPM": {
     "package": "swift-ai",

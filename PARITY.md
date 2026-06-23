@@ -1,6 +1,6 @@
 # swift-ai parity status
 
-Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.80.2**. `STATUS.json` contains the same high-level status in machine-readable form.
+Tracks upstream `@earendil-works/pi-ai` **v0.80.2** via direct upstream inspection. `STATUS.json` contains the same high-level status in machine-readable form.
 
 ## Implemented
 
@@ -10,7 +10,7 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.80.2**. `STATUS.j
 - Event protocol as a Swift `AIEvent` enum.
 - Actor-backed registries for text API providers, text models, image API providers, and image models.
 - Full embedded text model registry generated from upstream `pi-ai` v0.80.2: **999 models / 35 providers**.
-- Full embedded image model registry generated from `go-ai` v0.80.2: **34 models / 1 provider**.
+- Full embedded image model registry generated from upstream `pi-ai` v0.80.2: **34 models / 1 provider**.
 - Environment key lookup with per-request `StreamOptions.env` / `ImagesOptions.env` overlay.
 - OpenAI-compatible compat detection, including v0.80.2 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.

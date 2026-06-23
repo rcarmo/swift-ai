@@ -46,6 +46,7 @@ REQUIRED_SOURCES = [
     "docs/TRANSPORTS.md",
     "docs/USAGE.md",
     "docs/upstream-parity-gaps.md",
+    "docs/local-tests-shared.md",
 ]
 
 

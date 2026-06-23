@@ -71,6 +71,41 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try await callbacks.prompt(.manualCode(message: "code")), "code")
     }
 
+    func testCompleteNilModelDoesNotPanic() async {
+        do {
+            _ = try await SwiftAI.complete(model: nil)
+            XCTFail("expected nil model error")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("nilModel") || String(describing: error).contains("nil model"))
+        }
+    }
+
+    func testCloneContextDeepCopiesNestedFieldsAndToolCalls() throws {
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "c", name: "tool", arguments: ["nested": .object(["x": .string("y")])])])
+        var usage = Usage(); usage.input = 1; assistant.usage = usage
+        let context = AIContext(systemPrompt: "sys", messages: [assistant], tools: [Tool(name: "tool", description: "desc", parameters: .object(["type": .string("object")]))])
+        var clone = try XCTUnwrap(Harness.cloneContext(context))
+        clone.messages[0].content[0].arguments?["nested"] = .object(["x": .string("changed")])
+        XCTAssertEqual(context.messages[0].content[0].arguments?["nested"], .object(["x": .string("y")]))
+        var calls = Harness.toolCalls(in: context.messages[0])
+        calls[0].arguments?["nested"] = .object(["x": .string("changed")])
+        XCTAssertEqual(context.messages[0].content[0].arguments?["nested"], .object(["x": .string("y")]))
+    }
+
+    func testStreamNilModelAndNoProvider() async {
+        let nilEvents = await SwiftAI.stream(model: nil)
+        var sawNilError = false
+        for await event in nilEvents { if case .error(_, _, let error) = event { sawNilError = String(describing: error).contains("nilModel") || String(describing: error).contains("nil model") } }
+        XCTAssertTrue(sawNilError)
+
+        let missing = Model(id: "missing", name: "Missing", api: .faux, provider: .faux)
+        await AIRegistry.shared.unregister(api: .faux)
+        let events = await SwiftAI.stream(model: missing)
+        var sawProviderError = false
+        for await event in events { if case .error(_, _, let error) = event { sawProviderError = String(describing: error).contains("noProvider") || String(describing: error).contains("no provider") } }
+        XCTAssertTrue(sawProviderError)
+    }
+
     func testSwiftAIStatusConstants() {
         XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.2")
         XCTAssertEqual(SwiftAIStatus.textModelCount, 999)

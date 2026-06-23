@@ -22,6 +22,22 @@ def chunks(s: str, n: int = 76):
         yield s[i:i+n]
 
 
+def normalize_model(model: dict) -> dict:
+    model = dict(model)
+    compat = model.pop("compat", None)
+    if isinstance(compat, dict):
+        api = model.get("api")
+        if api == "openai-completions":
+            model["completionsCompat"] = compat
+        elif api in ("openai-responses", "azure-openai-responses", "openai-codex-responses"):
+            model["responsesCompat"] = compat
+        elif api == "anthropic-messages":
+            model["anthropicCompat"] = compat
+        else:
+            model["compat"] = compat
+    return model
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print(__doc__.strip(), file=sys.stderr)
@@ -29,6 +45,7 @@ def main() -> int:
     src = Path(sys.argv[1])
     dst = Path(sys.argv[2])
     models = json.loads(src.read_text())
+    models = [normalize_model(m) for m in models]
     providers = sorted({m["provider"] for m in models})
     encoded = base64.b64encode(json.dumps(models, separators=(",", ":"), sort_keys=True).encode()).decode()
     body = "\n".join(chunks(encoded))

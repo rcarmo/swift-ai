@@ -30,6 +30,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(detected.chatTemplateKwargs?["enable_thinking"]?.variable, "thinking.enabled")
     }
 
+    func testModelCompatCodableShape() throws {
+        let anthropicJSON = """
+        {"id":"a","name":"A","api":"anthropic-messages","provider":"anthropic","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1,"anthropicCompat":{"sendSessionAffinityHeaders":true,"supportsCacheControlOnTools":false}}
+        """.data(using: .utf8)!
+        let anthropic = try JSONDecoder().decode(Model.self, from: anthropicJSON)
+        XCTAssertEqual(anthropic.anthropicCompat?.sendSessionAffinityHeaders, true)
+        XCTAssertEqual(anthropic.anthropicCompat?.supportsCacheControlOnTools, false)
+    }
+
     func testModelThinkingLevelMapCodableShape() throws {
         let json = """
         {"id":"m","name":"M","api":"openai-completions","provider":"openai","baseUrl":"","reasoning":true,"thinkingLevelMap":{"off":"none","xhigh":null},"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1}
@@ -683,6 +692,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolUse["id"], .string("call_1"))
         XCTAssertEqual(toolResult["type"], .string("tool_result"))
         XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
+    }
+
+    func testAnthropicToolCacheControlCompat() {
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsCacheControlOnTools: false))
+        var options = StreamOptions(); options.cacheRetention = .long
+        let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [tool]), options: options)
+        guard case .array(let tools)? = body["tools"], case .object(let toolObj) = tools[0] else { return XCTFail("missing tool") }
+        XCTAssertNil(toolObj["cache_control"])
     }
 
     func testAnthropicCacheControlRequest() {

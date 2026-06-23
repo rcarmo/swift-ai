@@ -28,7 +28,7 @@ public enum AnthropicMessagesProvider {
         let cc = cacheControl(model: model, options: options)
         if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, cacheControl: idx == tools.count - 1 ? cc : nil) }) }
+        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
         if let reasoning = options?.reasoning, model.reasoning {
             if model.anthropicCompat?.forceAdaptiveThinking == true { body["thinking"] = .object(["type": .string("adaptive")]) }
             else { body["thinking"] = .object(["type": .string("enabled"), "budget_tokens": .number(Double(thinkingBudget(reasoning, options: options)))]) }
@@ -48,6 +48,9 @@ public enum AnthropicMessagesProvider {
             for (k, v) in AIUtilities.copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
         } else {
             request.setValue(key, forHTTPHeaderField: "X-Api-Key")
+        }
+        if let session = options?.sessionId, !session.isEmpty, model.anthropicCompat?.sendSessionAffinityHeaders == true {
+            request.setValue(session, forHTTPHeaderField: "x-session-affinity")
         }
         let betas = betaHeaders(model: model, context: context)
         if !betas.isEmpty { request.setValue(betas.joined(separator: ","), forHTTPHeaderField: "Anthropic-Beta") }

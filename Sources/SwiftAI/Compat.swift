@@ -43,12 +43,16 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
 public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?
     public var supportsLongCacheRetention: Bool?
+    public var sendSessionAffinityHeaders: Bool?
+    public var supportsCacheControlOnTools: Bool?
     public var allowEmptySignature: Bool?
     public var supportsTemperature: Bool?
     public var forceAdaptiveThinking: Bool?
-    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil) {
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil) {
         self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
         self.supportsLongCacheRetention = supportsLongCacheRetention
+        self.sendSessionAffinityHeaders = sendSessionAffinityHeaders
+        self.supportsCacheControlOnTools = supportsCacheControlOnTools
         self.allowEmptySignature = allowEmptySignature
         self.supportsTemperature = supportsTemperature
         self.forceAdaptiveThinking = forceAdaptiveThinking

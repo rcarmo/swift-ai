@@ -270,6 +270,7 @@ public struct StreamOptions: Sendable {
     public var thinkingBudgets: ThinkingBudgets?
     public var reasoningSummary: String?
     public var serviceTier: String?
+    public var toolChoice: JSONValue?
 
     public var onPayload: (@Sendable ([String: JSONValue], Model) async throws -> [String: JSONValue])?
     public var onResponse: (@Sendable (HTTPResponseMetadata, Model) async -> Void)?

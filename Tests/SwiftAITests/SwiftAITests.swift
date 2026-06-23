@@ -964,6 +964,17 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
     }
 
+    func testOpenAICompletionsToolChoice() {
+        let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
+        var options = StreamOptions()
+        options.toolChoice = .string("required")
+        let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI)
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [tool]), options: options)
+        XCTAssertEqual(body["tool_choice"], .string("required"))
+        guard case .array(let tools)? = body["tools"] else { return XCTFail("missing tools") }
+        XCTAssertGreaterThan(tools.count, 0)
+    }
+
     func testOpenAICompat0802Params() {
         let nonOpenAI = Model(id: "m", name: "M", api: .openAICompletions, provider: .openRouter, baseUrl: "https://openrouter.ai/api/v1")
         var options = StreamOptions()

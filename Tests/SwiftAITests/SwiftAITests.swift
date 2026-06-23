@@ -1047,6 +1047,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(noToolsBody["tools"])
     }
 
+    func testAnthropicLongCacheRetentionModelCoverage() throws {
+        let models = try BuiltinModels.all().filter { $0.api == .anthropicMessages }
+        XCTAssertFalse(models.isEmpty)
+        let providers = Set(models.map(\.provider))
+        XCTAssertTrue(providers.contains(.anthropic))
+        XCTAssertTrue(providers.contains(.githubCopilot))
+        var options = StreamOptions(); options.cacheRetention = .long
+        let forced = models[0]
+        let model = Model(id: forced.id, name: forced.name, api: forced.api, provider: forced.provider, baseUrl: forced.baseUrl, reasoning: forced.reasoning, thinkingLevelMap: forced.thinkingLevelMap, input: forced.input, cost: forced.cost, contextWindow: forced.contextWindow, maxTokens: forced.maxTokens, headers: forced.headers, anthropicCompat: AnthropicMessagesCompat(supportsLongCacheRetention: true))
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        guard case .array(let system)? = body["system"], case .object(let systemBlock) = system[0], case .object(let cc)? = systemBlock["cache_control"] else { return XCTFail("missing long cache control") }
+        XCTAssertEqual(cc["ttl"], .string("1h"))
+    }
+
     func testAnthropicToolCacheControlCompat() {
         let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsCacheControlOnTools: false))
         var options = StreamOptions(); options.cacheRetention = .long

@@ -887,6 +887,40 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
     }
 
+    func testAnthropicCacheWrite1hCost() {
+        let model = Model(id: "claude-opus-4-8", name: "Claude", api: .anthropicMessages, provider: .anthropic, cost: ModelCost(input: 5, output: 0, cacheRead: 0, cacheWrite: 6.25))
+        let withBreakdown = """
+        event: message_start
+        data: {"message":{"id":"msg_test","usage":{"input_tokens":100,"cache_creation_input_tokens":1000000,"cache_creation":{"ephemeral_5m_input_tokens":600000,"ephemeral_1h_input_tokens":400000}}}}
+
+        event: content_block_start
+        data: {"index":0,"content_block":{"type":"text"}}
+
+        event: content_block_delta
+        data: {"index":0,"delta":{"type":"text_delta","text":"Hi"}}
+
+        event: content_block_stop
+        data: {"index":0}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5,"cache_creation_input_tokens":1000000,"cache_creation":{"ephemeral_1h_input_tokens":400000}}}
+
+        event: message_stop
+        data: {}
+
+        """
+        guard case .done(_, let message)? = AnthropicMessagesProvider.processSSEText(withBreakdown, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.usage?.cacheWrite, 1_000_000)
+        XCTAssertEqual(message.usage?.cacheWrite1h, 400_000)
+        XCTAssertEqual(message.usage?.cost.cacheWrite ?? 0, 7.75, accuracy: 0.0000001)
+
+        let withoutBreakdown = withBreakdown.replacingOccurrences(of: ",\"cache_creation\":{\"ephemeral_5m_input_tokens\":600000,\"ephemeral_1h_input_tokens\":400000}", with: "").replacingOccurrences(of: ",\"cache_creation\":{\"ephemeral_1h_input_tokens\":400000}", with: "")
+        guard case .done(_, let noBreakdown)? = AnthropicMessagesProvider.processSSEText(withoutBreakdown, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(noBreakdown.usage?.cacheWrite, 1_000_000)
+        XCTAssertEqual(noBreakdown.usage?.cacheWrite1h ?? 0, 0)
+        XCTAssertEqual(noBreakdown.usage?.cost.cacheWrite ?? 0, 6.25, accuracy: 0.0000001)
+    }
+
     func testAnthropicForceAdaptiveThinking() {
         var options = StreamOptions()
         options.reasoning = .medium

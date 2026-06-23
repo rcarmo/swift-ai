@@ -102,6 +102,7 @@ public enum AnthropicMessagesProvider {
                 state.partial.usage?.input = raw.message.usage?.inputTokens ?? 0
                 state.partial.usage?.cacheRead = raw.message.usage?.cacheReadInputTokens ?? 0
                 state.partial.usage?.cacheWrite = raw.message.usage?.cacheCreationInputTokens ?? 0
+                state.partial.usage?.cacheWrite1h = raw.message.usage?.cacheCreation?.ephemeral1hInputTokens
                 state.sawMessageStart = true
             }
         case "content_block_start":
@@ -133,6 +134,8 @@ public enum AnthropicMessagesProvider {
         case "message_delta":
             guard let raw = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data) else { return }
             state.partial.usage?.output = raw.usage?.outputTokens ?? 0
+            if let cacheWrite = raw.usage?.cacheCreationInputTokens { state.partial.usage?.cacheWrite = cacheWrite }
+            if let cacheWrite1h = raw.usage?.cacheCreation?.ephemeral1hInputTokens { state.partial.usage?.cacheWrite1h = cacheWrite1h }
             state.partial.usage?.totalTokens = (state.partial.usage?.input ?? 0) + (state.partial.usage?.output ?? 0)
             if var usage = state.partial.usage { AIUtilities.applyCost(model: state.model, usage: &usage); state.partial.usage = usage }
             state.partial.stopReason = stopReason(raw.delta.stopReason)
@@ -220,7 +223,7 @@ public enum AnthropicMessagesProvider {
 
 private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var usage: AnthropicUsage? } }
-private struct AnthropicUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var cacheReadInputTokens: Int?; var cacheCreationInputTokens: Int?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case cacheReadInputTokens = "cache_read_input_tokens"; case cacheCreationInputTokens = "cache_creation_input_tokens" } }
+private struct AnthropicUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var cacheReadInputTokens: Int?; var cacheCreationInputTokens: Int?; var cacheCreation: CacheCreation?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case cacheReadInputTokens = "cache_read_input_tokens"; case cacheCreationInputTokens = "cache_creation_input_tokens"; case cacheCreation = "cache_creation" }; struct CacheCreation: Decodable { var ephemeral1hInputTokens: Int?; enum CodingKeys: String, CodingKey { case ephemeral1hInputTokens = "ephemeral_1h_input_tokens" } } }
 private struct AnthropicContentBlockStart: Decodable { var index: Int; var contentBlock: Block; enum CodingKeys: String, CodingKey { case index; case contentBlock = "content_block" }; struct Block: Decodable { var type: String; var id: String?; var name: String? } }
 private struct AnthropicContentBlockDelta: Decodable { var index: Int; var delta: Delta; struct Delta: Decodable { var type: String; var text: String?; var thinking: String?; var partialJSON: String?; enum CodingKeys: String, CodingKey { case type, text, thinking; case partialJSON = "partial_json" } } }
 private struct AnthropicContentBlockStop: Decodable { var index: Int }

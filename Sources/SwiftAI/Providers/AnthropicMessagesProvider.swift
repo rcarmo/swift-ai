@@ -28,7 +28,7 @@ public enum AnthropicMessagesProvider {
         let cc = cacheControl(model: model, options: options)
         if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
+        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, model: model, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
         if let reasoning = options?.reasoning, model.reasoning {
             if model.anthropicCompat?.forceAdaptiveThinking == true { body["thinking"] = .object(["type": .string("adaptive")]) }
             else { body["thinking"] = .object(["type": .string("enabled"), "budget_tokens": .number(Double(thinkingBudget(reasoning, options: options)))]) }
@@ -205,7 +205,7 @@ public enum AnthropicMessagesProvider {
         return messages
     }
 
-    private static func toolJSON(_ tool: Tool, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
+    private static func toolJSON(_ tool: Tool, model: Model, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
     private static func normalizeAnthropicToolCallID(_ id: String) -> String { String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.prefix(64)) }
 }
 

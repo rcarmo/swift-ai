@@ -887,6 +887,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
     }
 
+    func testAnthropicEagerToolInputCompat() {
+        let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
+        let defaultModel = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let defaultBody = AnthropicMessagesProvider.buildRequestBody(model: defaultModel, context: AIContext(messages: [.user("hi")], tools: [tool]), options: nil)
+        guard case .array(let defaultTools)? = defaultBody["tools"], case .object(let defaultTool) = defaultTools[0] else { return XCTFail("missing default tool") }
+        XCTAssertEqual(defaultTool["eager_input_streaming"], .bool(true))
+
+        let disabledModel = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsEagerToolInputStreaming: false))
+        let disabledBody = AnthropicMessagesProvider.buildRequestBody(model: disabledModel, context: AIContext(messages: [.user("hi")], tools: [tool]), options: nil)
+        guard case .array(let disabledTools)? = disabledBody["tools"], case .object(let disabledTool) = disabledTools[0] else { return XCTFail("missing disabled tool") }
+        XCTAssertNil(disabledTool["eager_input_streaming"])
+        let noToolsBody = AnthropicMessagesProvider.buildRequestBody(model: disabledModel, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertNil(noToolsBody["tools"])
+    }
+
     func testAnthropicToolCacheControlCompat() {
         let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsCacheControlOnTools: false))
         var options = StreamOptions(); options.cacheRetention = .long

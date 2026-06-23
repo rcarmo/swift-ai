@@ -959,6 +959,24 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(noBreakdown.usage?.cost.cacheWrite ?? 0, 6.25, accuracy: 0.0000001)
     }
 
+    func testAnthropicThinkingDisablePayload() throws {
+        for id in ["claude-sonnet-4-5", "claude-opus-4-6", "claude-opus-4-8"] {
+            let model = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == id })
+            let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("Hello")]), options: nil)
+            XCTAssertEqual(body["thinking"], .object(["type": .string("disabled")]), id)
+            XCTAssertNil(body["output_config"], id)
+        }
+        let fable = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-fable-5" })
+        let fableBody = AnthropicMessagesProvider.buildRequestBody(model: fable, context: AIContext(messages: [.user("Hello")]), options: nil)
+        XCTAssertNil(fableBody["thinking"])
+        XCTAssertNil(fableBody["output_config"])
+        var options = StreamOptions(); options.reasoning = .xhigh
+        let opus48 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-opus-4-8" })
+        let enabled = AnthropicMessagesProvider.buildRequestBody(model: opus48, context: AIContext(messages: [.user("Hello")]), options: options)
+        XCTAssertEqual(enabled["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(enabled["output_config"], .object(["effort": .string("xhigh")]))
+    }
+
     func testAnthropicForceAdaptiveThinking() {
         var options = StreamOptions()
         options.reasoning = .medium

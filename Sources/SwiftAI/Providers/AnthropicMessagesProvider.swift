@@ -38,6 +38,8 @@ public enum AnthropicMessagesProvider {
                 } else {
                     body["thinking"] = .object(["type": .string("enabled"), "budget_tokens": .number(Double(thinkingBudget(reasoning, options: options)))])
                 }
+            } else if model.thinkingLevelMap?[.off] == nil && model.thinkingLevelMap?.keys.contains(.off) == true {
+                // Explicit nil off entry means the upstream model omits disabled thinking.
             } else {
                 body["thinking"] = .object(["type": .string("disabled")])
             }

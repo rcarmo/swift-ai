@@ -29,9 +29,18 @@ public enum AnthropicMessagesProvider {
         if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, model: model, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
-        if let reasoning = options?.reasoning, model.reasoning {
-            if model.anthropicCompat?.forceAdaptiveThinking == true { body["thinking"] = .object(["type": .string("adaptive")]) }
-            else { body["thinking"] = .object(["type": .string("enabled"), "budget_tokens": .number(Double(thinkingBudget(reasoning, options: options)))]) }
+        if model.reasoning {
+            if let reasoning = options?.reasoning {
+                let effort = AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: reasoning.rawValue) ?? .high) ?? reasoning.rawValue
+                if model.anthropicCompat?.forceAdaptiveThinking == true {
+                    body["thinking"] = .object(["type": .string("adaptive"), "display": .string("summarized")])
+                    body["output_config"] = .object(["effort": .string(effort)])
+                } else {
+                    body["thinking"] = .object(["type": .string("enabled"), "budget_tokens": .number(Double(thinkingBudget(reasoning, options: options)))])
+                }
+            } else {
+                body["thinking"] = .object(["type": .string("disabled")])
+            }
         }
         return body
     }

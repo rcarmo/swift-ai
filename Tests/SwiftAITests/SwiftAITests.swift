@@ -887,6 +887,25 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
     }
 
+    func testAnthropicForceAdaptiveThinking() {
+        var options = StreamOptions()
+        options.reasoning = .medium
+        let legacy = Model(id: "vendor--claude-opus-latest", name: "Vendor", api: .anthropicMessages, provider: .anthropic, reasoning: true)
+        let legacyBody = AnthropicMessagesProvider.buildRequestBody(model: legacy, context: AIContext(messages: [.user("Hello")]), options: options)
+        guard case .object(let legacyThinking)? = legacyBody["thinking"] else { return XCTFail("missing legacy thinking") }
+        XCTAssertEqual(legacyThinking["type"], .string("enabled"))
+        XCTAssertNil(legacyBody["output_config"])
+
+        let adaptive = Model(id: "vendor--claude-opus-latest", name: "Vendor", api: .anthropicMessages, provider: .anthropic, reasoning: true, anthropicCompat: AnthropicMessagesCompat(forceAdaptiveThinking: true))
+        let adaptiveBody = AnthropicMessagesProvider.buildRequestBody(model: adaptive, context: AIContext(messages: [.user("Hello")]), options: options)
+        XCTAssertEqual(adaptiveBody["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(adaptiveBody["output_config"], .object(["effort": .string("medium")]))
+
+        let offBody = AnthropicMessagesProvider.buildRequestBody(model: adaptive, context: AIContext(messages: [.user("Hello")]), options: nil)
+        XCTAssertEqual(offBody["thinking"], .object(["type": .string("disabled")]))
+        XCTAssertNil(offBody["output_config"])
+    }
+
     func testAnthropicEagerToolInputCompat() {
         let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
         let defaultModel = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)

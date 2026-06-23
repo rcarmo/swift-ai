@@ -479,8 +479,13 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(policy.maxRetryDelayMs, 1_000)
         XCTAssertGreaterThan(try policy.delayNanoseconds(attempt: 1), 0)
         XCTAssertThrowsError(try policy.delayMilliseconds(attempt: 1, retryAfterMs: 2_000))
+        XCTAssertEqual(try RetryPolicy(maxRetries: 1, maxDelayMs: 10_000, baseDelayMs: 250, backoffMultiplier: 1, jitterFraction: 0).delayMilliseconds(attempt: 3), 250)
+        XCTAssertEqual(HTTPRetry.retryAfterMs(headers: ["Retry-After": "2"]), 2_000)
         XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 429, policy: policy))
         XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 500, policy: policy))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 502, policy: policy))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 503, policy: policy))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 504, policy: policy))
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 501, policy: RetryPolicy(retryableStatuses: [429])))
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400, policy: policy))
     }

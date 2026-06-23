@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **188**
-- Adapted in Swift semantic tests: **57**
+- Adapted in Swift semantic tests: **63**
 - Partial/pluggable transport coverage: **9**
-- Pending direct Swift adaptation: **122**
+- Pending direct Swift adaptation: **116**
 
 ## Highest-priority pending buckets
 
@@ -35,8 +35,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestCopilotHeadersWithIntent` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers With Intent |
 | PENDING | `TestNewStderrLogger` | `coverage_boost_test.go` | `—` | New Stderr Logger |
 | ADAPTED | `TestClearModels` | `coverage_boost_test.go` | `testRegistryClearAndUnregister` | model registry/generated metadata parity: Clear Models |
-| PENDING | `TestDefaultRetryConfig` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Default Retry Config |
-| PENDING | `TestNoRetryConfig` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: No Retry Config |
+| ADAPTED | `TestDefaultRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Default Retry Config |
+| ADAPTED | `TestNoRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: No Retry Config |
 | PENDING | `TestNewHTTPClient` | `coverage_boost_test.go` | `—` | New HTTPClient |
 | PENDING | `TestDoWithRetrySuccess` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Success |
 | PENDING | `TestDoWithRetry429` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry429 |
@@ -180,10 +180,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestParseCompleteJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Complete JSON |
 | ADAPTED | `TestParsePartialJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Partial JSON |
 | ADAPTED | `TestParseEmpty` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Empty |
-| PENDING | `TestComputeBackoff` | `internal/retry/backoff_test.go` | `—` | Compute Backoff |
-| PENDING | `TestComputeBackoffConstant` | `internal/retry/backoff_test.go` | `—` | Compute Backoff Constant |
-| PENDING | `TestIsRetryableStatus` | `internal/retry/backoff_test.go` | `—` | retry/cancellation robustness: Is Retryable Status |
-| PENDING | `TestParseRetryAfter` | `internal/retry/backoff_test.go` | `—` | retry/cancellation robustness: Parse Retry After |
+| ADAPTED | `TestComputeBackoff` | `internal/retry/backoff_test.go` | `testRetryPolicy` | Compute Backoff |
+| ADAPTED | `TestComputeBackoffConstant` | `internal/retry/backoff_test.go` | `testRetryPolicy` | Compute Backoff Constant |
+| ADAPTED | `TestIsRetryableStatus` | `internal/retry/backoff_test.go` | `testRetryPolicy` | retry/cancellation robustness: Is Retryable Status |
+| ADAPTED | `TestParseRetryAfter` | `internal/retry/backoff_test.go` | `testRetryPolicy` | retry/cancellation robustness: Parse Retry After |
 | PENDING | `TestParseDurationString` | `internal/retry/backoff_test.go` | `—` | Parse Duration String |
 | PENDING | `TestDiscardLoggerDefault` | `logger_test.go` | `—` | Discard Logger Default |
 | ADAPTED | `TestSimpleLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Simple Logger |

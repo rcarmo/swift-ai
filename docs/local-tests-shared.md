@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **188**
-- Adapted in Swift semantic tests: **52**
+- Adapted in Swift semantic tests: **57**
 - Partial/pluggable transport coverage: **9**
-- Pending direct Swift adaptation: **127**
+- Pending direct Swift adaptation: **122**
 
 ## Highest-priority pending buckets
 
@@ -44,7 +44,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestDoWithRetryOnRetryCallback` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry On Retry Callback |
 | PENDING | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `—` | Append Assistant Message |
 | PENDING | `TestGetTextContent` | `coverage_boost_test.go` | `—` | Get Text Content |
-| PENDING | `TestInvokeOnResponse` | `coverage_boost_test.go` | `—` | Invoke On Response |
+| ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
 | ADAPTED | `TestCompleteViaFaux` | `coverage_boost_test.go` | `testFauxProviderHelpers` | Complete Via Faux |
 | PENDING | `TestStreamMissingFunction` | `coverage_boost_test.go` | `—` | streaming/event transport behavior: Stream Missing Function |
 | PENDING | `TestCompleteErrorEventWithoutMessage` | `coverage_boost_test.go` | `—` | Complete Error Event Without Message |
@@ -108,13 +108,13 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestGetToolCalls` | `harness_test.go` | `testHarnessHelpers` | tool-call/schema conversion behavior: Get Tool Calls |
 | ADAPTED | `TestNeedsToolExecution` | `harness_test.go` | `testHarnessHelpers` | tool-call/schema conversion behavior: Needs Tool Execution |
 | ADAPTED | `TestAppendHelpers` | `harness_test.go` | `testHarnessHelpers` | Append Helpers |
-| PENDING | `TestHooksOnStreamOptions` | `harness_test.go` | `—` | streaming/event transport behavior: Hooks On Stream Options |
-| PENDING | `TestInvokeOnPayloadNil` | `harness_test.go` | `—` | provider request/payload parity: Invoke On Payload Nil |
+| ADAPTED | `TestHooksOnStreamOptions` | `harness_test.go` | `testStreamAndImageOptionHooks` | streaming/event transport behavior: Hooks On Stream Options |
+| ADAPTED | `TestInvokeOnPayloadNil` | `harness_test.go` | `testStreamAndImageOptionHooks` | provider request/payload parity: Invoke On Payload Nil |
 | PENDING | `TestImageAPIProviderRegistered` | `images_test.go` | `—` | image generation behavior: Image APIProvider Registered |
 | ADAPTED | `TestBuiltinImageModels` | `images_test.go` | `testGeneratedImageModelRegistryMetadata` | model registry/generated metadata parity: Builtin Image Models |
 | PENDING | `TestGenerateImagesErrorPaths` | `images_test.go` | `—` | image generation behavior: Generate Images Error Paths |
 | ADAPTED | `TestGenerateImagesOpenRouterHooksAndResponse` | `images_test.go` | `testOpenRouterImageResponseParser` | image generation behavior: Generate Images Open Router Hooks And Response |
-| PENDING | `TestGenerateImagesOpenRouterUsesProviderEnvAPIKey` | `images_test.go` | `—` | auth/header/env edge case: Generate Images Open Router Uses Provider Env APIKey |
+| ADAPTED | `TestGenerateImagesOpenRouterUsesProviderEnvAPIKey` | `images_test.go` | `testOpenRouterImageAPIKeyResolution` | auth/header/env edge case: Generate Images Open Router Uses Provider Env APIKey |
 | ADAPTED | `TestGenerateImagesOpenRouterPayloadParityAndAbort` | `images_test.go` | `testOpenRouterImagePayloadBuilder` | provider request/payload parity: Generate Images Open Router Payload Parity And Abort |
 | PENDING | `TestGenerateImagesOpenRouterRetriesAndHookError` | `images_test.go` | `—` | image generation behavior: Generate Images Open Router Retries And Hook Error |
 | PENDING | `TestNormalizeAnthropicBaseURLAddsV1` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider OAuth/provider-specific behavior: Normalize Anthropic Base URLAdds V1 |
@@ -150,7 +150,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestProcessStreamHandlesMultilineSSE` | `inference/provider/google/google_audit_test.go` | `—` | streaming/event transport behavior: Process Stream Handles Multiline SSE |
 | PENDING | `TestStreamGoogleRetries429AndSucceeds` | `inference/provider/google/google_retry_test.go` | `—` | streaming/event transport behavior: Stream Google Retries429 And Succeeds |
 | PENDING | `TestStreamMistralRetries429AndSucceeds` | `inference/provider/mistral/mistral_retry_test.go` | `—` | streaming/event transport behavior: Stream Mistral Retries429 And Succeeds |
-| PENDING | `TestStreamOpenAIInvokesOnPayload` | `inference/provider/openai/openai_payload_test.go` | `—` | provider request/payload parity: Stream Open AIInvokes On Payload |
+| ADAPTED | `TestStreamOpenAIInvokesOnPayload` | `inference/provider/openai/openai_payload_test.go` | `testStreamAndImageOptionHooks` | provider request/payload parity: Stream Open AIInvokes On Payload |
 | PENDING | `TestStreamOpenAIUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AIUses Explicit Auth Header Without APIKey |
 | PENDING | `TestStreamOpenAICloudflareAIGatewayHeadersAndURL` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AICloudflare AIGateway Headers And URL |
 | PENDING | `TestBuildRequestBodyClampsPromptCacheKey` | `inference/provider/openai/openai_payload_test.go` | `—` | provider request/payload parity: Build Request Body Clamps Prompt Cache Key |

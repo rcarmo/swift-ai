@@ -305,6 +305,47 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(Harness.toolCalls(in: assistant).count, 1)
     }
 
+    func testStreamAndImageOptionHooks() async throws {
+        let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI)
+        var options = StreamOptions()
+        options.onPayload = { payload, receivedModel in
+            XCTAssertEqual(receivedModel.id, model.id)
+            var next = payload
+            next["hooked"] = .bool(true)
+            return next
+        }
+        options.onResponse = { response, receivedModel in
+            XCTAssertEqual(response.status, 200)
+            XCTAssertEqual(receivedModel.id, model.id)
+        }
+        let payload = try await XCTUnwrap(options.onPayload)(["x": .number(1)], model)
+        XCTAssertEqual(payload["hooked"], .bool(true))
+        if let onResponse = options.onResponse { await onResponse(HTTPResponseMetadata(status: 200, headers: ["h": "v"]), model) }
+
+        let imageModel = ImagesModel(id: "img", name: "Image", api: .openRouterImages, provider: .openRouter)
+        var imageOptions = ImagesOptions()
+        imageOptions.onPayload = { payload, receivedModel in
+            XCTAssertEqual(receivedModel.id, imageModel.id)
+            var next = payload
+            next["imageHooked"] = .bool(true)
+            return next
+        }
+        imageOptions.onResponse = { response, receivedModel in
+            XCTAssertEqual(response.status, 201)
+            XCTAssertEqual(receivedModel.id, imageModel.id)
+        }
+        let imagePayload = try await XCTUnwrap(imageOptions.onPayload)(["x": .string("y")], imageModel)
+        XCTAssertEqual(imagePayload["imageHooked"], .bool(true))
+        if let onResponse = imageOptions.onResponse { await onResponse(ImagesResponseMetadata(status: 201, headers: [:]), imageModel) }
+    }
+
+    func testOpenRouterImageAPIKeyResolution() {
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "env-key"]), "env-key")
+        var options = ImagesOptions()
+        options.apiKey = "explicit"
+        XCTAssertEqual(options.apiKey, "explicit")
+    }
+
     func testEnvDrivenPromptCacheRetention() {
         var options = StreamOptions()
         options.sessionId = String(repeating: "s", count: 80)

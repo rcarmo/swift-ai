@@ -421,11 +421,44 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testFauxProviderHelpers() async throws {
+        let text = FauxProvider.textMessage("hello world")
+        XCTAssertEqual(text.content.first?.text, "hello world")
+        let thinking = FauxProvider.thinkingMessage(thinking: "why", text: "answer")
+        XCTAssertEqual(thinking.content.first?.type, "thinking")
+        let tool = FauxProvider.toolCallMessage(name: "lookup", arguments: ["q": .string("x")])
+        XCTAssertEqual(tool.stopReason, .toolUse)
+        XCTAssertTrue(Harness.hasToolCalls(tool))
+
         let registration = await FauxProvider.register()
-        await registration.setResponses([.message(FauxProvider.textMessage("hello world"))])
+        await registration.setResponses([.message(text)])
         guard let model = await registration.model() else { return XCTFail("missing faux model") }
         let message = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]))
         XCTAssertEqual(message.content.first?.text, "hello world")
+        XCTAssertEqual(await registration.pendingResponseCount(), 0)
+    }
+
+    func testFauxThinkingToolFactoryMultipleAndError() async throws {
+        let registration = await FauxProvider.register()
+        await registration.setResponses([
+            .message(FauxProvider.thinkingMessage(thinking: "why", text: "answer")),
+            .message(FauxProvider.toolCallMessage(name: "lookup", arguments: ["q": .string("x")])),
+            .factory { _, _, state in FauxProvider.textMessage("call #\(state.callCount)") },
+            .message(FauxProvider.errorMessage("boom"))
+        ])
+        guard let model = await registration.model() else { return XCTFail("missing faux model") }
+        let first = try await SwiftAI.complete(model: model, context: AIContext())
+        XCTAssertEqual(first.content.first?.thinking, "why")
+        let second = try await SwiftAI.complete(model: model, context: AIContext())
+        XCTAssertEqual(second.stopReason, .toolUse)
+        XCTAssertTrue(Harness.needsToolExecution(second))
+        let third = try await SwiftAI.complete(model: model, context: AIContext())
+        XCTAssertEqual(third.content.first?.text, "call #3")
+        do {
+            _ = try await SwiftAI.complete(model: model, context: AIContext())
+            XCTFail("expected faux error")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("boom"))
+        }
         XCTAssertEqual(await registration.pendingResponseCount(), 0)
     }
 

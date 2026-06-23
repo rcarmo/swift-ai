@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **188**
-- Adapted in Swift semantic tests: **66**
-- Partial/pluggable transport coverage: **9**
-- Pending direct Swift adaptation: **113**
+- Adapted in Swift semantic tests: **73**
+- Partial/pluggable transport coverage: **10**
+- Pending direct Swift adaptation: **105**
 
 ## Highest-priority pending buckets
 
@@ -45,7 +45,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `—` | Append Assistant Message |
 | PENDING | `TestGetTextContent` | `coverage_boost_test.go` | `—` | Get Text Content |
 | ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
-| ADAPTED | `TestCompleteViaFaux` | `coverage_boost_test.go` | `testFauxProviderHelpers` | Complete Via Faux |
+| PENDING | `TestCompleteViaFaux` | `coverage_boost_test.go` | `—` | Complete Via Faux |
 | PENDING | `TestStreamMissingFunction` | `coverage_boost_test.go` | `—` | streaming/event transport behavior: Stream Missing Function |
 | PENDING | `TestCompleteErrorEventWithoutMessage` | `coverage_boost_test.go` | `—` | Complete Error Event Without Message |
 | ADAPTED | `TestApplyToolCallLimitNoOp` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit No Op |
@@ -134,16 +134,16 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestConvertMessagesCoalescesConsecutiveToolResults` | `inference/provider/bedrock/bedrock_test.go` | `—` | tool-call/schema conversion behavior: Convert Messages Coalesces Consecutive Tool Results |
 | PENDING | `TestCreateImageBlockDecodesBase64` | `inference/provider/bedrock/bedrock_test.go` | `—` | image generation behavior: Create Image Block Decodes Base64 |
 | PARTIAL | `TestBedrockPayloadHookCanReplaceInput` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Payload Hook Can Replace Input |
-| PENDING | `TestFauxContentAndAssistantHelpers` | `inference/provider/faux/faux_test.go` | `—` | Faux Content And Assistant Helpers |
-| PENDING | `TestFauxTextStream` | `inference/provider/faux/faux_test.go` | `—` | streaming/event transport behavior: Faux Text Stream |
+| ADAPTED | `TestFauxContentAndAssistantHelpers` | `inference/provider/faux/faux_test.go` | `testFauxProviderHelpers` | Faux Content And Assistant Helpers |
+| ADAPTED | `TestFauxTextStream` | `inference/provider/faux/faux_test.go` | `testFauxProviderHelpers` | streaming/event transport behavior: Faux Text Stream |
 | ADAPTED | `TestFauxComplete` | `inference/provider/faux/faux_test.go` | `testFauxProviderHelpers` | Faux Complete |
-| PENDING | `TestFauxToolCall` | `inference/provider/faux/faux_test.go` | `—` | tool-call/schema conversion behavior: Faux Tool Call |
-| PENDING | `TestFauxThinking` | `inference/provider/faux/faux_test.go` | `—` | reasoning/thinking wire-format behavior: Faux Thinking |
-| PENDING | `TestFauxResponseFactory` | `inference/provider/faux/faux_test.go` | `—` | Faux Response Factory |
-| PENDING | `TestFauxMultipleResponses` | `inference/provider/faux/faux_test.go` | `—` | Faux Multiple Responses |
-| PENDING | `TestFauxError` | `inference/provider/faux/faux_test.go` | `—` | Faux Error |
-| PENDING | `TestFauxAbort` | `inference/provider/faux/faux_test.go` | `—` | retry/cancellation robustness: Faux Abort |
-| PENDING | `TestFauxCallCount` | `inference/provider/faux/faux_test.go` | `—` | Faux Call Count |
+| ADAPTED | `TestFauxToolCall` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | tool-call/schema conversion behavior: Faux Tool Call |
+| ADAPTED | `TestFauxThinking` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | reasoning/thinking wire-format behavior: Faux Thinking |
+| ADAPTED | `TestFauxResponseFactory` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Response Factory |
+| ADAPTED | `TestFauxMultipleResponses` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Multiple Responses |
+| ADAPTED | `TestFauxError` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Error |
+| PARTIAL | `TestFauxAbort` | `inference/provider/faux/faux_test.go` | `AsyncStream cancellation not directly mirrored yet` | retry/cancellation robustness: Faux Abort |
+| ADAPTED | `TestFauxCallCount` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Call Count |
 | PENDING | `TestStreamGeminiCLIRetries429AndSucceeds` | `inference/provider/geminicli/geminicli_retry_test.go` | `—` | streaming/event transport behavior: Stream Gemini CLIRetries429 And Succeeds |
 | PENDING | `TestBuildStreamURLEscapesPathAndQuery` | `inference/provider/google/google_audit_test.go` | `—` | streaming/event transport behavior: Build Stream URLEscapes Path And Query |
 | PENDING | `TestBuildVertexStreamURLUsesProjectAndLocationOptions` | `inference/provider/google/google_audit_test.go` | `—` | streaming/event transport behavior: Build Vertex Stream URLUses Project And Location Options |

@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **188**
-- Adapted in Swift semantic tests: **45**
+- Adapted in Swift semantic tests: **52**
 - Partial/pluggable transport coverage: **9**
-- Pending direct Swift adaptation: **134**
+- Pending direct Swift adaptation: **127**
 
 ## Highest-priority pending buckets
 
@@ -21,7 +21,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | Status | Go test | Go file | Swift coverage | Covers |
 |---|---|---|---|---|
 | ADAPTED | `TestCompleteNilModelDoesNotPanic` | `audit_hardening_test.go` | `testCompleteNilModelDoesNotPanic` | model registry/generated metadata parity: Complete Nil Model Does Not Panic |
-| PENDING | `TestNilRegistrationNoops` | `audit_hardening_test.go` | `—` | Nil Registration Noops |
+| ADAPTED | `TestNilRegistrationNoops` | `audit_hardening_test.go` | `testRegistryClearAndUnregister` | Nil Registration Noops |
 | ADAPTED | `TestCloneContextDeepCopiesNestedFields` | `audit_hardening_test.go` | `testCloneContextDeepCopiesNestedFieldsAndToolCalls` | Clone Context Deep Copies Nested Fields |
 | ADAPTED | `TestGetToolCallsReturnsArgumentCopies` | `audit_hardening_test.go` | `testCloneContextDeepCopiesNestedFieldsAndToolCalls` | tool-call/schema conversion behavior: Get Tool Calls Returns Argument Copies |
 | PENDING | `TestMapThinkingAndCostNilSafe` | `audit_hardening_test.go` | `—` | reasoning/thinking wire-format behavior: Map Thinking And Cost Nil Safe |
@@ -34,7 +34,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestCopilotHeaders` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers |
 | ADAPTED | `TestCopilotHeadersWithIntent` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers With Intent |
 | PENDING | `TestNewStderrLogger` | `coverage_boost_test.go` | `—` | New Stderr Logger |
-| PENDING | `TestClearModels` | `coverage_boost_test.go` | `—` | model registry/generated metadata parity: Clear Models |
+| ADAPTED | `TestClearModels` | `coverage_boost_test.go` | `testRegistryClearAndUnregister` | model registry/generated metadata parity: Clear Models |
 | PENDING | `TestDefaultRetryConfig` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Default Retry Config |
 | PENDING | `TestNoRetryConfig` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: No Retry Config |
 | PENDING | `TestNewHTTPClient` | `coverage_boost_test.go` | `—` | New HTTPClient |
@@ -61,9 +61,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestClampReasoning` | `coverage_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Clamp Reasoning |
 | ADAPTED | `TestSupportsXhigh` | `coverage_test.go` | `testThinkingHelpers` | Supports Xhigh |
 | ADAPTED | `TestValidateTypeChecks` | `coverage_test.go` | `testContextOverflowAndToolValidation` | Validate Type Checks |
-| PENDING | `TestUnregisterAndClear` | `coverage_test.go` | `—` | Unregister And Clear |
+| ADAPTED | `TestUnregisterAndClear` | `coverage_test.go` | `testRegistryClearAndUnregister` | Unregister And Clear |
 | ADAPTED | `TestStreamNilModel` | `defensive_test.go` | `testStreamNilModelAndNoProvider` | streaming/event transport behavior: Stream Nil Model |
-| PENDING | `TestAppendAssistantMessageNilSafe` | `defensive_test.go` | `—` | Append Assistant Message Nil Safe |
+| ADAPTED | `TestAppendAssistantMessageNilSafe` | `defensive_test.go` | `testAppendAssistantMessageNilSafe` | Append Assistant Message Nil Safe |
 | PENDING | `TestDoWithRetryRequiresReplayableBody` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Requires Replayable Body |
 | PENDING | `TestDoWithRetryNegativeMaxRetriesClampsToSingleAttempt` | `defensive_test.go` | `—` | retry/cancellation robustness: Do With Retry Negative Max Retries Clamps To Single Attempt |
 | PENDING | `TestDoWithRetryReplaysBodyAcrossRetries` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Replays Body Across Retries |
@@ -186,10 +186,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestParseRetryAfter` | `internal/retry/backoff_test.go` | `—` | retry/cancellation robustness: Parse Retry After |
 | PENDING | `TestParseDurationString` | `internal/retry/backoff_test.go` | `—` | Parse Duration String |
 | PENDING | `TestDiscardLoggerDefault` | `logger_test.go` | `—` | Discard Logger Default |
-| PENDING | `TestSimpleLogger` | `logger_test.go` | `—` | Simple Logger |
+| ADAPTED | `TestSimpleLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Simple Logger |
 | PENDING | `TestLogLevelFiltering` | `logger_test.go` | `—` | Log Level Filtering |
-| PENDING | `TestSetLogger` | `logger_test.go` | `—` | Set Logger |
-| PENDING | `TestSetLoggerNil` | `logger_test.go` | `—` | Set Logger Nil |
+| ADAPTED | `TestSetLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger |
+| ADAPTED | `TestSetLoggerNil` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger Nil |
 | PENDING | `TestTransformMessagesAddsSyntheticResultForTrailingOrphan` | `logic_audit_test.go` | `—` | Transform Messages Adds Synthetic Result For Trailing Orphan |
 | PENDING | `TestTransformMessagesNilModelReturnsInput` | `logic_audit_test.go` | `—` | model registry/generated metadata parity: Transform Messages Nil Model Returns Input |
 | PENDING | `TestApplyToolCallLimitUsesBudgetTrim` | `logic_audit_test.go` | `—` | tool-call/schema conversion behavior: Apply Tool Call Limit Uses Budget Trim |

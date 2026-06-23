@@ -104,6 +104,7 @@ final class SwiftAITests: XCTestCase {
         var sawProviderError = false
         for await event in events { if case .error(_, _, let error) = event { sawProviderError = String(describing: error).contains("noProvider") || String(describing: error).contains("no provider") } }
         XCTAssertTrue(sawProviderError)
+        await SwiftAI.bootstrap()
     }
 
     func testSwiftAIStatusConstants() {
@@ -251,6 +252,39 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.diagnostics?.count, 1)
         await LoggerRegistry.shared.setLogger(DiscardLogger())
         await LoggerRegistry.shared.info("ok", ["provider": "test"])
+    }
+
+    func testRegistryClearAndUnregister() async {
+        await AIRegistry.shared.clearModels()
+        await AIRegistry.shared.clearProviders()
+        XCTAssertTrue(await AIRegistry.shared.listModels().isEmpty)
+        XCTAssertTrue(await AIRegistry.shared.listProviders().isEmpty)
+        let model = Model(id: "m", name: "M", api: .faux, provider: .faux)
+        await AIRegistry.shared.register(model)
+        XCTAssertEqual(await AIRegistry.shared.model(provider: .faux, id: "m"), model)
+        XCTAssertEqual(await AIRegistry.shared.listModels(provider: .faux).count, 1)
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { _, _, _ in AsyncStream { $0.finish() } }))
+        XCTAssertNotNil(await AIRegistry.shared.apiProvider(for: .faux))
+        await AIRegistry.shared.unregister(api: .faux)
+        XCTAssertNil(await AIRegistry.shared.apiProvider(for: .faux))
+        await AIRegistry.shared.clearModels()
+        XCTAssertNil(await AIRegistry.shared.model(provider: .faux, id: "m"))
+        await SwiftAI.bootstrap()
+    }
+
+    func testLoggerRegistrySetAndReset() async {
+        await LoggerRegistry.shared.setLogger(DiscardLogger())
+        let logger = await LoggerRegistry.shared.current()
+        logger.info("ok", [:])
+        await LoggerRegistry.shared.setLogger(nil)
+        let reset = await LoggerRegistry.shared.current()
+        reset.warn("ok", [:])
+    }
+
+    func testAppendAssistantMessageNilSafe() {
+        var context = AIContext(messages: [])
+        Harness.appendAssistantMessage(nil, to: &context)
+        XCTAssertTrue(context.messages.isEmpty)
     }
 
     func testHarnessHelpers() throws {

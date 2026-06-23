@@ -53,6 +53,24 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(decoded.thinkingLevelMap?.keys.contains(.xhigh) == true)
     }
 
+    func testAuthCredentialStoreAndCodable() async throws {
+        let store = InMemoryCredentialStore()
+        try await store.modify(providerId: "openai") { _ in .apiKey(key: "k", env: ["A": "B"]) }
+        XCTAssertEqual(try await store.read(providerId: "openai"), .apiKey(key: "k", env: ["A": "B"]))
+        try await store.delete(providerId: "openai")
+        XCTAssertNil(try await store.read(providerId: "openai"))
+        let oauth = Credential.oauth(OAuthCredentials(refresh: "r", access: "a", expires: 1, extra: ["x": .string("y")]))
+        let data = try JSONEncoder().encode(oauth)
+        XCTAssertEqual(try JSONDecoder().decode(Credential.self, from: data), oauth)
+        let ctx = ProcessAuthContext()
+        XCTAssertFalse(await ctx.fileExists("/definitely/missing/swift-ai-file"))
+        let callbacks = AuthLoginCallbacks(prompt: { prompt in
+            if case .manualCode = prompt { return "code" }
+            return "value"
+        })
+        XCTAssertEqual(try await callbacks.prompt(.manualCode(message: "code")), "code")
+    }
+
     func testSwiftAIStatusConstants() {
         XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.2")
         XCTAssertEqual(SwiftAIStatus.textModelCount, 999)

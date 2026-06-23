@@ -45,6 +45,7 @@ REQUIRED_SOURCES = [
     "Sources/SwiftAI/Retry.swift",
     "docs/TRANSPORTS.md",
     "docs/USAGE.md",
+    "docs/upstream-parity-gaps.md",
 ]
 
 

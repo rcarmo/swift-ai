@@ -205,6 +205,14 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(nil, env: ["PI_CACHE_RETENTION": "long"]), .long)
     }
 
+    func testThinkingAndCostNilSafety() {
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: nil, level: .off), "none")
+        XCTAssertEqual(AIUtilities.calculateCost(model: nil, usage: Usage()).total, 0)
+        let adjusted = AIUtilities.adjustMaxTokensForThinking(baseMaxTokens: 0, modelMaxTokens: 512, level: .high)
+        XCTAssertEqual(adjusted.maxTokens, 512)
+        XCTAssertEqual(adjusted.thinkingBudget, 0)
+    }
+
     func testThinkingHelpers() {
         let low = "low"
         let high = "high"
@@ -217,6 +225,14 @@ final class SwiftAITests: XCTestCase {
         let adjusted = AIUtilities.adjustMaxTokensForThinking(baseMaxTokens: 1000, modelMaxTokens: 2500, level: .low)
         XCTAssertEqual(adjusted.maxTokens, 2500)
         XCTAssertEqual(adjusted.thinkingBudget, 2048)
+    }
+
+    func testContextOverflowDiagnosticsNilSafety() {
+        XCTAssertFalse(ContextUtilities.isContextOverflow(nil, contextWindow: 0))
+        var message = Message(role: .assistant, content: [])
+        message.stopReason = .error
+        message.diagnostics = [AssistantMessageDiagnostic(type: "error", timestamp: 0, error: DiagnosticError(message: "model_context_window_exceeded", code: .string("context_length_exceeded")))]
+        XCTAssertTrue(ContextUtilities.isContextOverflow(message, contextWindow: 0))
     }
 
     func testContextOverflowAndToolValidation() throws {
@@ -287,6 +303,14 @@ final class SwiftAITests: XCTestCase {
         await LoggerRegistry.shared.setLogger(nil)
         let reset = await LoggerRegistry.shared.current()
         reset.warn("ok", [:])
+    }
+
+    func testAppendAssistantMessageAndGetTextContent() {
+        var context = AIContext(messages: [])
+        let assistant = Message(role: .assistant, content: [.text("hello"), .text(" world")])
+        Harness.appendAssistantMessage(assistant, to: &context)
+        XCTAssertEqual(context.messages.count, 1)
+        XCTAssertEqual(Harness.textContent(in: context.messages[0]), "hello world")
     }
 
     func testAppendAssistantMessageNilSafe() {

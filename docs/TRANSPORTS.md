@@ -32,7 +32,13 @@ await BedrockTransportRegistry.shared.setTransport(MyBedrockTransport())
 
 ## CodexTransport
 
-OpenAI Codex SSE fallback is bundled. The upstream WebSocket/session-cache path is exposed as a pluggable transport:
+OpenAI Codex SSE fallback is bundled. The upstream WebSocket/session-cache path is exposed as a pluggable transport.
+
+**Implementation requirement:** use a real WebSocket client/library or otherwise perform a standards-compliant RFC6455 handshake. A valid upgrade request must include the required handshake semantics/headers (`Upgrade: websocket`, `Connection: Upgrade`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`, `Host`, etc.). Do not hand-roll a partial HTTP request that silently falls back to SSE.
+
+**Test requirement:** transport modules must include a real local WebSocket-server integration test that asserts the server observes an actual successful WebSocket handshake and that a Codex response stream is received over that WebSocket path. Also test connection-limit fallback/retry behavior equivalent to upstream `isWebSocketConnectionLimitReachedError`.
+
+Example registration:
 
 ```swift
 import SwiftAI

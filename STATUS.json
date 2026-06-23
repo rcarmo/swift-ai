@@ -66,5 +66,8 @@
     "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
   ],
   "transportDocumentation": "docs/TRANSPORTS.md",
-  "usageDocumentation": "docs/USAGE.md"
+  "usageDocumentation": "docs/USAGE.md",
+  "transportTestRequirements": {
+    "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
+  }
 }

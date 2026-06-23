@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **87**
-- Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **91**
+- Adapted in Swift semantic tests: **86**
+- Partial/pluggable transport coverage: **10**
+- Pending direct Swift adaptation: **93**
 
 ## Highest-priority pending buckets
 
@@ -24,9 +24,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNilRegistrationNoops` | `audit_hardening_test.go` | `testRegistryClearAndUnregister` | Nil Registration Noops |
 | ADAPTED | `TestCloneContextDeepCopiesNestedFields` | `audit_hardening_test.go` | `testCloneContextDeepCopiesNestedFieldsAndToolCalls` | Clone Context Deep Copies Nested Fields |
 | ADAPTED | `TestGetToolCallsReturnsArgumentCopies` | `audit_hardening_test.go` | `testCloneContextDeepCopiesNestedFieldsAndToolCalls` | tool-call/schema conversion behavior: Get Tool Calls Returns Argument Copies |
-| ADAPTED | `TestMapThinkingAndCostNilSafe` | `audit_hardening_test.go` | `testThinkingAndCostNilSafety` | reasoning/thinking wire-format behavior: Map Thinking And Cost Nil Safe |
-| ADAPTED | `TestAdjustMaxTokensForThinkingReservesOutput` | `audit_hardening_test.go` | `testThinkingAndCostNilSafety` | reasoning/thinking wire-format behavior: Adjust Max Tokens For Thinking Reserves Output |
-| ADAPTED | `TestIsContextOverflowUsesDiagnosticsAndNilSafe` | `audit_hardening_test.go` | `testContextOverflowDiagnosticsNilSafety` | Is Context Overflow Uses Diagnostics And Nil Safe |
+| PENDING | `TestMapThinkingAndCostNilSafe` | `audit_hardening_test.go` | `—` | reasoning/thinking wire-format behavior: Map Thinking And Cost Nil Safe |
+| PENDING | `TestAdjustMaxTokensForThinkingReservesOutput` | `audit_hardening_test.go` | `—` | reasoning/thinking wire-format behavior: Adjust Max Tokens For Thinking Reserves Output |
+| PENDING | `TestIsContextOverflowUsesDiagnosticsAndNilSafe` | `audit_hardening_test.go` | `—` | Is Context Overflow Uses Diagnostics And Nil Safe |
 | PENDING | `TestAdaptReasoningItem` | `coverage_boost_test.go` | `—` | reasoning/thinking wire-format behavior: Adapt Reasoning Item |
 | PENDING | `TestAdaptCommentaryDone` | `coverage_boost_test.go` | `—` | Adapt Commentary Done |
 | PENDING | `TestNormalizeReasoningTextDone` | `coverage_boost_test.go` | `—` | reasoning/thinking wire-format behavior: Normalize Reasoning Text Done |
@@ -42,8 +42,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestDoWithRetry429` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry429 |
 | PENDING | `TestDoWithRetryExhausted` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Exhausted |
 | PENDING | `TestDoWithRetryOnRetryCallback` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry On Retry Callback |
-| ADAPTED | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Append Assistant Message |
-| ADAPTED | `TestGetTextContent` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Get Text Content |
+| PENDING | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `—` | Append Assistant Message |
+| PENDING | `TestGetTextContent` | `coverage_boost_test.go` | `—` | Get Text Content |
 | ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
 | PENDING | `TestCompleteViaFaux` | `coverage_boost_test.go` | `—` | Complete Via Faux |
 | PENDING | `TestStreamMissingFunction` | `coverage_boost_test.go` | `—` | streaming/event transport behavior: Stream Missing Function |
@@ -55,7 +55,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNormalizeAzureReasoningEventCommentary` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Event Commentary |
 | ADAPTED | `TestNormalizeAzureReasoningTextDelta` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Text Delta |
 | PENDING | `TestDetectCompatProviders` | `coverage_test.go` | `—` | Detect Compat Providers |
-| PENDING | `TestResolveAPIKey` | `coverage_test.go` | `—` | auth/header/env edge case: Resolve APIKey |
+| ADAPTED | `TestResolveAPIKey` | `coverage_test.go` | `testResolveAPIKeyExplicitOptionPrecedence` | auth/header/env edge case: Resolve APIKey |
 | ADAPTED | `TestTransformMessagesPreservesImages` | `coverage_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | image generation behavior: Transform Messages Preserves Images |
 | ADAPTED | `TestTransformInsertsSyntheticToolResults` | `coverage_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | tool-call/schema conversion behavior: Transform Inserts Synthetic Tool Results |
 | ADAPTED | `TestClampReasoning` | `coverage_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Clamp Reasoning |
@@ -75,9 +75,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestStreamNoProvider` | `goai_test.go` | `testStreamNilModelAndNoProvider` | streaming/event transport behavior: Stream No Provider |
 | ADAPTED | `TestIsContextOverflow` | `goai_test.go` | `testContextOverflowAndToolValidation` | Is Context Overflow |
 | ADAPTED | `TestValidateToolCall` | `goai_test.go` | `testContextOverflowAndToolValidation` | tool-call/schema conversion behavior: Validate Tool Call |
-| PENDING | `TestGetEnvAPIKey` | `goai_test.go` | `—` | auth/header/env edge case: Get Env APIKey |
-| PENDING | `TestGetEnvAPIKeyAnthropic` | `goai_test.go` | `—` | auth/header/env edge case: Get Env APIKey Anthropic |
-| PARTIAL | `TestGetEnvAPIKeyWithEnvBedrockAuthenticated` | `goai_test.go` | `pluggable transport surface / semantic tests` | auth/header/env edge case: Get Env APIKey With Env Bedrock Authenticated |
+| ADAPTED | `TestGetEnvAPIKey` | `goai_test.go` | `testGetEnvAPIKeyProviderMappings` | auth/header/env edge case: Get Env APIKey |
+| ADAPTED | `TestGetEnvAPIKeyAnthropic` | `goai_test.go` | `testGetEnvAPIKeyProviderMappings` | auth/header/env edge case: Get Env APIKey Anthropic |
+| ADAPTED | `TestGetEnvAPIKeyWithEnvBedrockAuthenticated` | `goai_test.go` | `testGetEnvAPIKeyWithEnvBedrockAuthenticated` | auth/header/env edge case: Get Env APIKey With Env Bedrock Authenticated |
 | PENDING | `TestGetEnvAPIKeyWithEnvGoogleVertexADC` | `goai_test.go` | `—` | auth/header/env edge case: Get Env APIKey With Env Google Vertex ADC |
 | ADAPTED | `TestCalculateCost` | `goai_test.go` | `testCostCalculation` | Calculate Cost |
 | ADAPTED | `TestCalculateCostAnthropicLongCacheWrite` | `goai_test.go` | `testCostCalculation` | prompt/cache usage or retention behavior: Calculate Cost Anthropic Long Cache Write |

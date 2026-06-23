@@ -34,8 +34,10 @@ public enum OpenAICompletionsProvider {
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
         if let maxTokens = options?.maxTokens { body[maxTokensField] = .number(Double(maxTokens)) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map { toolJSON($0, compat: compat) }) }
+        else if hasToolHistory(context.messages) { body["tools"] = .array([]) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
-        if let session = options?.sessionId, !session.isEmpty, cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
+        let shouldSendCacheKey = (model.baseUrl.contains("api.openai.com") && cacheRetention != .none) || (cacheRetention == .long && compat.supportsLongCacheRetention == true)
+        if let session = options?.sessionId, !session.isEmpty, shouldSendCacheKey { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if cacheRetention == .long, compat.supportsLongCacheRetention == true { body["prompt_cache_retention"] = .string("24h") }
         if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body) }
         return body
@@ -130,6 +132,21 @@ public enum OpenAICompletionsProvider {
 
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
 
+    private static func hasToolHistory(_ messages: [Message]) -> Bool {
+        messages.contains { message in message.role == .toolResult || (message.role == .assistant && message.content.contains { $0.type == "toolCall" }) }
+    }
+
+    private static func clientAPIKey(model: Model, options: StreamOptions?) -> String? {
+        if let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty { return key }
+        let headers = (model.headers ?? [:]).merging(options?.headers ?? [:]) { _, new in new }
+        if hasHeader(headers, "authorization") || hasHeader(headers, "cf-aig-authorization") { return "unused" }
+        return nil
+    }
+
+    private static func hasHeader(_ headers: [String: String], _ name: String) -> Bool {
+        headers.contains { $0.key.lowercased() == name.lowercased() && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
     private static func openAIContentParts(_ blocks: [ContentBlock], leadingText: String?) -> [JSONValue] {
         var parts: [JSONValue] = []
         if let leadingText { parts.append(.object(["type": .string("text"), "text": .string(leadingText)])) }
@@ -147,7 +164,7 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func makeRequest(model: Model, context: AIContext, options: StreamOptions?, stream: Bool) async throws -> URLRequest {
-        guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
+        guard let key = clientAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         let baseURL = AIUtilities.isCloudflareProvider(model.provider) ? AIUtilities.resolveCloudflareBaseURL(model: model, env: options?.env) : model.baseUrl
         let url = URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions")!
         var request = URLRequest(url: url)

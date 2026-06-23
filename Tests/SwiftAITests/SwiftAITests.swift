@@ -772,6 +772,22 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(message.content.contains { $0.type == "toolCall" && $0.name == "lookup" })
     }
 
+    func testOpenAICompat0802Params() {
+        let nonOpenAI = Model(id: "m", name: "M", api: .openAICompletions, provider: .openRouter, baseUrl: "https://openrouter.ai/api/v1")
+        var options = StreamOptions()
+        options.sessionId = "sess"
+        let shortBody = OpenAICompletionsProvider.buildRequestBody(model: nonOpenAI, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(shortBody["prompt_cache_key"])
+        options.cacheRetention = .long
+        var compat = OpenAICompletionsCompat(); compat.supportsLongCacheRetention = true
+        let longModel = Model(id: "m", name: "M", api: .openAICompletions, provider: .openRouter, baseUrl: "https://openrouter.ai/api/v1", completionsCompat: compat)
+        let longBody = OpenAICompletionsProvider.buildRequestBody(model: longModel, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(longBody["prompt_cache_key"], .string("sess"))
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "c", name: "t", arguments: [:])])
+        let toolHistoryBody = OpenAICompletionsProvider.buildRequestBody(model: nonOpenAI, context: AIContext(messages: [assistant]), options: nil)
+        XCTAssertEqual(toolHistoryBody["tools"], .array([]))
+    }
+
     func testOpenAIReasoningContentReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresReasoningContentOnAssistantMessages = true

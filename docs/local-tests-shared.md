@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **78**
+- Adapted in Swift semantic tests: **87**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **100**
+- Pending direct Swift adaptation: **91**
 
 ## Highest-priority pending buckets
 
@@ -56,8 +56,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNormalizeAzureReasoningTextDelta` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Text Delta |
 | PENDING | `TestDetectCompatProviders` | `coverage_test.go` | `—` | Detect Compat Providers |
 | PENDING | `TestResolveAPIKey` | `coverage_test.go` | `—` | auth/header/env edge case: Resolve APIKey |
-| PENDING | `TestTransformMessagesPreservesImages` | `coverage_test.go` | `—` | image generation behavior: Transform Messages Preserves Images |
-| PENDING | `TestTransformInsertsSyntheticToolResults` | `coverage_test.go` | `—` | tool-call/schema conversion behavior: Transform Inserts Synthetic Tool Results |
+| ADAPTED | `TestTransformMessagesPreservesImages` | `coverage_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | image generation behavior: Transform Messages Preserves Images |
+| ADAPTED | `TestTransformInsertsSyntheticToolResults` | `coverage_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | tool-call/schema conversion behavior: Transform Inserts Synthetic Tool Results |
 | ADAPTED | `TestClampReasoning` | `coverage_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Clamp Reasoning |
 | ADAPTED | `TestSupportsXhigh` | `coverage_test.go` | `testThinkingHelpers` | Supports Xhigh |
 | ADAPTED | `TestValidateTypeChecks` | `coverage_test.go` | `testContextOverflowAndToolValidation` | Validate Type Checks |
@@ -69,8 +69,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestDoWithRetryReplaysBodyAcrossRetries` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Replays Body Across Retries |
 | PENDING | `TestExamplesBuild` | `examples_smoke_test.go` | `—` | Examples Build |
 | PENDING | `TestExamplesMissingCredentialMessages` | `examples_smoke_test.go` | `—` | Examples Missing Credential Messages |
-| PENDING | `TestUserMessage` | `goai_test.go` | `—` | User Message |
-| PENDING | `TestContextJSON` | `goai_test.go` | `—` | Context JSON |
+| ADAPTED | `TestUserMessage` | `goai_test.go` | `testUserMessageAndContextJSON` | User Message |
+| ADAPTED | `TestContextJSON` | `goai_test.go` | `testUserMessageAndContextJSON` | Context JSON |
 | PENDING | `TestModelRegistry` | `goai_test.go` | `—` | model registry/generated metadata parity: Model Registry |
 | ADAPTED | `TestStreamNoProvider` | `goai_test.go` | `testStreamNilModelAndNoProvider` | streaming/event transport behavior: Stream No Provider |
 | ADAPTED | `TestIsContextOverflow` | `goai_test.go` | `testContextOverflowAndToolValidation` | Is Context Overflow |
@@ -81,10 +81,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestGetEnvAPIKeyWithEnvGoogleVertexADC` | `goai_test.go` | `—` | auth/header/env edge case: Get Env APIKey With Env Google Vertex ADC |
 | ADAPTED | `TestCalculateCost` | `goai_test.go` | `testCostCalculation` | Calculate Cost |
 | ADAPTED | `TestCalculateCostAnthropicLongCacheWrite` | `goai_test.go` | `testCostCalculation` | prompt/cache usage or retention behavior: Calculate Cost Anthropic Long Cache Write |
-| PENDING | `TestModelsAreEqual` | `goai_test.go` | `—` | model registry/generated metadata parity: Models Are Equal |
+| ADAPTED | `TestModelsAreEqual` | `goai_test.go` | `testModelsAreEqual` | model registry/generated metadata parity: Models Are Equal |
 | ADAPTED | `TestAdjustMaxTokensForThinking` | `goai_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Adjust Max Tokens For Thinking |
-| PENDING | `TestTransformSkipsErroredMessages` | `goai_test.go` | `—` | Transform Skips Errored Messages |
-| PENDING | `TestTransformDowngradesImages` | `goai_test.go` | `—` | image generation behavior: Transform Downgrades Images |
+| ADAPTED | `TestTransformSkipsErroredMessages` | `goai_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | Transform Skips Errored Messages |
+| ADAPTED | `TestTransformDowngradesImages` | `goai_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | image generation behavior: Transform Downgrades Images |
 | ADAPTED | `TestSanitizeSurrogates` | `goai_test.go` | `testHashAndSanitizeUtilities` | Sanitize Surrogates |
 | PENDING | `TestDetectCompat` | `goai_test.go` | `—` | Detect Compat |
 | PENDING | `TestClampThinkingLevelPrefersUpgrade` | `goai_test.go` | `—` | reasoning/thinking wire-format behavior: Clamp Thinking Level Prefers Upgrade |
@@ -191,8 +191,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestLogLevelFiltering` | `logger_test.go` | `—` | Log Level Filtering |
 | ADAPTED | `TestSetLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger |
 | ADAPTED | `TestSetLoggerNil` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger Nil |
-| PENDING | `TestTransformMessagesAddsSyntheticResultForTrailingOrphan` | `logic_audit_test.go` | `—` | Transform Messages Adds Synthetic Result For Trailing Orphan |
-| PENDING | `TestTransformMessagesNilModelReturnsInput` | `logic_audit_test.go` | `—` | model registry/generated metadata parity: Transform Messages Nil Model Returns Input |
+| ADAPTED | `TestTransformMessagesAddsSyntheticResultForTrailingOrphan` | `logic_audit_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | Transform Messages Adds Synthetic Result For Trailing Orphan |
+| ADAPTED | `TestTransformMessagesNilModelReturnsInput` | `logic_audit_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | model registry/generated metadata parity: Transform Messages Nil Model Returns Input |
 | PENDING | `TestApplyToolCallLimitUsesBudgetTrim` | `logic_audit_test.go` | `—` | tool-call/schema conversion behavior: Apply Tool Call Limit Uses Budget Trim |
 | ADAPTED | `TestRegisterBuiltinModels` | `models_test.go` | `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: Register Builtin Models |
 | ADAPTED | `TestGeneratedModelMetadataParity` | `models_test.go` | `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: Generated Model Metadata Parity |

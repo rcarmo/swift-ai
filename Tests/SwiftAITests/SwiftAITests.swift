@@ -887,6 +887,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolResult["tool_use_id"], .string("call_1"))
     }
 
+    func testAnthropicTemperatureCompat() throws {
+        let opus47 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-opus-4-7" })
+        let opus48 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-opus-4-8" })
+        let opus46 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-opus-4-6" })
+        let sonnet46 = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .anthropic && $0.id == "claude-sonnet-4-6" })
+        var options = StreamOptions(); options.temperature = 0
+        XCTAssertNil(AnthropicMessagesProvider.buildRequestBody(model: opus47, context: AIContext(messages: [.user("Hello")]), options: options)["temperature"])
+        XCTAssertNil(AnthropicMessagesProvider.buildRequestBody(model: opus48, context: AIContext(messages: [.user("Hello")]), options: options)["temperature"])
+        XCTAssertEqual(AnthropicMessagesProvider.buildRequestBody(model: opus46, context: AIContext(messages: [.user("Hello")]), options: options)["temperature"], .number(0))
+        XCTAssertEqual(AnthropicMessagesProvider.buildRequestBody(model: sonnet46, context: AIContext(messages: [.user("Hello")]), options: options)["temperature"], .number(0))
+        let custom = Model(id: "vendor--claude-opus-4-7", name: "Vendor", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsTemperature: false))
+        XCTAssertNil(AnthropicMessagesProvider.buildRequestBody(model: custom, context: AIContext(messages: [.user("Hello")]), options: options)["temperature"])
+    }
+
     func testAnthropicCacheWrite1hCost() {
         let model = Model(id: "claude-opus-4-8", name: "Claude", api: .anthropicMessages, provider: .anthropic, cost: ModelCost(input: 5, output: 0, cacheRead: 0, cacheWrite: 6.25))
         let withBreakdown = """

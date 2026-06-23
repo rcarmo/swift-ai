@@ -853,6 +853,25 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(events.contains { if case .error = $0 { return true }; return false })
     }
 
+    func testAnthropicEmptyThinkingSignatureCompat() {
+        var assistant = Message(role: .assistant, content: [ContentBlock.thinking("internal reasoning", signature: "")])
+        assistant.api = .anthropicMessages
+        assistant.provider = .xiaomiTokenPlanAMS
+        assistant.model = "mimo-v2.5-pro"
+        let defaultModel = Model(id: "mimo-v2.5-pro", name: "MiMo", api: .anthropicMessages, provider: .xiaomiTokenPlanAMS, reasoning: true)
+        let defaultBody = AnthropicMessagesProvider.buildRequestBody(model: defaultModel, context: AIContext(messages: [.user("first"), assistant, .user("second")]), options: nil)
+        guard case .array(let defaultMessages)? = defaultBody["messages"], case .object(let defaultAssistant) = defaultMessages[1], case .array(let defaultContent)? = defaultAssistant["content"], case .object(let defaultBlock) = defaultContent[0] else { return XCTFail("missing default assistant") }
+        XCTAssertEqual(defaultBlock["type"], .string("text"))
+        XCTAssertEqual(defaultBlock["text"], .string("internal reasoning"))
+
+        assistant.content[0].thinkingSignature = " "
+        let allowModel = Model(id: "mimo-v2.5-pro", name: "MiMo", api: .anthropicMessages, provider: .xiaomiTokenPlanAMS, reasoning: true, anthropicCompat: AnthropicMessagesCompat(allowEmptySignature: true))
+        let allowBody = AnthropicMessagesProvider.buildRequestBody(model: allowModel, context: AIContext(messages: [.user("first"), assistant, .user("second")]), options: nil)
+        guard case .array(let allowMessages)? = allowBody["messages"], case .object(let allowAssistant) = allowMessages[1], case .array(let allowContent)? = allowAssistant["content"], case .object(let allowBlock) = allowContent[0] else { return XCTFail("missing allow assistant") }
+        XCTAssertEqual(allowBlock["type"], .string("thinking"))
+        XCTAssertEqual(allowBlock["signature"], .string(""))
+    }
+
     func testAnthropicToolUseAndResultRequest() {
         var assistant = Message(role: .assistant, content: [.toolCall(id: "call.1", name: "lookup", arguments: ["q": .string("x")])])
         assistant.stopReason = .toolUse

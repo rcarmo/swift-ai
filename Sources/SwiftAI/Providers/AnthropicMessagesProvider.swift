@@ -23,7 +23,7 @@ public enum AnthropicMessagesProvider {
             "model": .string(model.id),
             "max_tokens": .number(Double(options?.maxTokens ?? model.maxTokens)),
             "stream": .bool(true),
-            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model)), cacheControl: cacheControl(model: model, options: options)))
+            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model), cacheControl: cacheControl(model: model, options: options)))
         ]
         let cc = cacheControl(model: model, options: options)
         if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
@@ -152,25 +152,31 @@ public enum AnthropicMessagesProvider {
     private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh: return options?.thinkingBudgets?.high ?? 16384 } }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; default: return .stop } }
-    private static func convertMessages(_ messages: [Message]) -> [JSONValue] {
+    private static func convertMessages(_ messages: [Message], model: Model) -> [JSONValue] {
         messages.map { message in
             let role = message.role == .assistant ? "assistant" : "user"
             let content: [JSONValue]
             if message.role == .toolResult {
                 content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .string(AIUtilities.sanitizeSurrogates(message.content.compactMap(\.text).joined(separator: "\n"))), "is_error": .bool(message.isError == true)])]
             } else {
-                content = message.content.compactMap { contentBlock($0, message: message) }
+                content = message.content.compactMap { contentBlock($0, message: message, model: model) }
             }
             return .object(["role": .string(role), "content": .array(content)])
         }
     }
 
-    private static func contentBlock(_ block: ContentBlock, message: Message) -> JSONValue? {
+    private static func contentBlock(_ block: ContentBlock, message: Message, model: Model) -> JSONValue? {
         switch block.type {
         case "text":
             return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])
         case "thinking":
-            if message.role == .assistant { return .object(["type": .string("thinking"), "thinking": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? "")), "signature": .string(block.thinkingSignature ?? "")]) }
+            if message.role == .assistant {
+                let signature = (block.thinkingSignature ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if signature.isEmpty && model.anthropicCompat?.allowEmptySignature != true {
+                    return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])
+                }
+                return .object(["type": .string("thinking"), "thinking": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? "")), "signature": .string(signature)])
+            }
             return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])
         case "image":
             return .object(["type": .string("image"), "source": .object(["type": .string("base64"), "media_type": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])])

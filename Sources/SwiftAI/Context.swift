@@ -4,8 +4,9 @@ public enum ContextUtilities {
     private static let overflowPatterns = [
         "prompt is too long", "request_too_large", "input is too long for requested model",
         "exceeds the context window", "exceeds maximum context length", "maximum context length",
+        "maximum context length of", "exceeds model's maximum context length", "longer than the model's context length",
         "input token count", "maximum prompt length", "reduce the length of the messages",
-        "maximum allowed input length", "exceeds the available context size", "greater than the context length",
+        "maximum allowed input length", "exceeds the maximum allowed input length", "exceeds the available context size", "greater than the context length",
         "context window exceeds limit", "exceeded model token limit", "model_context_window_exceeded",
         "prompt too long", "context_length_exceeded", "context length exceeded", "too many tokens",
         "token limit exceeded", "400 (no body)", "413 (no body)"

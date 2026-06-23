@@ -1,6 +1,6 @@
 # swift-ai parity status
 
-Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**. `STATUS.json` contains the same high-level status in machine-readable form.
+Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.80.2**. `STATUS.json` contains the same high-level status in machine-readable form.
 
 ## Implemented
 
@@ -9,10 +9,10 @@ Tracks upstream `@earendil-works/pi-ai` / audited `go-ai` **v0.79.9**. `STATUS.j
 - Core image type system: image APIs/providers, image context/input/output, image model metadata, assistant image result shape, image options.
 - Event protocol as a Swift `AIEvent` enum.
 - Actor-backed registries for text API providers, text models, image API providers, and image models.
-- Full embedded text model registry generated from `go-ai` v0.79.9: **979 models / 35 providers**.
-- Full embedded image model registry generated from `go-ai` v0.79.9: **34 models / 1 provider**.
+- Full embedded text model registry generated from upstream `pi-ai` v0.80.2: **999 models / 35 providers**.
+- Full embedded image model registry generated from `go-ai` v0.80.2: **34 models / 1 provider**.
 - Environment key lookup with per-request `StreamOptions.env` / `ImagesOptions.env` overlay.
-- OpenAI-compatible compat detection, including v0.79.9 `chat-template` thinking kwargs metadata.
+- OpenAI-compatible compat detection, including v0.80.2 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
 - SSE parser.
 - OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported, developer-role system prompts for reasoning models when compatible, multimodal user/tool-result image replay, assistant tool-call replay, `reasoning_content` replay when required, synthetic assistant-after-tool-result separators, tool-result name replay when required, and error finish-reason events.

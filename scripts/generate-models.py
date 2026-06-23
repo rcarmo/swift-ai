@@ -2,12 +2,12 @@
 """Generate Sources/SwiftAI/ModelsGenerated.swift from exported go-ai model JSON.
 
 Usage:
-    python3 scripts/generate-models.py scripts/models.v0.79.9.json Sources/SwiftAI/ModelsGenerated.swift
+    python3 scripts/generate-models.py scripts/models.v0.80.2.json Sources/SwiftAI/ModelsGenerated.swift
 
 The input JSON is produced from the audited Go registry:
 
     cd /workspace/projects/go-ai
-    go run /tmp/export-go-ai-models.go > /workspace/projects/swift-ai/scripts/models.v0.79.9.json
+    go run /tmp/export-go-ai-models.go > /workspace/projects/swift-ai/scripts/models.v0.80.2.json
 """
 from __future__ import annotations
 
@@ -34,11 +34,11 @@ def main() -> int:
     body = "\n".join(chunks(encoded))
     dst.write_text(f'''import Foundation
 
-// Generated from @earendil-works/pi-ai/go-ai v0.79.9 model registry.
-// Source JSON: scripts/models.v0.79.9.json
+// Generated from @earendil-works/pi-ai/go-ai v0.80.2 model registry.
+// Source JSON: scripts/models.v0.80.2.json
 
 public enum BuiltinModels {{
-    public static let upstreamVersion = "0.79.9"
+    public static let upstreamVersion = "0.80.2"
     public static let modelCount = {len(models)}
     public static let providerCount = {len(providers)}
 

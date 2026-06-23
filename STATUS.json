@@ -1,8 +1,8 @@
 {
   "upstream": {
     "package": "@earendil-works/pi-ai",
-    "version": "0.79.9",
-    "reference": "go-ai v0.79.9"
+    "version": "0.80.2",
+    "reference": "go-ai v0.80.2"
   },
   "swiftPM": {
     "package": "swift-ai",
@@ -16,7 +16,7 @@
     ]
   },
   "registries": {
-    "textModels": 979,
+    "textModels": 999,
     "textProviders": 35,
     "textAPIs": 9,
     "imageModels": 34,

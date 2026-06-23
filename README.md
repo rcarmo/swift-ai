@@ -2,7 +2,7 @@
 
 SwiftPM library port of [`@earendil-works/pi-ai`](https://www.npmjs.com/package/@earendil-works/pi-ai), using [`go-ai`](https://github.com/rcarmo/go-ai) as the audited reference implementation.
 
-This package is a SwiftPM library port prepared for consumption by Swift applications and services. It tracks upstream `@earendil-works/pi-ai` **0.79.9**. See `STATUS.json` for machine-readable parity/transport status, or `SwiftAIStatus` at runtime.
+This package is a SwiftPM library port prepared for consumption by Swift applications and services. It tracks upstream `@earendil-works/pi-ai` **0.80.2**. See `STATUS.json` for machine-readable parity/transport status, or `SwiftAIStatus` at runtime.
 
 ## What is implemented
 
@@ -34,7 +34,7 @@ This package is a SwiftPM library port prepared for consumption by Swift applica
 - Diagnostics and pluggable logging helpers.
 - Context overflow detection and JSON Schema tool argument validation helpers.
 - Simple-options/thinking level and token-budget helpers.
-- Full embedded text model catalog generated from audited `go-ai`/upstream `pi-ai` v0.79.9: 979 models / 35 providers.
+- Full embedded text model catalog generated from audited upstream `pi-ai` v0.80.2: 999 models / 35 providers.
 - Full embedded image model catalog: 34 OpenRouter image models.
 
 ## Usage

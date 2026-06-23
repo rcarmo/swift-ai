@@ -19,16 +19,17 @@ public enum AnthropicMessagesProvider {
     }
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
+        let isOAuth = isOAuthToken(options?.apiKey ?? "")
         var body: [String: JSONValue] = [
             "model": .string(model.id),
             "max_tokens": .number(Double(options?.maxTokens ?? model.maxTokens)),
             "stream": .bool(true),
-            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model), cacheControl: cacheControl(model: model, options: options)))
+            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model, isOAuthToken: isOAuth), cacheControl: cacheControl(model: model, options: options)))
         ]
         let cc = cacheControl(model: model, options: options)
         if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, model: model, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
+        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, model: model, isOAuthToken: isOAuth, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
         if model.reasoning {
             if let reasoning = options?.reasoning {
                 let effort = AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: reasoning.rawValue) ?? .high) ?? reasoning.rawValue
@@ -166,20 +167,20 @@ public enum AnthropicMessagesProvider {
     private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh: return options?.thinkingBudgets?.high ?? 16384 } }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; default: return .stop } }
-    private static func convertMessages(_ messages: [Message], model: Model) -> [JSONValue] {
+    private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false) -> [JSONValue] {
         messages.map { message in
             let role = message.role == .assistant ? "assistant" : "user"
             let content: [JSONValue]
             if message.role == .toolResult {
                 content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .string(AIUtilities.sanitizeSurrogates(message.content.compactMap(\.text).joined(separator: "\n"))), "is_error": .bool(message.isError == true)])]
             } else {
-                content = message.content.compactMap { contentBlock($0, message: message, model: model) }
+                content = message.content.compactMap { contentBlock($0, message: message, model: model, isOAuthToken: isOAuthToken) }
             }
             return .object(["role": .string(role), "content": .array(content)])
         }
     }
 
-    private static func contentBlock(_ block: ContentBlock, message: Message, model: Model) -> JSONValue? {
+    private static func contentBlock(_ block: ContentBlock, message: Message, model: Model, isOAuthToken: Bool = false) -> JSONValue? {
         switch block.type {
         case "text":
             return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])
@@ -195,7 +196,7 @@ public enum AnthropicMessagesProvider {
         case "image":
             return .object(["type": .string("image"), "source": .object(["type": .string("base64"), "media_type": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])])
         case "toolCall":
-            return .object(["type": .string("tool_use"), "id": .string(normalizeAnthropicToolCallID(block.id ?? "")), "name": .string(block.name ?? ""), "input": .object(block.arguments ?? [:])])
+            return .object(["type": .string("tool_use"), "id": .string(normalizeAnthropicToolCallID(block.id ?? "")), "name": .string(isOAuthToken ? toClaudeCodeName(block.name ?? "") : (block.name ?? "")), "input": .object(block.arguments ?? [:])])
         default:
             return nil
         }
@@ -219,8 +220,13 @@ public enum AnthropicMessagesProvider {
         return messages
     }
 
-    private static func toolJSON(_ tool: Tool, model: Model, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
+    private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(isOAuthToken ? toClaudeCodeName(tool.name) : tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
     private static func normalizeAnthropicToolCallID(_ id: String) -> String { String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.prefix(64)) }
+    private static func isOAuthToken(_ apiKey: String) -> Bool { apiKey.contains("sk-ant-oat") }
+    private static func toClaudeCodeName(_ name: String) -> String {
+        let tools = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "KillShell", "NotebookEdit", "Skill", "Task", "TaskOutput", "TodoWrite", "WebFetch", "WebSearch"]
+        return tools.first { $0.lowercased() == name.lowercased() } ?? name
+    }
 }
 
 private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }

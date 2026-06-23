@@ -1014,6 +1014,24 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(offBody["output_config"])
     }
 
+    func testAnthropicOAuthToolNameNormalization() {
+        var options = StreamOptions(); options.apiKey = "sk-ant-oat-test"
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let todo = Tool(name: "todowrite", description: "todo", parameters: .object(["type": .string("object")]))
+        let read = Tool(name: "read", description: "read", parameters: .object(["type": .string("object")]))
+        let find = Tool(name: "find", description: "find", parameters: .object(["type": .string("object")]))
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [todo, read, find]), options: options)
+        guard case .array(let tools)? = body["tools"], case .object(let t0) = tools[0], case .object(let t1) = tools[1], case .object(let t2) = tools[2] else { return XCTFail("missing tools") }
+        XCTAssertEqual(t0["name"], .string("TodoWrite"))
+        XCTAssertEqual(t1["name"], .string("Read"))
+        XCTAssertEqual(t2["name"], .string("find"))
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "c", name: "todowrite", arguments: [:])])
+        assistant.api = .anthropicMessages; assistant.provider = .anthropic; assistant.model = "claude"
+        let replay = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: options)
+        guard case .array(let messages)? = replay["messages"], case .object(let msg) = messages[0], case .array(let content)? = msg["content"], case .object(let block) = content[0] else { return XCTFail("missing replay tool") }
+        XCTAssertEqual(block["name"], .string("TodoWrite"))
+    }
+
     func testAnthropicEagerToolInputCompat() {
         let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
         let defaultModel = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)

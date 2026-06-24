@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **141**
+- Adapted in Swift semantic tests: **142**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **37**
+- Pending direct Swift adaptation: **36**
 
 ## Highest-priority pending buckets
 
@@ -193,7 +193,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestSetLoggerNil` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger Nil |
 | ADAPTED | `TestTransformMessagesAddsSyntheticResultForTrailingOrphan` | `logic_audit_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | Transform Messages Adds Synthetic Result For Trailing Orphan |
 | ADAPTED | `TestTransformMessagesNilModelReturnsInput` | `logic_audit_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | model registry/generated metadata parity: Transform Messages Nil Model Returns Input |
-| PENDING | `TestApplyToolCallLimitUsesBudgetTrim` | `logic_audit_test.go` | `—` | tool-call/schema conversion behavior: Apply Tool Call Limit Uses Budget Trim |
+| ADAPTED | `TestApplyToolCallLimitUsesBudgetTrim` | `logic_audit_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit Uses Budget Trim |
 | ADAPTED | `TestRegisterBuiltinModels` | `models_test.go` | `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: Register Builtin Models |
 | ADAPTED | `TestGeneratedModelMetadataParity` | `models_test.go` | `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: Generated Model Metadata Parity |
 | ADAPTED | `TestListModelsFilter` | `models_test.go` | `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: List Models Filter |

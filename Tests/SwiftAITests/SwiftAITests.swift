@@ -855,6 +855,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(result.toolCallRemoved, 1)
         XCTAssertTrue(result.summaryText.contains("old"))
         XCTAssertEqual(result.messages.count, 3)
+
+        var budgetMessages: [JSONValue] = []
+        for i in 0..<5 {
+            budgetMessages.append(.object(["type": .string("function_call"), "name": .string("search"), "call_id": .string("\(i)")]))
+            budgetMessages.append(.object(["type": .string("function_call_output"), "call_id": .string("\(i)"), "output": .string("this is a fairly long tool output that should count toward the token budget")]))
+        }
+        let budget = AzureHelpers.applyToolCallLimit(budgetMessages, config: ToolCallLimitConfig(limit: 10, summaryMax: 2000, outputChars: 30, maxEstimatedTokens: 40))
+        XCTAssertGreaterThan(budget.toolCallBudgetRemoved, 0)
+        XCTAssertLessThanOrEqual(budget.estimatedTokensAfter, budget.estimatedTokensBefore)
+        XCTAssertFalse(budget.summaryText.isEmpty)
     }
 
     func testAzureResponsesHelpers() throws {

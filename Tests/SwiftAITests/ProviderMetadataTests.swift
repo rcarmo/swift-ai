@@ -239,6 +239,14 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertTrue(filtered.contains { $0.provider == .openAI })
     }
 
+    func testAnthropicRequestJSONRoundTrip() throws {
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")], tools: [Tool(name: "lookup", description: "Lookup", parameters: .object(["type": .string("object")]))]), options: nil)
+        let data = try JSONEncoder().encode(JSONValue.object(body))
+        let decoded = try JSONDecoder().decode(JSONValue.self, from: data)
+        XCTAssertEqual(decoded, .object(body))
+    }
+
     func testAnthropicBaseURLNormalizationAddsV1() {
         XCTAssertEqual(AnthropicMessagesProvider.normalizeBaseURL(""), "https://api.anthropic.com/v1")
         XCTAssertEqual(AnthropicMessagesProvider.normalizeBaseURL("https://api.anthropic.com"), "https://api.anthropic.com/v1")

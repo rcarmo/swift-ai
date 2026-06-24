@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **145**
-- Partial/pluggable transport coverage: **20**
-- Pending direct Swift adaptation: **24**
+- Adapted in Swift semantic tests: **148**
+- Partial/pluggable transport coverage: **21**
+- Pending direct Swift adaptation: **20**
 
 ## Highest-priority pending buckets
 
@@ -118,10 +118,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestGenerateImagesOpenRouterPayloadParityAndAbort` | `images_test.go` | `testOpenRouterImagePayloadBuilder` | provider request/payload parity: Generate Images Open Router Payload Parity And Abort |
 | PARTIAL | `TestGenerateImagesOpenRouterRetriesAndHookError` | `images_test.go` | `testGenerateImagesErrorPathsAndHookError`, `testRetryPolicy` | image generation behavior: hook error covered; HTTP retry integration is policy-covered, not fully transport-replayed |
 | ADAPTED | `TestNormalizeAnthropicBaseURLAddsV1` | `inference/provider/anthropic/anthropic_copilot_test.go` | `testAnthropicBaseURLNormalizationAddsV1` | provider OAuth/provider-specific behavior: Normalize Anthropic Base URLAdds V1 |
-| PENDING | `TestStreamAnthropicUsesBearerForCopilot` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Uses Bearer For Copilot |
-| PENDING | `TestBuildRequestJSONRoundTrip` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider request/payload parity: Build Request JSONRound Trip |
-| PENDING | `TestStreamAnthropicParsesOneHourCacheWriteUsage` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Parses One Hour Cache Write Usage |
-| PENDING | `TestStreamAnthropicUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Uses Explicit Auth Header Without APIKey |
+| ADAPTED | `TestStreamAnthropicUsesBearerForCopilot` | `inference/provider/anthropic/anthropic_copilot_test.go` | `testGitHubCopilotAnthropicHeadersAndAdaptiveThinking` | streaming/event transport behavior: Stream Anthropic Uses Bearer For Copilot |
+| ADAPTED | `TestBuildRequestJSONRoundTrip` | `inference/provider/anthropic/anthropic_copilot_test.go` | `testAnthropicRequestJSONRoundTrip` | provider request/payload parity: Build Request JSONRound Trip |
+| ADAPTED | `TestStreamAnthropicParsesOneHourCacheWriteUsage` | `inference/provider/anthropic/anthropic_retry_test.go` | `testAnthropicCacheWrite1hCost` | streaming/event transport behavior: Stream Anthropic Parses One Hour Cache Write Usage |
+| PARTIAL | `TestStreamAnthropicUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/anthropic/anthropic_retry_test.go` | `testAuthHeaderAndMergeHelpers` | streaming/event transport behavior: explicit auth-header detection covered; no URLSession transport replay harness yet |
 | PARTIAL | `TestStreamAnthropicRetries429AndSucceeds` | `inference/provider/anthropic/anthropic_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Anthropic Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | PENDING | `TestProcessConverseStreamSurfacesStreamErr` | `inference/provider/bedrock/bedrock_stream_test.go` | `—` | streaming/event transport behavior: Process Converse Stream Surfaces Stream Err |
 | ADAPTED | `TestMapStopReason` | `inference/provider/bedrock/bedrock_stream_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Map Stop Reason |

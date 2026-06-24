@@ -35,7 +35,7 @@ public actor FauxRegistration {
         switch step {
         case .message(let message): msg = message
         case .factory(let factory): msg = factory(context, options, callState)
-        case nil: msg = FauxProvider.textMessage("Faux response #\(callState.callCount) (no responses queued)")
+        case nil: msg = FauxProvider.errorMessage("No more faux responses queued")
         }
         if msg.timestamp == 0 { msg.timestamp = Int64(Date().timeIntervalSince1970 * 1000) }
         return msg

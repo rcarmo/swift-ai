@@ -568,6 +568,33 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(await registration.pendingResponseCount(), 0)
     }
 
+    func testFauxProviderMultipleModelsAndQueueExhaustion() async throws {
+        let registration = await FauxProvider.register(options: FauxOptions(models: [
+            FauxModelDef(id: "faux-fast", name: "Faux Fast", reasoning: false),
+            FauxModelDef(id: "faux-thinker", name: "Faux Thinker", reasoning: true)
+        ]))
+        await registration.setResponses([
+            .factory { _, _, state in FauxProvider.textMessage("fast:\(state.callCount)") },
+            .factory { _, _, state in FauxProvider.textMessage("thinker:\(state.callCount)") }
+        ])
+        XCTAssertEqual(registration.models.map(\.id), ["faux-fast", "faux-thinker"])
+        XCTAssertEqual(await registration.model()?.id, "faux-fast")
+        XCTAssertEqual(await registration.model(id: "faux-fast")?.reasoning, false)
+        XCTAssertEqual(await registration.model(id: "faux-thinker")?.reasoning, true)
+        let fast = try await SwiftAI.complete(model: registration.models[0], context: AIContext(messages: [.user("hi")]))
+        let thinker = try await SwiftAI.complete(model: registration.models[1], context: AIContext(messages: [.user("hi")]))
+        XCTAssertEqual(fast.content, [.text("fast:1")])
+        XCTAssertEqual(thinker.content, [.text("thinker:2")])
+        do {
+            _ = try await SwiftAI.complete(model: registration.models[0], context: AIContext(messages: [.user("hi")]))
+            XCTFail("expected exhausted faux queue error")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("No more faux responses queued"))
+        }
+        XCTAssertEqual(await registration.pendingResponseCount(), 0)
+        XCTAssertEqual(await registration.state.callCount, 3)
+    }
+
     func testFauxThinkingToolFactoryMultipleAndError() async throws {
         let registration = await FauxProvider.register()
         await registration.setResponses([

@@ -227,7 +227,7 @@ public enum OpenAIResponsesProvider {
                 let parts = rawID.split(separator: "|", maxSplits: 1).map(String.init)
                 let callID = normalizeResponsesIDPart(parts.first ?? rawID)
                 var item: [String: JSONValue] = ["type": .string("function_call"), "call_id": .string(callID), "name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))]
-                if parts.count == 2 { item["id"] = .string(normalizeResponsesIDPart(parts[1].hasPrefix("fc_") ? parts[1] : "fc_" + parts[1])) }
+                if parts.count == 2 { item["id"] = .string(normalizeResponsesItemID(parts[1])) }
                 items.append(.object(item))
             default:
                 break
@@ -237,6 +237,7 @@ public enum OpenAIResponsesProvider {
     }
     private static func userContent(_ block: ContentBlock) -> JSONValue? { if block.type == "text" { return .object(["type": .string("input_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]) }; if block.type == "image" { return .object(["type": .string("input_image"), "detail": .string("auto"), "image_url": .string("data:\(block.mimeType ?? "application/octet-stream");base64,\(block.data ?? "")")]) }; return nil }
     private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
+    private static func normalizeResponsesItemID(_ value: String) -> String { let raw = value.hasPrefix("fc_") ? String(value.dropFirst(3)) : value; let filtered = raw.filter { $0.isLetter || $0.isNumber }; if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }; return "fc_" + AIUtilities.shortHash(raw) }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]) }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }

@@ -800,6 +800,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(copilotBody["reasoning"])
     }
 
+    func testOpenAIResponsesForeignToolCallIDNormalization() {
+        let rawID = "call_4VnzVawQXPB9MgYib7CiQFEY|I9b95oN1wD/cHXKTw3PpRkL6KkCtzTJhUxMouMWYwHeTo2j3htzfSk7YPx2vifiIM4g3A8XXyOj8q4Bt6SLUG7gqY1E3ELkrkVQNHglRfUmWj84lqxJY+Puieb3VKyX0FB+83TUzn91cDMF/4gzt990IzqVrc+nIb9RRscRD070Du16q1glydVjWR0SBJsE6TbY/esOjFpqplogQqrajm1eI++f3eLi73R6q7hVusY0QbeFySVxABCjhN0lXB04caBe1rzHjYzul6MAXj7uq+0r17VLq+yrtyYhN12wkmFqHeqTyEei6EFPbMy24Nc+IbJlkP0OCg02W+gOnyBFcbi2ctvJFSOhSjt1CqBdqCnnhwUqXjbWiT0wh3DmLScRgTHmGkaI+oAcQQjfic65nxj+TnEkReA=="
+        var assistant = Message(role: .assistant, content: [.toolCall(id: rawID, name: "edit", arguments: ["path": .string("src/styles/app.css")])])
+        assistant.api = .openAIResponses; assistant.provider = .githubCopilot; assistant.model = "gpt-5.5"; assistant.stopReason = .toolUse
+        var toolResult = Message(role: .toolResult, content: [.text("ok")])
+        toolResult.toolCallId = rawID; toolResult.toolName = "edit"
+        let model = Model(id: "gpt-5.5", name: "Codex", api: .openAICodexResponses, provider: .openAICodex)
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "You are concise.", messages: [.user("Use the tool."), assistant, toolResult]), options: nil)
+        guard case .array(let input)? = body["input"], let functionCall = input.compactMap({ item -> [String: JSONValue]? in if case .object(let obj) = item, obj["type"] == .string("function_call") { return obj }; return nil }).first else { return XCTFail("missing function call") }
+        let itemPart = rawID.split(separator: "|", maxSplits: 1).map(String.init)[1]
+        let expected = "fc_" + AIUtilities.shortHash(itemPart)
+        XCTAssertEqual(functionCall["id"], .string(expected))
+        XCTAssertLessThanOrEqual(expected.count, 64)
+    }
+
     func testOpenAIResponsesFallbackMessageIDs() throws {
         var assistant = Message(role: .assistant, content: [ContentBlock.thinking("private reasoning"), .text("visible answer")])
         assistant.api = .anthropicMessages

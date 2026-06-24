@@ -70,7 +70,7 @@ The npm tarball omits these tests; this source checkout is the test-for-test par
 | `test/openai-completions-tool-result-images.test.ts` | 1 | batches tool-result images after consecutive tool results | PENDING |
 | `test/openai-responses-cache-affinity-e2e.test.ts` | 1 | handles direct OpenAI Responses requests with aligned cache-affinity identifiers | PENDING |
 | `test/openai-responses-copilot-provider.test.ts` | 7 | omits reasoning when no reasoning is requested; sets cache-affinity headers for official OpenAI Responses requests with a sessionId; clamps prompt_cache_key to OpenAI; sets cache-affinity headers for proxy OpenAI Responses requests with a sessionId; can omit the session_id header while preserving other cache-affinity headers | PENDING |
-| `test/openai-responses-foreign-toolcall-id.test.ts` | 1 | hashes foreign Copilot tool item IDs into a bounded Codex-safe fc_<hash> shape | PENDING |
+| `test/openai-responses-foreign-toolcall-id.test.ts` | 1 | hashes foreign Copilot tool item IDs into bounded Codex-safe fc_<hash> shape | ADAPTED (`testOpenAIResponsesForeignToolCallIDNormalization`) |
 | `test/openai-responses-message-id.test.ts` | 1 | generates unique fallback message IDs for multiple text blocks in one assistant turn | ADAPTED (`testOpenAIResponsesFallbackMessageIDs`) |
 | `test/openai-responses-partial-json-cleanup.test.ts` | 1 | removes partialJson from persisted tool-call blocks at output_item.done | ADAPTED (`testOpenAIResponsesPartialJSONCleanup`) |
 | `test/openai-responses-reasoning-replay-e2e.test.ts` | 3 | skips reasoning-only history after an aborted turn; handles same-provider different-model handoff with tool calls; handles cross-provider handoff from Anthropic to OpenAI Codex | PENDING |

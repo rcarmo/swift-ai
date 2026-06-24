@@ -26,7 +26,9 @@ public struct RetryPolicy: Equatable, Sendable {
     public static func noRetry() -> RetryPolicy { RetryPolicy(maxRetries: 0) }
 
     public init(options: StreamOptions?) {
-        if let cfg = options?.retryConfig {
+        if let maxRetries = options?.maxRetries, maxRetries > 0 {
+            self.init(maxRetries: maxRetries, maxRetryDelayMs: options?.maxRetryDelayMs ?? 60_000)
+        } else if let cfg = options?.retryConfig {
             self.init(maxRetries: cfg.maxRetries ?? 3, maxRetryDelayMs: options?.maxRetryDelayMs ?? cfg.maxDelayMs ?? 60_000)
         } else if let maxRetryDelayMs = options?.maxRetryDelayMs {
             self.init(maxRetries: 3, maxRetryDelayMs: maxRetryDelayMs)

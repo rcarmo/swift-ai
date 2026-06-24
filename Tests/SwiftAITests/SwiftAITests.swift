@@ -675,6 +675,10 @@ final class SwiftAITests: XCTestCase {
 
     func testRetryPolicy() throws {
         XCTAssertEqual(RetryPolicy(options: Optional<StreamOptions>.none).maxRetries, 0)
+        var explicit = StreamOptions()
+        explicit.maxRetries = 2
+        let explicitPolicy = RetryPolicy(options: explicit)
+        XCTAssertEqual(explicitPolicy.maxRetries, 2)
         var options = StreamOptions()
         options.maxRetryDelayMs = 1_000
         let policy = RetryPolicy(options: options)

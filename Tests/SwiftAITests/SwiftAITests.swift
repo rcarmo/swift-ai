@@ -1323,6 +1323,22 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolHistoryBody["tools"], .array([]))
     }
 
+    func testOpenAIThinkingAsTextReplay() {
+        var compat = OpenAICompletionsCompat()
+        compat.requiresThinkingAsText = true
+        let model = Model(id: "repro-model", name: "Repro", api: .openAICompletions, provider: .openAI, reasoning: true, completionsCompat: compat)
+        var assistant = Message(role: .assistant, content: [ContentBlock.thinking("internal reasoning"), .text("visible answer")])
+        assistant.api = .openAICompletions; assistant.provider = .openAI; assistant.model = "repro-model"
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hello"), assistant, .user("continue")]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let replay) = messages[1], case .array(let content)? = replay["content"] else { return XCTFail("missing assistant content parts") }
+        XCTAssertEqual(content, [.object(["type": .string("text"), "text": .string("internal reasoning")]), .object(["type": .string("text"), "text": .string("visible answer")])])
+
+        assistant.content = [ContentBlock.thinking("internal reasoning")]
+        let thinkingOnly = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hello"), assistant]), options: nil)
+        guard case .array(let thinkingMessages)? = thinkingOnly["messages"], case .object(let thinkingReplay) = thinkingMessages[1], case .array(let thinkingContent)? = thinkingReplay["content"] else { return XCTFail("missing thinking-only content") }
+        XCTAssertEqual(thinkingContent, [.object(["type": .string("text"), "text": .string("internal reasoning")])])
+    }
+
     func testOpenAIReasoningContentReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresReasoningContentOnAssistantMessages = true

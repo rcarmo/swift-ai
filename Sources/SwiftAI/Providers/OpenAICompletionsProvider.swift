@@ -95,6 +95,13 @@ public enum OpenAICompletionsProvider {
             let contentValue: JSONValue
             if message.role == .user, message.content.contains(where: { $0.type == "image" }) {
                 contentValue = .array(openAIContentParts(message.content, leadingText: nil))
+            } else if message.role == .assistant, compat.requiresThinkingAsText == true, message.content.contains(where: { $0.type == "thinking" }) {
+                let parts = message.content.compactMap { block -> JSONValue? in
+                    if block.type == "thinking" { return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))]) }
+                    if block.type == "text" { return .object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]) }
+                    return nil
+                }
+                contentValue = .array(parts)
             } else {
                 let contentText = message.content.compactMap { block -> String? in
                     if block.type == "text" { return block.text }

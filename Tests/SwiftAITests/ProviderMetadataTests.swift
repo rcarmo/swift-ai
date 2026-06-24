@@ -25,6 +25,25 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertTrue(sawError)
     }
 
+    func testThinkingDisableRequestShapes() throws {
+        let models = try BuiltinModels.all()
+        let gemini25 = try XCTUnwrap(models.first { $0.provider == .google && $0.id == "gemini-2.5-flash" })
+        let google25 = GoogleGenerativeAIProvider.buildRequestBody(model: gemini25, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(google25["generationConfig"]?.objectValue?["thinkingConfig"], .object(["thinkingBudget": .number(0)]))
+
+        let gemini3 = try XCTUnwrap(models.first { $0.provider == .google && $0.id == "gemini-3-flash-preview" })
+        let google3 = GoogleGenerativeAIProvider.buildRequestBody(model: gemini3, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(google3["generationConfig"]?.objectValue?["thinkingConfig"], .object(["thinkingLevel": .string("MINIMAL")]))
+
+        let anthropicBudget = try XCTUnwrap(models.first { $0.provider == .anthropic && $0.id == "claude-sonnet-4-5" })
+        let anthropicBody = AnthropicMessagesProvider.buildRequestBody(model: anthropicBudget, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(anthropicBody["thinking"], .object(["type": .string("disabled")]))
+
+        let openai = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == "gpt-5.4-mini" })
+        let openaiBody = OpenAIResponsesProvider.buildRequestBody(model: openai, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(openaiBody["reasoning"], .object(["effort": .string("none"), "summary": .string("auto")]))
+    }
+
     func testGoogleThinkingSignatureDetectionAndRetention() {
         XCTAssertTrue(GoogleGenerativeAIProvider.isThinkingPart(thought: true, thoughtSignature: nil))
         XCTAssertTrue(GoogleGenerativeAIProvider.isThinkingPart(thought: true, thoughtSignature: "opaque-signature"))

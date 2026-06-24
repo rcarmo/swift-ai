@@ -98,8 +98,8 @@ public enum GoogleGenerativeAIProvider {
                 let isThinking = part.thought == true
                 if state.current?.type != (isThinking ? "thinking" : "text") { closeCurrent(state: &state, yield: yield); state.partial.content.append(ContentBlock(type: isThinking ? "thinking" : "text")); state.current = (isThinking ? "thinking" : "text", state.partial.content.count - 1); if isThinking { yield(.thinkingStart(contentIndex: state.partial.content.count - 1, partial: state.partial)) } else { yield(.textStart(contentIndex: state.partial.content.count - 1, partial: state.partial)) } }
                 guard let current = state.current else { continue }
-                if isThinking { state.partial.content[current.index].thinking = (state.partial.content[current.index].thinking ?? "") + text; state.partial.content[current.index].thinkingSignature = part.thoughtSignature; yield(.thinkingDelta(contentIndex: current.index, delta: text, partial: state.partial)) }
-                else { state.partial.content[current.index].text = (state.partial.content[current.index].text ?? "") + text; state.partial.content[current.index].textSignature = part.thoughtSignature; yield(.textDelta(contentIndex: current.index, delta: text, partial: state.partial)) }
+                if isThinking { state.partial.content[current.index].thinking = (state.partial.content[current.index].thinking ?? "") + text; state.partial.content[current.index].thinkingSignature = retainThoughtSignature(existing: state.partial.content[current.index].thinkingSignature, incoming: part.thoughtSignature); yield(.thinkingDelta(contentIndex: current.index, delta: text, partial: state.partial)) }
+                else { state.partial.content[current.index].text = (state.partial.content[current.index].text ?? "") + text; state.partial.content[current.index].textSignature = retainThoughtSignature(existing: state.partial.content[current.index].textSignature, incoming: part.thoughtSignature); yield(.textDelta(contentIndex: current.index, delta: text, partial: state.partial)) }
             }
             if let call = part.functionCall { closeCurrent(state: &state, yield: yield); let id = call.id ?? "\(call.name)_\(Int(Date().timeIntervalSince1970 * 1000))"; let block = ContentBlock(type: "toolCall", id: id, name: call.name, arguments: call.args, thoughtSignature: part.thoughtSignature); state.partial.content.append(block); let idx = state.partial.content.count - 1; yield(.toolCallStart(contentIndex: idx, partial: state.partial)); yield(.toolCallDelta(contentIndex: idx, delta: jsonString(call.args ?? [:]), partial: state.partial)); yield(.toolCallEnd(contentIndex: idx, toolCall: block, partial: state.partial)) }
         }
@@ -165,6 +165,8 @@ public enum GoogleGenerativeAIProvider {
         flushFunctionResponses()
         return out
     }
+    public static func isThinkingPart(thought: Bool?, thoughtSignature _: String?) -> Bool { thought == true }
+    public static func retainThoughtSignature(existing: String?, incoming: String?) -> String? { guard let incoming, !incoming.isEmpty else { return existing }; return incoming }
     public static func isVertexADCMarker(_ apiKey: String) -> Bool { apiKey == "<authenticated>" || apiKey == "gcp-vertex-credentials" }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesThinkingLevel(_ model: Model) -> Bool { model.id.lowercased().contains("gemini-3") || model.id.lowercased().contains("gemma-4") || model.id == "gemini-flash-latest" || model.id == "gemini-flash-lite-latest" }

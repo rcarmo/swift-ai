@@ -6,6 +6,22 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testGoogleThinkingSignatureDetectionAndRetention() {
+        XCTAssertTrue(GoogleGenerativeAIProvider.isThinkingPart(thought: true, thoughtSignature: nil))
+        XCTAssertTrue(GoogleGenerativeAIProvider.isThinkingPart(thought: true, thoughtSignature: "opaque-signature"))
+        XCTAssertFalse(GoogleGenerativeAIProvider.isThinkingPart(thought: nil, thoughtSignature: "opaque-signature"))
+        XCTAssertFalse(GoogleGenerativeAIProvider.isThinkingPart(thought: false, thoughtSignature: "opaque-signature"))
+        XCTAssertFalse(GoogleGenerativeAIProvider.isThinkingPart(thought: nil, thoughtSignature: nil))
+        XCTAssertFalse(GoogleGenerativeAIProvider.isThinkingPart(thought: false, thoughtSignature: ""))
+        let first = GoogleGenerativeAIProvider.retainThoughtSignature(existing: nil, incoming: "sig-1")
+        XCTAssertEqual(first, "sig-1")
+        let second = GoogleGenerativeAIProvider.retainThoughtSignature(existing: first, incoming: nil)
+        XCTAssertEqual(second, "sig-1")
+        let third = GoogleGenerativeAIProvider.retainThoughtSignature(existing: second, incoming: "")
+        XCTAssertEqual(third, "sig-1")
+        XCTAssertEqual(GoogleGenerativeAIProvider.retainThoughtSignature(existing: third, incoming: "sig-2"), "sig-2")
+    }
+
     func testGoogleVertexAPIKeyResolutionURLSemantics() throws {
         let model = Model(id: "gemini-3-flash-preview", name: "Gemini", api: .googleVertex, provider: .googleVertex)
         var options = StreamOptions(); options.project = "test-project"; options.location = "us-central1"

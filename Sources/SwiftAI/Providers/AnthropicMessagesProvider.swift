@@ -122,7 +122,7 @@ public enum AnthropicMessagesProvider {
             default: break
             }
         case "content_block_delta":
-            guard let raw = try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data), raw.index < state.partial.content.count else { return }
+            guard let raw = decodeAnthropicContentBlockDelta(event.data), raw.index < state.partial.content.count else { return }
             switch raw.delta.type {
             case "text_delta": let text = raw.delta.text ?? ""; state.partial.content[raw.index].text = (state.partial.content[raw.index].text ?? "") + text; yield(.textDelta(contentIndex: raw.index, delta: text, partial: state.partial))
             case "thinking_delta": let text = raw.delta.thinking ?? ""; state.partial.content[raw.index].thinking = (state.partial.content[raw.index].thinking ?? "") + text; yield(.thinkingDelta(contentIndex: raw.index, delta: text, partial: state.partial))
@@ -166,6 +166,25 @@ public enum AnthropicMessagesProvider {
     }
 
     private static func ensureContentIndex(_ index: Int, state: inout AnthropicStreamState) { while state.partial.content.count <= index { state.partial.content.append(ContentBlock(type: "text")) } }
+    private static func decodeAnthropicContentBlockDelta(_ text: String) -> AnthropicContentBlockDelta? {
+        if let data = text.data(using: .utf8), let raw = try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data) { return raw }
+        var repaired = ""
+        var escaping = false
+        for scalar in text.unicodeScalars {
+            if scalar.value == 9 { repaired += "\\t"; escaping = false; continue }
+            if escaping {
+                if "\\\"/bfnrtu".unicodeScalars.contains(scalar) { repaired.unicodeScalars.append(scalar) }
+                else { repaired += "\\"; repaired.unicodeScalars.append(scalar) }
+                escaping = false
+                continue
+            }
+            if scalar.value == 92 { repaired += "\\"; escaping = true; continue }
+            repaired.unicodeScalars.append(scalar)
+        }
+        if escaping { repaired += "\\" }
+        guard let data = repaired.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data)
+    }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func normalizeBaseURL(_ base: String) -> String { let b = base.isEmpty ? "https://api.anthropic.com/v1" : base.trimmingCharacters(in: CharacterSet(charactersIn: "/")); return b.hasSuffix("/v1") ? b : b + "/v1" }
     private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }

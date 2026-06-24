@@ -836,6 +836,87 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolReason, .toolUse)
     }
 
+    func testAnthropicRawSSEParsingRepairsMalformedToolJSON() {
+        let model = Model(id: "claude-haiku-4-5", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let malformed = #"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"path\":\"A\H\",\"text\":\"col1	col2\"}"}}"#
+        let sse = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"msg_test","usage":{"input_tokens":12,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_test","name":"edit","input":{}}}
+
+        event: content_block_delta
+        data: \(malformed)
+
+        event: content_block_stop
+        data: {"type":"content_block_stop","index":0}
+
+        event: message_delta
+        data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"input_tokens":12,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}
+
+        event: message_stop
+        data: {"type":"message_stop"}
+
+        """
+        let events = AnthropicMessagesProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .toolUse)
+        let toolCall = message.content.first { $0.type == "toolCall" }
+        XCTAssertEqual(toolCall?.arguments?["path"], .string("A\\H"))
+        XCTAssertEqual(toolCall?.arguments?["text"], .string("col1\tcol2"))
+    }
+
+    func testAnthropicRawSSEParsingRefusalAndPostStopUnknownEvents() {
+        let model = Model(id: "claude-haiku-4-5", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let explanation = "This request triggered restrictions on violative cyber content."
+        let refusal = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"msg_refusal","usage":{"input_tokens":412,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+
+        event: message_delta
+        data: {"type":"message_delta","delta":{"stop_reason":"refusal","stop_details":{"type":"refusal","category":"cyber","explanation":"\(explanation)"}},"usage":{"input_tokens":412,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}
+
+        event: message_stop
+        data: {"type":"message_stop"}
+
+        """
+        guard case .done(let refusalReason, let refusalMessage)? = AnthropicMessagesProvider.processSSEText(refusal, model: model).last else { return XCTFail("missing refusal") }
+        XCTAssertEqual(refusalReason, .error)
+        XCTAssertEqual(refusalMessage.errorMessage, explanation)
+
+        let minimal = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"msg_test","usage":{"input_tokens":12,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+        event: content_block_delta
+        data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+        event: content_block_stop
+        data: {"type":"content_block_stop","index":0}
+
+        event: message_delta
+        data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":12,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}
+
+        event: message_stop
+        data: {"type":"message_stop"}
+
+        event: done
+        data: [DONE]
+
+        event: proxy.stats
+        data: not json
+
+        """
+        guard case .done(let reason, let message)? = AnthropicMessagesProvider.processSSEText(minimal, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertNil(message.errorMessage)
+        XCTAssertEqual(message.content, [.text("Hello")])
+    }
+
     func testAzureOpenAIResponsesBaseURLNormalization() throws {
         let cases = [
             ("https://marc-quicktests-resource.cognitiveservices.azure.com", "https://marc-quicktests-resource.cognitiveservices.azure.com/openai/v1"),

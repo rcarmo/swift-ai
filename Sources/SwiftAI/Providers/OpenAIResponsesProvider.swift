@@ -200,7 +200,7 @@ public enum OpenAIResponsesProvider {
                 out.append(contentsOf: assistantItems(msg, model: model, messageIndex: msgIndex))
             case .toolResult:
                 let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
-                out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n")))]))
+                out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": toolResultOutput(msg)]))
             }
         }
         return out
@@ -236,6 +236,11 @@ public enum OpenAIResponsesProvider {
         return items
     }
     private static func userContent(_ block: ContentBlock) -> JSONValue? { if block.type == "text" { return .object(["type": .string("input_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))]) }; if block.type == "image" { return .object(["type": .string("input_image"), "detail": .string("auto"), "image_url": .string("data:\(block.mimeType ?? "application/octet-stream");base64,\(block.data ?? "")")]) }; return nil }
+    private static func toolResultOutput(_ msg: Message) -> JSONValue {
+        let parts = msg.content.compactMap(userContent)
+        if parts.contains(where: { if case .object(let obj) = $0 { return obj["type"] == .string("input_image") }; return false }) { return .array(parts) }
+        return .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n")))
+    }
     private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
     private static func normalizeResponsesItemID(_ value: String) -> String { let raw = value.hasPrefix("fc_") ? String(value.dropFirst(3)) : value; let filtered = raw.filter { $0.isLetter || $0.isNumber }; if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }; return "fc_" + AIUtilities.shortHash(raw) }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }

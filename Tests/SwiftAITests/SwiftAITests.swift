@@ -847,6 +847,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(copilotBody["reasoning"])
     }
 
+    func testOpenAIResponsesToolResultImagesStayInFunctionCallOutput() {
+        var toolResult = Message(role: .toolResult, content: [.text("A red circle with a diameter of 100 pixels."), .image(data: "abc", mimeType: "image/png")])
+        toolResult.toolCallId = "call_1"
+        toolResult.toolName = "get_circle_with_description"
+        let model = Model(id: "gpt-5-mini", name: "GPT", api: .openAIResponses, provider: .openAI, input: ["text", "image"])
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [toolResult]), options: nil)
+        guard case .array(let input)? = body["input"], case .object(let outputItem) = input[0], case .array(let output)? = outputItem["output"] else { return XCTFail("missing function_call_output array") }
+        XCTAssertEqual(outputItem["type"], .string("function_call_output"))
+        XCTAssertTrue(output.contains { if case .object(let obj) = $0 { return obj["type"] == .string("input_text") && obj["text"]?.stringValue?.contains("red circle") == true }; return false })
+        XCTAssertTrue(output.contains { if case .object(let obj) = $0 { return obj["type"] == .string("input_image") && obj["image_url"]?.stringValue?.hasPrefix("data:image/png;base64,") == true }; return false })
+        XCTAssertFalse(input.dropFirst().contains { if case .object(let obj) = $0 { return obj["role"] == .string("user") }; return false })
+    }
+
     func testOpenAIResponsesForeignToolCallIDNormalization() {
         let rawID = "call_4VnzVawQXPB9MgYib7CiQFEY|I9b95oN1wD/cHXKTw3PpRkL6KkCtzTJhUxMouMWYwHeTo2j3htzfSk7YPx2vifiIM4g3A8XXyOj8q4Bt6SLUG7gqY1E3ELkrkVQNHglRfUmWj84lqxJY+Puieb3VKyX0FB+83TUzn91cDMF/4gzt990IzqVrc+nIb9RRscRD070Du16q1glydVjWR0SBJsE6TbY/esOjFpqplogQqrajm1eI++f3eLi73R6q7hVusY0QbeFySVxABCjhN0lXB04caBe1rzHjYzul6MAXj7uq+0r17VLq+yrtyYhN12wkmFqHeqTyEei6EFPbMy24Nc+IbJlkP0OCg02W+gOnyBFcbi2ctvJFSOhSjt1CqBdqCnnhwUqXjbWiT0wh3DmLScRgTHmGkaI+oAcQQjfic65nxj+TnEkReA=="
         var assistant = Message(role: .assistant, content: [.toolCall(id: rawID, name: "edit", arguments: ["path": .string("src/styles/app.css")])])

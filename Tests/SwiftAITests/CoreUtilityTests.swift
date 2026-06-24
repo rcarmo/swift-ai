@@ -2,6 +2,19 @@ import XCTest
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
+    func testUsageTotalTokensComponentInvariant() {
+        var usage = Usage()
+        usage.input = 10
+        usage.output = 5
+        usage.cacheRead = 3
+        usage.cacheWrite = 2
+        usage.totalTokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite
+        XCTAssertEqual(usage.totalTokens, 20)
+        let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, cost: ModelCost(input: 1, output: 2, cacheRead: 0.5, cacheWrite: 1.5))
+        AIUtilities.applyCost(model: model, usage: &usage)
+        XCTAssertEqual(usage.cost.total, usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite, accuracy: 0.0000001)
+    }
+
     func testHTTPProxyResolution() throws {
         XCTAssertNil(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "bedrock-runtime.us-east-1.amazonaws.com"]))
         XCTAssertEqual(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://proxy.example:8080"])?.absoluteString, "http://proxy.example:8080")

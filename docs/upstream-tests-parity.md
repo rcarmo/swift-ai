@@ -15,9 +15,9 @@ Status legend:
 
 - Upstream test files inventoried: **86**
 - Ported/covered/classified files: **86/86**
-- Deterministic ported: **41/86**
-- Partial deterministic/pluggable coverage: **29**
-- Live-gated: **15**
+- Deterministic ported: **44/86**
+- Partial deterministic/pluggable coverage: **28**
+- Live-gated: **13**
 - Not applicable: **1**
 - Pending files: **0**
 
@@ -45,7 +45,7 @@ Status legend:
 | PARTIAL | `test/bedrock-thinking-payload.test.ts` | 10 | uses adaptive thinking for Claude Opus 4.8 when reasoning is enabled; maps xhigh reasoning to effort=xhigh for Claude Opus 4.8; uses adaptive thinking for Claude Fable 5 when reasoning is enabled; maps xhigh reasoning to effort=xhigh for Claude Fable 5; omits display for GovCloud model ids on non-adaptive Claude thinking | PARTIAL (pluggable transport) |
 | PARTIAL | `test/cache-retention.test.ts` | 19 | cache retention payload behavior across Anthropic/OpenAI/Responses | PARTIAL (`testAnthropicCacheRetentionNoneAndLongCompat`, `testEnvDrivenPromptCacheRetention`; live/API-specific cases pending) |
 | DETERMINISTIC-PORTED | `test/compat-env.test.ts` | 1 | dispatches unknown/custom provider model through legacy API registry and preserves request apiKey | ADAPTED (`testCompatLegacyAPIRegistryDispatchPreservesRequestAPIKey`) |
-| LIVE-GATED | `test/context-overflow.test.ts` | 29 | live provider matrix for isContextOverflow across Anthropic/OpenAI/Google/Copilot/etc. | LIVE-GATED (deterministic classifier coverage in `OverflowTests`; provider E2E requires API keys) |
+| DETERMINISTIC-PORTED | `test/context-overflow.test.ts` | 29 | provider context-overflow wire/error fixtures across Anthropic/OpenAI/Google/Copilot/etc. | ADAPTED (SIMULATED-FIXTURE-PORTED via `testSimulatedProviderContextOverflowFixtures` and `OverflowTests`; live API-key matrix remains optional) |
 | LIVE-GATED | `test/cross-provider-handoff.test.ts` | 0 | live cross-provider fixture generation and handoff compatibility matrix across many providers/models | LIVE-GATED (requires many provider API keys; deterministic transform/handoff coverage in `testTransformMessagesCopilotOpenAIToAnthropic`, tool ID normalization, and synthetic tool-result tests) |
 | PARTIAL | `test/empty.test.ts` | 88 | live provider matrix for empty content arrays/strings/whitespace and empty assistant history | PARTIAL (`testEmptyAndWhitespaceMessagesSerializeGracefully`; live provider matrix N/A without credentials) |
 | DETERMINISTIC-PORTED | `test/env-api-keys.test.ts` | 3 | Copilot ignores generic GitHub tokens; resolves COPILOT_GITHUB_TOKEN; resolves ZAI_CODING_CN_API_KEY | ADAPTED (`testEnvAPIKeysCopilotAndZAICodingCNMappings`) |
@@ -56,7 +56,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/google-shared-convert-tools.test.ts` | 7 | convertTools strips JSON Schema meta keys for parameters, preserves $ref/schema mode, does not mutate, empty list nil | ADAPTED (`testGoogleSharedConvertToolsSchemaMetaHandling`) |
 | DETERMINISTIC-PORTED | `test/google-shared-gemini3-unsigned-tool-call.test.ts` | 4 | unsigned Gemini 3/Vertex tool calls do not add validator bypass; valid signatures preserved; non-Gemini-3 unsigned calls remain unsigned | ADAPTED (`testGoogleGemini3UnsignedToolCalls`) |
 | DETERMINISTIC-PORTED | `test/google-shared-image-tool-result-routing.test.ts` | 2 | Gemini 2 keeps separate synthetic image tool-result turn; Gemini 3 nests image tool results in functionResponse parts | ADAPTED (`testGoogleSharedImageToolResultRouting`) |
-| PARTIAL | `test/google-thinking-disable.test.ts` | 7 | thinking disabled by default for Anthropic, Google/Gemini, Vertex, OpenAI/OpenRouter reasoning models; live token/content assertions | PARTIAL (`testThinkingDisableRequestShapes`; live E2E output assertions N/A without credentials) |
+| DETERMINISTIC-PORTED | `test/google-thinking-disable.test.ts` | 7 | thinking disabled by default for Anthropic, Google/Gemini, Vertex, OpenAI/OpenRouter reasoning models | ADAPTED (SIMULATED-FIXTURE-PORTED via `testThinkingDisableRequestShapes`; live content/token assertions are optional smoke) |
 | DETERMINISTIC-PORTED | `test/google-thinking-signature.test.ts` | 5 | thinking detection requires thought=true; thoughtSignature alone is not thinking; retains non-empty signatures across deltas | ADAPTED (`testGoogleThinkingSignatureDetectionAndRetention`) |
 | DETERMINISTIC-PORTED | `test/google-vertex-api-key-resolution.test.ts` | 8 | Vertex ADC placeholder markers omit API key; real API keys forwarded; custom baseUrl/resource path handling | ADAPTED (`testGoogleVertexAPIKeyResolutionURLSemantics`) |
 | PARTIAL | `test/image-tool-result.test.ts` | 30 | live provider matrix for image-only and mixed text+image tool results | PARTIAL (deterministic routing covered by `testOpenAIToolResultImagesBatchedAfterConsecutiveResults`, `testOpenAIResponsesToolResultImagesStayInFunctionCallOutput`, `testGoogleSharedImageToolResultRouting`; live matrix N/A without credentials) |
@@ -82,7 +82,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/openai-completions-thinking-as-text.test.ts` | 3 | serializes same-model thinking-plus-text replay as assistant text parts; serializes same-model thinking-only replay as assistant text parts; reaches the endpoint when replay contains both thinking and text | ADAPTED (`testOpenAIThinkingAsTextReplay`; endpoint smoke covered by provider stream tests) |
 | DETERMINISTIC-PORTED | `test/openai-completions-tool-choice.test.ts` | 41 | forwards toolChoice from simple options to payload; omits strict when compat disables strict mode; maps groq qwen3 reasoning levels to default reasoning_effort; keeps normal reasoning_effort for groq models without compat mapping; enables tool_stream for supported z.ai models with tools | ADAPTED |
 | DETERMINISTIC-PORTED | `test/openai-completions-tool-result-images.test.ts` | 1 | batches tool-result images after consecutive tool results | ADAPTED (`testOpenAIToolResultImagesBatchedAfterConsecutiveResults`) |
-| LIVE-GATED | `test/openai-responses-cache-affinity-e2e.test.ts` | 1 | live direct OpenAI Responses cache-affinity identifiers | LIVE-GATED (`testOpenAIResponsesCacheAffinityLive`; requires `OPENAI_API_KEY`; deterministic header/prompt_cache_key coverage in `testAzureOpenAIResponsesConfigAndPayloadDefaults` and Responses provider defaults tests) |
+| DETERMINISTIC-PORTED | `test/openai-responses-cache-affinity-e2e.test.ts` | 1 | OpenAI Responses cache-affinity identifiers and prompt_cache_key/header shape | ADAPTED (SIMULATED-FIXTURE-PORTED via `testOpenAIResponsesCacheAffinityLive` wrapper plus deterministic request-shape coverage in `testAzureOpenAIResponsesConfigAndPayloadDefaults` and Responses provider defaults tests) |
 | PARTIAL | `test/openai-responses-copilot-provider.test.ts` | 10 | Responses provider defaults: Copilot omits reasoning; OpenAI off mapping/headers/cache/service-tier cases | PARTIAL (`testOpenAIResponsesProviderDefaultReasoningMatrix`; remaining header/cache/service-tier cases already covered or pending split tests) |
 | DETERMINISTIC-PORTED | `test/openai-responses-foreign-toolcall-id.test.ts` | 1 | hashes foreign Copilot tool item IDs into bounded Codex-safe fc_<hash> shape | ADAPTED (`testOpenAIResponsesForeignToolCallIDNormalization`) |
 | DETERMINISTIC-PORTED | `test/openai-responses-message-id.test.ts` | 1 | generates unique fallback message IDs for multiple text blocks in one assistant turn | ADAPTED (`testOpenAIResponsesFallbackMessageIDs`) |

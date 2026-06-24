@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **142**
-- Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **36**
+- Adapted in Swift semantic tests: **145**
+- Partial/pluggable transport coverage: **13**
+- Pending direct Swift adaptation: **31**
 
 ## Highest-priority pending buckets
 
@@ -38,10 +38,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestDefaultRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Default Retry Config |
 | ADAPTED | `TestNoRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: No Retry Config |
 | PENDING | `TestNewHTTPClient` | `coverage_boost_test.go` | `—` | New HTTPClient |
-| PENDING | `TestDoWithRetrySuccess` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Success |
+| ADAPTED | `TestDoWithRetrySuccess` | `coverage_boost_test.go` | `testRetryRunnerSuccessExhaustionAndCallback` | retry/cancellation robustness: Do With Retry Success |
 | ADAPTED | `TestDoWithRetry429` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Do With Retry429 |
-| PENDING | `TestDoWithRetryExhausted` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Exhausted |
-| PENDING | `TestDoWithRetryOnRetryCallback` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry On Retry Callback |
+| ADAPTED | `TestDoWithRetryExhausted` | `coverage_boost_test.go` | `testRetryRunnerSuccessExhaustionAndCallback` | retry/cancellation robustness: Do With Retry Exhausted |
+| ADAPTED | `TestDoWithRetryOnRetryCallback` | `coverage_boost_test.go` | `testRetryRunnerSuccessExhaustionAndCallback` | retry/cancellation robustness: Do With Retry On Retry Callback |
 | ADAPTED | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Append Assistant Message |
 | ADAPTED | `TestGetTextContent` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Get Text Content |
 | ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
@@ -64,9 +64,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestUnregisterAndClear` | `coverage_test.go` | `testRegistryClearAndUnregister` | Unregister And Clear |
 | ADAPTED | `TestStreamNilModel` | `defensive_test.go` | `testStreamNilModelAndNoProvider` | streaming/event transport behavior: Stream Nil Model |
 | ADAPTED | `TestAppendAssistantMessageNilSafe` | `defensive_test.go` | `testAppendAssistantMessageNilSafe` | Append Assistant Message Nil Safe |
-| PENDING | `TestDoWithRetryRequiresReplayableBody` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Requires Replayable Body |
+| PARTIAL | `TestDoWithRetryRequiresReplayableBody` | `defensive_test.go` | `testRetryRunnerSuccessExhaustionAndCallback`, provider payload builders | provider request/payload parity: generic retry semantics covered; URLSession body replay constraints not directly modeled |
 | ADAPTED | `TestDoWithRetryNegativeMaxRetriesClampsToSingleAttempt` | `defensive_test.go` | `testRetryPolicy` | retry/cancellation robustness: Do With Retry Negative Max Retries Clamps To Single Attempt |
-| PENDING | `TestDoWithRetryReplaysBodyAcrossRetries` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Replays Body Across Retries |
+| PARTIAL | `TestDoWithRetryReplaysBodyAcrossRetries` | `defensive_test.go` | `testRetryRunnerSuccessExhaustionAndCallback`, provider payload builders | provider request/payload parity: retry attempts covered; URLSession replay transport not directly mirrored |
 | PENDING | `TestExamplesBuild` | `examples_smoke_test.go` | `—` | Examples Build |
 | PENDING | `TestExamplesMissingCredentialMessages` | `examples_smoke_test.go` | `—` | Examples Missing Credential Messages |
 | ADAPTED | `TestUserMessage` | `goai_test.go` | `testUserMessageAndContextJSON` | User Message |

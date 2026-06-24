@@ -56,6 +56,22 @@ public struct RetryPolicy: Equatable, Sendable {
     public func delayNanoseconds(attempt: Int, retryAfterMs: Int? = nil) throws -> UInt64 { UInt64(try delayMilliseconds(attempt: attempt, retryAfterMs: retryAfterMs)) * 1_000_000 }
 }
 
+public enum RetryRunner {
+    public static func run<T>(policy: RetryPolicy, sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, onRetry: (@Sendable (Int, Error) async -> Void)? = nil, operation: @Sendable (Int) async throws -> T) async throws -> T {
+        var lastError: Error?
+        for attempt in 0...policy.maxRetries {
+            do { return try await operation(attempt) }
+            catch {
+                lastError = error
+                guard attempt < policy.maxRetries else { break }
+                if let onRetry { await onRetry(attempt + 1, error) }
+                try await sleep(try policy.delayNanoseconds(attempt: attempt + 1))
+            }
+        }
+        throw lastError ?? AIError.provider("retry exhausted")
+    }
+}
+
 public enum HTTPRetry {
     public static func shouldRetry(statusCode: Int, policy: RetryPolicy = .default()) -> Bool {
         if let statuses = policy.retryableStatuses { return statuses.contains(statusCode) }

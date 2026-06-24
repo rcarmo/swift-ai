@@ -779,6 +779,31 @@ final class SwiftAITests: XCTestCase {
         await SwiftAI.bootstrap()
     }
 
+    func testRetryRunnerSuccessExhaustionAndCallback() async throws {
+        final class Box: @unchecked Sendable { var attempts: [Int] = []; var callbacks: [Int] = [] }
+        let box = Box()
+        let result = try await RetryRunner.run(policy: RetryPolicy(maxRetries: 2, baseDelayMs: 0, jitterFraction: 0), sleep: { _ in }, onRetry: { attempt, _ in box.callbacks.append(attempt) }) { attempt in
+            box.attempts.append(attempt)
+            if attempt < 1 { throw AIError.provider("temporary") }
+            return "ok"
+        }
+        XCTAssertEqual(result, "ok")
+        XCTAssertEqual(box.attempts, [0, 1])
+        XCTAssertEqual(box.callbacks, [1])
+
+        let exhausted = Box()
+        do {
+            _ = try await RetryRunner.run(policy: RetryPolicy(maxRetries: 2, baseDelayMs: 0, jitterFraction: 0), sleep: { _ in }) { attempt -> String in
+                exhausted.attempts.append(attempt)
+                throw AIError.provider("still failing")
+            }
+            XCTFail("expected retry exhaustion")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("still failing"))
+        }
+        XCTAssertEqual(exhausted.attempts, [0, 1, 2])
+    }
+
     func testRetryPolicy() throws {
         XCTAssertEqual(RetryPolicy(options: Optional<StreamOptions>.none).maxRetries, 0)
         var explicit = StreamOptions()

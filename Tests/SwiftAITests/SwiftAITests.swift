@@ -659,14 +659,18 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNotEqual(pair.verifier, pair.challenge)
         XCTAssertEqual(OAuthUtilities.normalizeDomain("https://company.ghe.com/"), "company.ghe.com")
         XCTAssertEqual(GitHubCopilotOAuthProvider.baseURL(token: "tid=abc;proxy-ep=proxy.individual.githubcopilot.com;sku=x"), "https://api.individual.githubcopilot.com")
+        XCTAssertEqual(GitHubCopilotOAuthProvider.baseURL(token: "tid=abc;proxy-ep=proxy.enterprise.example;rest"), "https://api.enterprise.example")
+        XCTAssertEqual(GitHubCopilotOAuthProvider.baseURL(token: "no-proxy-ep", enterpriseDomain: "company.ghe.com"), "https://copilot-api.company.ghe.com")
+        XCTAssertEqual(GitHubCopilotOAuthProvider.baseURL(token: "no-proxy-ep"), "https://api.individual.githubcopilot.com")
         let provider = GitHubCopilotOAuthProvider()
         let models = [
             Model(id: "keep", name: "keep", api: .openAICompletions, provider: .githubCopilot),
             Model(id: "drop", name: "drop", api: .openAICompletions, provider: .githubCopilot),
             Model(id: "other", name: "other", api: .openAICompletions, provider: .openAI)
         ]
-        let filtered = provider.modifyModels(models, credentials: OAuthCredentials(refresh: "r", access: "tok", expires: 0, extra: ["availableModelIds": .array([.string("keep")])]))
+        let filtered = provider.modifyModels(models, credentials: OAuthCredentials(refresh: "r", access: "tid=abc;proxy-ep=proxy.business.githubcopilot.com;rest", expires: 0, extra: ["availableModelIds": .array([.string("keep")])]))
         XCTAssertEqual(filtered.map(\.id), ["keep", "other"])
+        XCTAssertEqual(filtered.first?.baseUrl, "https://api.business.githubcopilot.com")
     }
 
     func testRetryPolicy() throws {

@@ -92,6 +92,6 @@ The npm tarball omits these tests; this source checkout is the test-for-test par
 | `test/unicode-surrogate.test.ts` | 66 | should handle emoji in tool results; should handle real-world LinkedIn comment data with emoji; should handle unpaired high surrogate (0xD83D) in tool results; should handle emoji in tool results; should handle real-world LinkedIn comment data with emoji | PENDING |
 | `test/validation.test.ts` | 3 | still validates when Function constructor is unavailable; coerces serialized plain JSON schemas with AJV-compatible primitive rules; rejects invalid coercions for serialized plain JSON schemas | ADAPTED (`testToolValidationCoercionParity`; Function-constructor fallback N/A in Swift) |
 | `test/xhigh.test.ts` | 3 | should work with openai-responses; should error with openai-responses when using xhigh; should error with openai-completions when using xhigh | PENDING |
-| `test/xiaomi-models.test.ts` | 1 | keeps mimo-v2-flash on the API billing provider | PENDING |
+| `test/xiaomi-models.test.ts` | 2 | keeps mimo-v2-flash on the API billing provider; omits mimo-v2-flash from token plan providers | ADAPTED (`testXiaomiMiMoModelPlacement`) |
 | `test/xiaomi-token-plan-ams-anthropic-empty-signature-smoke.test.ts` | 1 | reproduces empty thinking signatures and preserves them for replay | PENDING |
 | `test/zen.test.ts` | 0 |  | PENDING |

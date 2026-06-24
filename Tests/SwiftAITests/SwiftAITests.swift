@@ -133,6 +133,14 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
 
+    func testXiaomiMiMoModelPlacement() throws {
+        let models = try BuiltinModels.all()
+        XCTAssertNotNil(models.first { $0.provider == .xiaomi && $0.id == "mimo-v2-flash" })
+        for provider in [Provider.xiaomiTokenPlanCN, .xiaomiTokenPlanAMS, .xiaomiTokenPlanSGP] {
+            XCTAssertFalse(models.contains { $0.provider == provider && $0.id == "mimo-v2-flash" }, provider.rawValue)
+        }
+    }
+
     func testGeneratedImageModelRegistryMetadata() throws {
         XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.2")
         XCTAssertEqual(BuiltinImageModels.modelCount, 34)

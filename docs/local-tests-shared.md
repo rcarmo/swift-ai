@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **86**
+- Adapted in Swift semantic tests: **91**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **93**
+- Pending direct Swift adaptation: **88**
 
 ## Highest-priority pending buckets
 
@@ -24,9 +24,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNilRegistrationNoops` | `audit_hardening_test.go` | `testRegistryClearAndUnregister` | Nil Registration Noops |
 | ADAPTED | `TestCloneContextDeepCopiesNestedFields` | `audit_hardening_test.go` | `testCloneContextDeepCopiesNestedFieldsAndToolCalls` | Clone Context Deep Copies Nested Fields |
 | ADAPTED | `TestGetToolCallsReturnsArgumentCopies` | `audit_hardening_test.go` | `testCloneContextDeepCopiesNestedFieldsAndToolCalls` | tool-call/schema conversion behavior: Get Tool Calls Returns Argument Copies |
-| PENDING | `TestMapThinkingAndCostNilSafe` | `audit_hardening_test.go` | `—` | reasoning/thinking wire-format behavior: Map Thinking And Cost Nil Safe |
-| PENDING | `TestAdjustMaxTokensForThinkingReservesOutput` | `audit_hardening_test.go` | `—` | reasoning/thinking wire-format behavior: Adjust Max Tokens For Thinking Reserves Output |
-| PENDING | `TestIsContextOverflowUsesDiagnosticsAndNilSafe` | `audit_hardening_test.go` | `—` | Is Context Overflow Uses Diagnostics And Nil Safe |
+| ADAPTED | `TestMapThinkingAndCostNilSafe` | `audit_hardening_test.go` | `testThinkingAndCostNilSafety` | reasoning/thinking wire-format behavior: Map Thinking And Cost Nil Safe |
+| ADAPTED | `TestAdjustMaxTokensForThinkingReservesOutput` | `audit_hardening_test.go` | `testThinkingHelpers`, `testThinkingAndCostNilSafety` | reasoning/thinking wire-format behavior: Adjust Max Tokens For Thinking Reserves Output |
+| ADAPTED | `TestIsContextOverflowUsesDiagnosticsAndNilSafe` | `audit_hardening_test.go` | `testContextOverflowDiagnosticsNilSafety` | Is Context Overflow Uses Diagnostics And Nil Safe |
 | PENDING | `TestAdaptReasoningItem` | `coverage_boost_test.go` | `—` | reasoning/thinking wire-format behavior: Adapt Reasoning Item |
 | PENDING | `TestAdaptCommentaryDone` | `coverage_boost_test.go` | `—` | Adapt Commentary Done |
 | PENDING | `TestNormalizeReasoningTextDone` | `coverage_boost_test.go` | `—` | reasoning/thinking wire-format behavior: Normalize Reasoning Text Done |
@@ -51,7 +51,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestApplyToolCallLimitNoOp` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit No Op |
 | ADAPTED | `TestApplyToolCallLimitTrims` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit Trims |
 | ADAPTED | `TestAzureSessionHeaders` | `coverage_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Azure Session Headers |
-| PENDING | `TestNormalizeAzureReasoningEventPassthrough` | `coverage_test.go` | `—` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Event Passthrough |
+| ADAPTED | `TestNormalizeAzureReasoningEventPassthrough` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Event Passthrough |
 | ADAPTED | `TestNormalizeAzureReasoningEventCommentary` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Event Commentary |
 | ADAPTED | `TestNormalizeAzureReasoningTextDelta` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Text Delta |
 | PENDING | `TestDetectCompatProviders` | `coverage_test.go` | `—` | Detect Compat Providers |
@@ -87,7 +87,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestTransformDowngradesImages` | `goai_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | image generation behavior: Transform Downgrades Images |
 | ADAPTED | `TestSanitizeSurrogates` | `goai_test.go` | `testHashAndSanitizeUtilities` | Sanitize Surrogates |
 | PENDING | `TestDetectCompat` | `goai_test.go` | `—` | Detect Compat |
-| PENDING | `TestClampThinkingLevelPrefersUpgrade` | `goai_test.go` | `—` | reasoning/thinking wire-format behavior: Clamp Thinking Level Prefers Upgrade |
+| ADAPTED | `TestClampThinkingLevelPrefersUpgrade` | `goai_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Clamp Thinking Level Prefers Upgrade |
 | PENDING | `TestHasOpenAIAuthHeader` | `goai_test.go` | `—` | auth/header/env edge case: Has Open AIAuth Header |
 | PENDING | `TestMergeProviderHeadersAppliesOverridesAndSuppressions` | `goai_test.go` | `—` | auth/header/env edge case: Merge Provider Headers Applies Overrides And Suppressions |
 | PENDING | `TestApplyDefaultHeadersPreservesExplicitEmptyOverride` | `goai_test.go` | `—` | auth/header/env edge case: Apply Default Headers Preserves Explicit Empty Override |

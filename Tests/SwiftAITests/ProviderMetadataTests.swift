@@ -6,6 +6,33 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testGoogleSharedConvertToolsSchemaMetaHandling() {
+        let parameters: JSONValue = .object([
+            "$schema": .string("http://json-schema.org/draft-07/schema#"),
+            "$id": .string("urn:bash-tool"),
+            "$comment": .string("comment"),
+            "$defs": .object(["commandDef": .object(["type": .string("string")])]),
+            "definitions": .object(["legacyDef": .object(["type": .string("number")])]),
+            "type": .string("object"),
+            "properties": .object(["command": .object(["type": .string("string")]), "refProp": .object(["$ref": .string("#/$defs/someDef"), "type": .string("string")])]),
+            "required": .array([.string("command")])
+        ])
+        let tool = Tool(name: "test_tool", description: "A test tool", parameters: parameters)
+        guard case .array(let groups)? = GoogleGenerativeAIProvider.convertTools([tool], useParameters: true), case .object(let group) = groups[0], case .array(let decls)? = group["functionDeclarations"], case .object(let decl) = decls[0], case .object(let stripped)? = decl["parameters"] else { return XCTFail("missing parameters") }
+        XCTAssertNil(stripped["$schema"])
+        XCTAssertNil(stripped["$id"])
+        XCTAssertNil(stripped["$comment"])
+        XCTAssertNil(stripped["$defs"])
+        XCTAssertNil(stripped["definitions"])
+        XCTAssertEqual(stripped["type"], .string("object"))
+        guard case .object(let properties)? = stripped["properties"], case .object(let refProp)? = properties["refProp"] else { return XCTFail("missing properties") }
+        XCTAssertEqual(refProp["$ref"], .string("#/$defs/someDef"))
+
+        guard case .array(let schemaGroups)? = GoogleGenerativeAIProvider.convertTools([tool], useParameters: false), case .object(let schemaGroup) = schemaGroups[0], case .array(let schemaDecls)? = schemaGroup["functionDeclarations"], case .object(let schemaDecl) = schemaDecls[0] else { return XCTFail("missing schema decl") }
+        XCTAssertEqual(schemaDecl["parametersJsonSchema"], parameters)
+        XCTAssertNil(GoogleGenerativeAIProvider.convertTools([]))
+    }
+
     func testGitHubCopilotOAuthModelFilteringAndVerificationURI() throws {
         XCTAssertEqual(try GitHubCopilotOAuthProvider.normalizeVerificationURI("https://github.com/login/device"), "https://github.com/login/device")
         XCTAssertThrowsError(try GitHubCopilotOAuthProvider.normalizeVerificationURI("$(id>/tmp/pwned)")) { error in

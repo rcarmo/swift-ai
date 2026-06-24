@@ -31,7 +31,7 @@ public enum GoogleGenerativeAIProvider {
             }
         }
         if !gen.isEmpty { body["generationConfig"] = .object(gen) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array([.object(["functionDeclarations": .array(tools.map(toolJSON))])]) }
+        if let tools = context.tools, let converted = convertTools(tools) { body["tools"] = converted }
         return body
     }
 
@@ -153,7 +153,27 @@ public enum GoogleGenerativeAIProvider {
     private static func googleThinkingLevel(_ effort: String, model: Model) -> String { switch effort { case "minimal": return "MINIMAL"; case "low": return model.id.lowercased().contains("gemini-3") && model.id.lowercased().contains("pro") ? "LOW" : "LOW"; case "medium": return "MEDIUM"; case "high": return "HIGH"; default: return effort.uppercased() } }
     private static func googleBudget(_ effort: String) -> Int { switch effort { case "minimal": return 1024; case "low": return 2048; case "medium": return 8192; case "high": return 24576; default: return 8192 } }
     private static func disabledThinkingConfig(model: Model) -> JSONValue { usesThinkingLevel(model) ? .object(["thinkingLevel": .string(model.id.lowercased().contains("pro") ? "LOW" : "MINIMAL")]) : .object(["thinkingBudget": .number(0)]) }
-    private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["name": .string(tool.name), "description": .string(tool.description), "parametersJsonSchema": tool.parameters]) }
+    public static func convertTools(_ tools: [Tool], useParameters: Bool = false) -> JSONValue? {
+        guard !tools.isEmpty else { return nil }
+        let declarations = tools.map { tool -> JSONValue in
+            var object: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description)]
+            if useParameters { object["parameters"] = stripSchemaMeta(tool.parameters) }
+            else { object["parametersJsonSchema"] = tool.parameters }
+            return .object(object)
+        }
+        return .array([.object(["functionDeclarations": .array(declarations)])])
+    }
+
+    private static func stripSchemaMeta(_ value: JSONValue) -> JSONValue {
+        switch value {
+        case .object(let obj):
+            var out: [String: JSONValue] = [:]
+            for (key, val) in obj where key != "$schema" && key != "$id" && key != "$comment" && key != "$defs" && key != "definitions" { out[key] = stripSchemaMeta(val) }
+            return .object(out)
+        case .array(let arr): return .array(arr.map(stripSchemaMeta))
+        default: return value
+        }
+    }
     private static func normalizeToolCallID(_ id: String) -> String { let out = String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }); return String(out.prefix(64)) }
     private static func isValidBase64Signature(_ sig: String) -> Bool {
         if sig.isEmpty || sig.count % 4 != 0 { return false }

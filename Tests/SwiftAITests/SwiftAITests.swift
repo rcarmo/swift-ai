@@ -776,8 +776,17 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testAzureReasoningEventNormalization() throws {
+        let passthrough: [String: JSONValue] = ["type": .string("response.output_text.delta"), "delta": .string("hello")]
+        XCTAssertEqual(AzureHelpers.normalizeReasoningEvent(passthrough), passthrough)
         let event: [String: JSONValue] = ["type": .string("response.reasoning_text.delta"), "delta": .string("why")]
         XCTAssertEqual(AzureHelpers.normalizeReasoningEvent(event)["type"], .string("response.reasoning_summary_text.delta"))
+        let done: [String: JSONValue] = ["type": .string("response.reasoning_text.done"), "text": .string("done why")]
+        let normalizedDone = AzureHelpers.normalizeReasoningEvent(done)
+        XCTAssertEqual(normalizedDone["type"], .string("response.reasoning_summary_part.done"))
+        XCTAssertEqual(normalizedDone["part"], .object(["type": .string("summary_text"), "text": .string("done why")]))
+        let reasoningDone: [String: JSONValue] = ["type": .string("response.output_item.done"), "item": .object(["id": .string("r"), "type": .string("reasoning"), "content": .array([.object(["type": .string("reasoning_text"), "text": .string("reason")])])])]
+        guard case .object(let reasoningItem)? = AzureHelpers.normalizeReasoningEvent(reasoningDone)["item"] else { return XCTFail("missing reasoning item") }
+        XCTAssertEqual(reasoningItem["summary"], .array([.object(["type": .string("summary_text"), "text": .string("reason")])]))
         let commentary: [String: JSONValue] = ["type": .string("response.output_item.done"), "item": .object(["id": .string("i"), "type": .string("message"), "phase": .string("commentary"), "content": .array([.object(["type": .string("output_text"), "text": .string("reason")])])])]
         guard case .object(let item)? = AzureHelpers.normalizeReasoningEvent(commentary)["item"] else { return XCTFail("missing item") }
         XCTAssertEqual(item["type"], .string("reasoning"))

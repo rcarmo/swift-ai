@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **93**
+- Adapted in Swift semantic tests: **96**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **86**
+- Pending direct Swift adaptation: **83**
 
 ## Highest-priority pending buckets
 
@@ -27,9 +27,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestMapThinkingAndCostNilSafe` | `audit_hardening_test.go` | `testThinkingAndCostNilSafety` | reasoning/thinking wire-format behavior: Map Thinking And Cost Nil Safe |
 | ADAPTED | `TestAdjustMaxTokensForThinkingReservesOutput` | `audit_hardening_test.go` | `testThinkingHelpers`, `testThinkingAndCostNilSafety` | reasoning/thinking wire-format behavior: Adjust Max Tokens For Thinking Reserves Output |
 | ADAPTED | `TestIsContextOverflowUsesDiagnosticsAndNilSafe` | `audit_hardening_test.go` | `testContextOverflowDiagnosticsNilSafety` | Is Context Overflow Uses Diagnostics And Nil Safe |
-| PENDING | `TestAdaptReasoningItem` | `coverage_boost_test.go` | `—` | reasoning/thinking wire-format behavior: Adapt Reasoning Item |
-| PENDING | `TestAdaptCommentaryDone` | `coverage_boost_test.go` | `—` | Adapt Commentary Done |
-| PENDING | `TestNormalizeReasoningTextDone` | `coverage_boost_test.go` | `—` | reasoning/thinking wire-format behavior: Normalize Reasoning Text Done |
+| ADAPTED | `TestAdaptReasoningItem` | `coverage_boost_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Adapt Reasoning Item |
+| ADAPTED | `TestAdaptCommentaryDone` | `coverage_boost_test.go` | `testAzureReasoningEventNormalization` | Adapt Commentary Done |
+| ADAPTED | `TestNormalizeReasoningTextDone` | `coverage_boost_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Reasoning Text Done |
 | ADAPTED | `TestShortHash` | `coverage_boost_test.go` | `testHashAndSanitizeUtilities` | Short Hash |
 | ADAPTED | `TestCopilotHeaders` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers |
 | ADAPTED | `TestCopilotHeadersWithIntent` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers With Intent |

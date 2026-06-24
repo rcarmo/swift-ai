@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **112**
+- Adapted in Swift semantic tests: **114**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **66**
+- Pending direct Swift adaptation: **64**
 
 ## Highest-priority pending buckets
 
@@ -78,7 +78,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestGetEnvAPIKey` | `goai_test.go` | `testGetEnvAPIKeyProviderMappings` | auth/header/env edge case: Get Env APIKey |
 | ADAPTED | `TestGetEnvAPIKeyAnthropic` | `goai_test.go` | `testGetEnvAPIKeyProviderMappings` | auth/header/env edge case: Get Env APIKey Anthropic |
 | ADAPTED | `TestGetEnvAPIKeyWithEnvBedrockAuthenticated` | `goai_test.go` | `testGetEnvAPIKeyWithEnvBedrockAuthenticated` | auth/header/env edge case: Get Env APIKey With Env Bedrock Authenticated |
-| PENDING | `TestGetEnvAPIKeyWithEnvGoogleVertexADC` | `goai_test.go` | `—` | auth/header/env edge case: Get Env APIKey With Env Google Vertex ADC |
+| ADAPTED | `TestGetEnvAPIKeyWithEnvGoogleVertexADC` | `goai_test.go` | `testGetEnvAPIKeyWithEnvGoogleVertexADC` | auth/header/env edge case: Get Env APIKey With Env Google Vertex ADC |
 | ADAPTED | `TestCalculateCost` | `goai_test.go` | `testCostCalculation` | Calculate Cost |
 | ADAPTED | `TestCalculateCostAnthropicLongCacheWrite` | `goai_test.go` | `testCostCalculation` | prompt/cache usage or retention behavior: Calculate Cost Anthropic Long Cache Write |
 | ADAPTED | `TestModelsAreEqual` | `goai_test.go` | `testModelsAreEqual` | model registry/generated metadata parity: Models Are Equal |
@@ -117,7 +117,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestGenerateImagesOpenRouterUsesProviderEnvAPIKey` | `images_test.go` | `testOpenRouterImageAPIKeyResolution` | auth/header/env edge case: Generate Images Open Router Uses Provider Env APIKey |
 | ADAPTED | `TestGenerateImagesOpenRouterPayloadParityAndAbort` | `images_test.go` | `testOpenRouterImagePayloadBuilder` | provider request/payload parity: Generate Images Open Router Payload Parity And Abort |
 | PARTIAL | `TestGenerateImagesOpenRouterRetriesAndHookError` | `images_test.go` | `testGenerateImagesErrorPathsAndHookError`, `testRetryPolicy` | image generation behavior: hook error covered; HTTP retry integration is policy-covered, not fully transport-replayed |
-| PENDING | `TestNormalizeAnthropicBaseURLAddsV1` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider OAuth/provider-specific behavior: Normalize Anthropic Base URLAdds V1 |
+| ADAPTED | `TestNormalizeAnthropicBaseURLAddsV1` | `inference/provider/anthropic/anthropic_copilot_test.go` | `testAnthropicBaseURLNormalizationAddsV1` | provider OAuth/provider-specific behavior: Normalize Anthropic Base URLAdds V1 |
 | PENDING | `TestStreamAnthropicUsesBearerForCopilot` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Uses Bearer For Copilot |
 | PENDING | `TestBuildRequestJSONRoundTrip` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider request/payload parity: Build Request JSONRound Trip |
 | PENDING | `TestStreamAnthropicParsesOneHourCacheWriteUsage` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Parses One Hour Cache Write Usage |

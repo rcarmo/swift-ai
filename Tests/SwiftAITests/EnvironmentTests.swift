@@ -30,6 +30,14 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .deepSeek, env: ["DEEPSEEK_API_KEY": "deepseek"]), "deepseek")
     }
 
+    func testGetEnvAPIKeyWithEnvGoogleVertexADC() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-adc.json")
+        try "{}".write(to: path, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: path) }
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .googleVertex, env: ["GOOGLE_APPLICATION_CREDENTIALS": path.path, "GOOGLE_CLOUD_PROJECT": "project", "GOOGLE_CLOUD_LOCATION": "us-central1"]), "<authenticated>")
+        XCTAssertNil(ProviderEnvironment.apiKey(for: .googleVertex, env: ["GOOGLE_APPLICATION_CREDENTIALS": path.path, "GOOGLE_CLOUD_PROJECT": "project"]))
+    }
+
     func testGetEnvAPIKeyWithEnvBedrockAuthenticated() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_PROFILE": "default"]), "<authenticated>")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_ACCESS_KEY_ID": "a", "AWS_SECRET_ACCESS_KEY": "s"]), "<authenticated>")

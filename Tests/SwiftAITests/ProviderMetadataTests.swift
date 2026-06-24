@@ -226,6 +226,13 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertTrue(filtered.contains { $0.provider == .openAI })
     }
 
+    func testAnthropicBaseURLNormalizationAddsV1() {
+        XCTAssertEqual(AnthropicMessagesProvider.normalizeBaseURL(""), "https://api.anthropic.com/v1")
+        XCTAssertEqual(AnthropicMessagesProvider.normalizeBaseURL("https://api.anthropic.com"), "https://api.anthropic.com/v1")
+        XCTAssertEqual(AnthropicMessagesProvider.normalizeBaseURL("https://api.anthropic.com/"), "https://api.anthropic.com/v1")
+        XCTAssertEqual(AnthropicMessagesProvider.normalizeBaseURL("https://proxy.example/v1"), "https://proxy.example/v1")
+    }
+
     func testGitHubCopilotAnthropicHeadersAndAdaptiveThinking() throws {
         let opus47 = try model(.githubCopilot, "claude-opus-4.7")
         XCTAssertEqual(opus47.thinkingLevelMap?[.minimal]!, "low")

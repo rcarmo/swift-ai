@@ -84,6 +84,20 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertFalse(GoogleGenerativeAIProvider.isVertexADCMarker("AIzaSyExampleRealisticLookingApiKey123456"))
     }
 
+    func testMistralToolSchemaSerializesAsJSON() {
+        let tool = Tool(name: "inspect_schema", description: "Inspect the schema", parameters: .object([
+            "type": .string("object"),
+            "properties": .object(["nested": .object(["type": .string("object"), "properties": .object(["value": .object(["type": .string("string")])])])])
+        ]))
+        let model = Model(id: "devstral-medium-latest", name: "Devstral", api: .mistralConversations, provider: .mistral)
+        let body = MistralConversationsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("Hi")], tools: [tool]), options: nil)
+        guard case .array(let tools)? = body["tools"], case .object(let first) = tools[0], case .object(let function)? = first["function"], case .object(let parameters)? = function["parameters"], case .object(let properties)? = parameters["properties"], case .object(let nested)? = properties["nested"] else { return XCTFail("missing mistral tool schema") }
+        XCTAssertEqual(first["type"], .string("function"))
+        XCTAssertEqual(function["name"], .string("inspect_schema"))
+        XCTAssertEqual(parameters["type"], .string("object"))
+        XCTAssertNotNil(nested["properties"])
+    }
+
     func testMistralReasoningModeAndPromptCacheKey() throws {
         let models = try BuiltinModels.all()
         func body(_ id: String, reasoning: ThinkingLevel? = nil, sessionId: String? = nil, cacheRetention: CacheRetention? = nil) throws -> [String: JSONValue] {

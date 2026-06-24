@@ -124,6 +124,25 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(orphaned.last?.content, [.text("No result provided")])
     }
 
+    func testEmptyAndWhitespaceMessagesSerializeGracefully() {
+        let emptyUser = Message(role: .user, content: [])
+        let emptyString = Message.user("")
+        let whitespace = Message.user("   \n\t  ")
+        let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI)
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [emptyUser, emptyString, whitespace]), options: nil)
+        guard case .array(let messages)? = body["messages"] else { return XCTFail("missing messages") }
+        XCTAssertEqual(messages.count, 3)
+        for message in messages {
+            guard case .object(let object) = message else { return XCTFail("message not object") }
+            XCTAssertEqual(object["role"], .string("user"))
+            XCTAssertNotNil(object["content"])
+        }
+        var assistant = Message(role: .assistant, content: [])
+        assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .stop
+        let transformed = AIUtilities.transformMessages([.user("Hello"), assistant, .user("Please respond")], for: model)
+        XCTAssertEqual(transformed.map(\.role), [.user, .assistant, .user])
+    }
+
     func testTransformPreservesImagesForVisionModelsAndDowngradesTextModels() {
         let image = ContentBlock.image(data: "abc", mimeType: "image/png")
         let messages = [Message(role: .user, content: [.text("see"), image])]

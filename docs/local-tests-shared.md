@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **125**
+- Adapted in Swift semantic tests: **128**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **53**
+- Pending direct Swift adaptation: **50**
 
 ## Highest-priority pending buckets
 
@@ -54,7 +54,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNormalizeAzureReasoningEventPassthrough` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Event Passthrough |
 | ADAPTED | `TestNormalizeAzureReasoningEventCommentary` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Event Commentary |
 | ADAPTED | `TestNormalizeAzureReasoningTextDelta` | `coverage_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Normalize Azure Reasoning Text Delta |
-| PENDING | `TestDetectCompatProviders` | `coverage_test.go` | `—` | Detect Compat Providers |
+| ADAPTED | `TestDetectCompatProviders` | `coverage_test.go` | `testCompatProviderDetectionAndModelRegistry` | Detect Compat Providers |
 | ADAPTED | `TestResolveAPIKey` | `coverage_test.go` | `testResolveAPIKeyExplicitOptionPrecedence` | auth/header/env edge case: Resolve APIKey |
 | ADAPTED | `TestTransformMessagesPreservesImages` | `coverage_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | image generation behavior: Transform Messages Preserves Images |
 | ADAPTED | `TestTransformInsertsSyntheticToolResults` | `coverage_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | tool-call/schema conversion behavior: Transform Inserts Synthetic Tool Results |
@@ -71,7 +71,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestExamplesMissingCredentialMessages` | `examples_smoke_test.go` | `—` | Examples Missing Credential Messages |
 | ADAPTED | `TestUserMessage` | `goai_test.go` | `testUserMessageAndContextJSON` | User Message |
 | ADAPTED | `TestContextJSON` | `goai_test.go` | `testUserMessageAndContextJSON` | Context JSON |
-| PENDING | `TestModelRegistry` | `goai_test.go` | `—` | model registry/generated metadata parity: Model Registry |
+| ADAPTED | `TestModelRegistry` | `goai_test.go` | `testCompatProviderDetectionAndModelRegistry`, `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: Model Registry |
 | ADAPTED | `TestStreamNoProvider` | `goai_test.go` | `testStreamNilModelAndNoProvider` | streaming/event transport behavior: Stream No Provider |
 | ADAPTED | `TestIsContextOverflow` | `goai_test.go` | `testContextOverflowAndToolValidation` | Is Context Overflow |
 | ADAPTED | `TestValidateToolCall` | `goai_test.go` | `testContextOverflowAndToolValidation` | tool-call/schema conversion behavior: Validate Tool Call |
@@ -86,7 +86,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestTransformSkipsErroredMessages` | `goai_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | Transform Skips Errored Messages |
 | ADAPTED | `TestTransformDowngradesImages` | `goai_test.go` | `testTransformPreservesImagesForVisionModelsAndDowngradesTextModels` | image generation behavior: Transform Downgrades Images |
 | ADAPTED | `TestSanitizeSurrogates` | `goai_test.go` | `testHashAndSanitizeUtilities` | Sanitize Surrogates |
-| PENDING | `TestDetectCompat` | `goai_test.go` | `—` | Detect Compat |
+| ADAPTED | `TestDetectCompat` | `goai_test.go` | `testCompatProviderDetectionAndModelRegistry` | Detect Compat |
 | ADAPTED | `TestClampThinkingLevelPrefersUpgrade` | `goai_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Clamp Thinking Level Prefers Upgrade |
 | ADAPTED | `TestHasOpenAIAuthHeader` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Has Open AIAuth Header |
 | ADAPTED | `TestMergeProviderHeadersAppliesOverridesAndSuppressions` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Merge Provider Headers Applies Overrides And Suppressions |

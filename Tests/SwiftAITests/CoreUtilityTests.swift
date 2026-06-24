@@ -2,6 +2,33 @@ import XCTest
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
+    func testCompatLegacyAPIRegistryDispatchPreservesRequestAPIKey() async throws {
+        await AIRegistry.shared.clearProviders()
+        final class Box: @unchecked Sendable { var apiKey: String? }
+        let box = Box()
+        await AIRegistry.shared.register(APIProvider(api: .openAIResponses, stream: { model, _, options in
+            box.apiKey = options?.apiKey
+            return AsyncStream { continuation in
+                var output = Message(role: .assistant, content: [.text("ok")])
+                output.api = model.api
+                output.provider = model.provider
+                output.model = model.id
+                output.usage = Usage()
+                output.stopReason = .stop
+                continuation.yield(.start(partial: output))
+                continuation.yield(.done(reason: .stop, message: output))
+                continuation.finish()
+            }
+        }))
+        var options = StreamOptions()
+        options.apiKey = "request-key"
+        let model = Model(id: "test-model", name: "Test Model", api: .openAIResponses, provider: .openCode, baseUrl: "https://example.test/v1", input: ["text"], contextWindow: 128000, maxTokens: 4096)
+        let result = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(result.content, [.text("ok")])
+        XCTAssertEqual(box.apiKey, "request-key")
+        await SwiftAI.bootstrap()
+    }
+
     func testUserMessageAndContextJSON() throws {
         let message = Message.user("hello")
         XCTAssertEqual(message.role, .user)

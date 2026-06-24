@@ -6,14 +6,14 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 
 - **Registry/model surface:** 100% for upstream v0.80.2 generated registries (`999` text models / `35` providers / `9` APIs; `34` image models / `1` image provider / `1` image API).
 - **Core type/event/options surface:** ~90%. Codable JSON-compatible core, events, options, compat metadata, auth credential types, and validation helpers are present. TypeBox-specific exports are intentionally represented as `JSONValue`/schema values rather than TypeBox.
-- **Bundled provider runtime surface:** ~85%. HTTP/SSE providers are implemented; Bedrock live SigV4/event-stream and Codex WebSocket/session-cache are pluggable extension points rather than bundled transports.
-- **Upstream test parity:** incomplete. The npm package does not include `*.test.ts`; Swift has semantic tests for ported behavior, but no one-to-one upstream test corpus was available in the tarball.
+- **Bundled provider runtime surface:** ~88%. HTTP/SSE providers are implemented; Bedrock live SigV4/event-stream and Codex WebSocket/session-cache are pluggable extension points rather than bundled transports.
+- **Upstream source test parity:** classified/covered. Source tests from `/tmp/pi-upstream-src/packages/ai/test` are tracked in `docs/upstream-tests-source.md` with no `PENDING` rows (`41` deterministic adapted, `29` partial, `18` live-gated, `1` not applicable).
 
-## Top 3 remaining gaps
+## Top remaining gaps
 
 1. **Bedrock live transport** — `PARTIAL`. `BedrockTransport` protocol and request builder exist, but an AWS SigV4/event-stream transport module is not bundled.
 2. **Codex WebSocket/session-cache transport** — `PARTIAL`. HTTP/SSE Codex path and `CodexTransport` protocol exist, but WebSocket/session-cache transport is not bundled.
-3. **One-to-one upstream test-suite parity** — `MISSING/PARTIAL`. Upstream npm package has no `*.test.ts`; Swift tests cover semantics but are not a test-for-test port from source tests.
+3. **Live E2E execution** — `LIVE-GATED`. Live wrappers exist for initial high-value upstream rows; broader provider matrices remain guarded because they require provider credentials and network access.
 
 ## Upstream index exports
 
@@ -85,8 +85,9 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 
 | Upstream test artifact | Status | Swift path |
 |---|---:|---|
-| `*.test.ts` in npm tarball | MISSING UPSTREAM ARTIFACT | No upstream tests are included in `/tmp/pi-ai-0.80.2/package`; cannot port test-for-test from tarball. |
-| Semantic Swift tests for ported behavior | DONE/PARTIAL | `Tests/SwiftAITests/SwiftAITests.swift` |
+| `*.test.ts` in npm tarball | MISSING UPSTREAM ARTIFACT | No upstream tests are included in `/tmp/pi-ai-0.80.2/package`; source tests are tracked from `/tmp/pi-upstream-src/packages/ai/test`. |
+| Upstream source tests | CLASSIFIED/COVERED | `docs/upstream-tests-source.md`, `docs/upstream-tests-parity.md`; no `PENDING` rows. |
+| Semantic Swift tests for ported behavior | DONE/PARTIAL | `Tests/SwiftAITests/` |
 | Toolchain-light validation | DONE | `scripts/static-check.py`, `scripts/audit-parity.py`, `Makefile` |
 | SwiftPM CI | DONE | `.github/workflows/ci.yml` |
 

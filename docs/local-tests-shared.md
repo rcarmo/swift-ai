@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **108**
+- Adapted in Swift semantic tests: **112**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **70**
+- Pending direct Swift adaptation: **66**
 
 ## Highest-priority pending buckets
 
@@ -88,10 +88,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestSanitizeSurrogates` | `goai_test.go` | `testHashAndSanitizeUtilities` | Sanitize Surrogates |
 | PENDING | `TestDetectCompat` | `goai_test.go` | `—` | Detect Compat |
 | ADAPTED | `TestClampThinkingLevelPrefersUpgrade` | `goai_test.go` | `testThinkingHelpers` | reasoning/thinking wire-format behavior: Clamp Thinking Level Prefers Upgrade |
-| PENDING | `TestHasOpenAIAuthHeader` | `goai_test.go` | `—` | auth/header/env edge case: Has Open AIAuth Header |
-| PENDING | `TestMergeProviderHeadersAppliesOverridesAndSuppressions` | `goai_test.go` | `—` | auth/header/env edge case: Merge Provider Headers Applies Overrides And Suppressions |
-| PENDING | `TestApplyDefaultHeadersPreservesExplicitEmptyOverride` | `goai_test.go` | `—` | auth/header/env edge case: Apply Default Headers Preserves Explicit Empty Override |
-| PENDING | `TestHasAnthropicAuthHeader` | `goai_test.go` | `—` | auth/header/env edge case: Has Anthropic Auth Header |
+| ADAPTED | `TestHasOpenAIAuthHeader` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Has Open AIAuth Header |
+| ADAPTED | `TestMergeProviderHeadersAppliesOverridesAndSuppressions` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Merge Provider Headers Applies Overrides And Suppressions |
+| ADAPTED | `TestApplyDefaultHeadersPreservesExplicitEmptyOverride` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Apply Default Headers Preserves Explicit Empty Override |
+| ADAPTED | `TestHasAnthropicAuthHeader` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Has Anthropic Auth Header |
 | ADAPTED | `TestBuildCopilotDynamicHeaders` | `goai_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Build Copilot Dynamic Headers |
 | PENDING | `TestAgentLoopHarness` | `harness_integration_test.go` | `—` | Agent Loop Harness |
 | PENDING | `TestStreamingHarness` | `harness_integration_test.go` | `—` | streaming/event transport behavior: Streaming Harness |

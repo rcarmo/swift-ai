@@ -113,6 +113,21 @@ public enum AIUtilities {
 
     public static func azureSessionHeaders(_ sessionId: String) -> [String: String] { sessionId.isEmpty ? [:] : ["session_id": sessionId, "x-client-request-id": sessionId, "x-ms-client-request-id": sessionId] }
 
+    public static func hasHeader(_ headers: [String: String]?, _ name: String) -> Bool {
+        guard let headers else { return false }
+        return headers.contains { $0.key.lowercased() == name.lowercased() && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    public static func hasOpenAIAuthHeader(_ headers: [String: String]?) -> Bool { hasHeader(headers, "authorization") || hasHeader(headers, "cf-aig-authorization") }
+    public static func hasAnthropicAuthHeader(_ headers: [String: String]?) -> Bool { hasHeader(headers, "x-api-key") || hasHeader(headers, "authorization") }
+
+    public static func mergeHeaders(defaults: [String: String], provider: [String: String]?, explicit: [String: String]?) -> [String: String] {
+        var result = defaults
+        for (k, v) in provider ?? [:] { result[k] = v }
+        for (k, v) in explicit ?? [:] { result[k] = v }
+        return result
+    }
+
     public static func isCloudflareProvider(_ provider: Provider) -> Bool { provider == .cloudflareWorkersAI || provider == .cloudflareAIGateway }
 
     public static func resolveCloudflareBaseURL(model: Model, env: ProviderEnv? = nil) -> String {

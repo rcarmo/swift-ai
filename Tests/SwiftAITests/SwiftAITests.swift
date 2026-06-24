@@ -199,6 +199,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message["content"], .string(emojiText))
     }
 
+    func testAuthHeaderAndMergeHelpers() {
+        XCTAssertTrue(AIUtilities.hasOpenAIAuthHeader(["Authorization": "Bearer token"]))
+        XCTAssertTrue(AIUtilities.hasOpenAIAuthHeader(["cf-aig-authorization": "Bearer token"]))
+        XCTAssertFalse(AIUtilities.hasOpenAIAuthHeader(["Authorization": "  "]))
+        XCTAssertTrue(AIUtilities.hasAnthropicAuthHeader(["X-Api-Key": "key"]))
+        XCTAssertTrue(AIUtilities.hasAnthropicAuthHeader(["authorization": "Bearer key"]))
+        XCTAssertFalse(AIUtilities.hasAnthropicAuthHeader(["X-Api-Key": ""] ))
+        let merged = AIUtilities.mergeHeaders(defaults: ["a": "default", "b": "default", "empty": "default"], provider: ["b": "provider"], explicit: ["b": "explicit", "empty": ""])
+        XCTAssertEqual(merged["a"], "default")
+        XCTAssertEqual(merged["b"], "explicit")
+        XCTAssertEqual(merged["empty"], "")
+    }
+
     func testCopilotAndSessionHeaders() {
         XCTAssertEqual(AIUtilities.inferCopilotInitiator([.user("hi")]), "user")
         var assistant = Message(role: .assistant, content: [.text("ok")])

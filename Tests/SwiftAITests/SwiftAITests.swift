@@ -921,6 +921,41 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.content.first?.text, "ok")
     }
 
+    func testGoogleGemini3UnsignedToolCalls() {
+        func makeModel(id: String = "gemini-3-pro-preview", api: API = .googleGenerativeAI, provider: Provider = .google) -> Model {
+            Model(id: id, name: "Gemini", api: api, provider: provider, reasoning: true)
+        }
+        func makeAssistant(model: Model, signature: String? = nil) -> Message {
+            var first = ContentBlock.toolCall(id: "call_1", name: "bash", arguments: ["command": .string("echo hi")])
+            first.thoughtSignature = signature
+            var assistant = Message(role: .assistant, content: [first, .toolCall(id: "call_2", name: "bash", arguments: ["command": .string("ls -la")])])
+            assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .toolUse
+            return assistant
+        }
+        let genAI = makeModel()
+        let unsigned = GoogleGenerativeAIProvider.buildRequestBody(model: genAI, context: AIContext(messages: [.user("Hi"), makeAssistant(model: makeModel(id: "other-model"))]), options: nil)
+        guard case .array(let contents)? = unsigned["contents"], case .object(let modelTurn) = contents.first(where: { if case .object(let obj) = $0 { return obj["role"] == .string("model") }; return false }), case .array(let parts)? = modelTurn["parts"] else { return XCTFail("missing model turn") }
+        let functionParts = parts.compactMap { part -> [String: JSONValue]? in if case .object(let obj) = part, obj["functionCall"] != nil { return obj }; return nil }
+        XCTAssertEqual(functionParts.count, 2)
+        XCTAssertNil(functionParts[0]["thoughtSignature"])
+        XCTAssertNil(functionParts[1]["thoughtSignature"])
+        XCTAssertFalse(String(describing: modelTurn).contains("skip_thought_signature_validator"))
+
+        let vertex = makeModel(api: .googleVertex, provider: .googleVertex)
+        let vertexBody = GoogleGenerativeAIProvider.buildRequestBody(model: vertex, context: AIContext(messages: [makeAssistant(model: vertex)]), options: nil)
+        guard case .array(let vertexContents)? = vertexBody["contents"], case .object(let vertexTurn) = vertexContents[0], case .array(let vertexParts)? = vertexTurn["parts"] else { return XCTFail("missing vertex") }
+        XCTAssertFalse(String(describing: vertexParts).contains("skip_thought_signature_validator"))
+
+        let signed = GoogleGenerativeAIProvider.buildRequestBody(model: genAI, context: AIContext(messages: [makeAssistant(model: genAI, signature: "AAAAAAAAAAAAAAAAAAAAAA==")]), options: nil)
+        guard case .array(let signedContents)? = signed["contents"], case .object(let signedTurn) = signedContents[0], case .array(let signedParts)? = signedTurn["parts"], case .object(let signedFirst) = signedParts[0] else { return XCTFail("missing signed") }
+        XCTAssertEqual(signedFirst["thoughtSignature"], .string("AAAAAAAAAAAAAAAAAAAAAA=="))
+
+        let nonGemini3 = makeModel(id: "gemini-2.5-flash")
+        let nonGeminiBody = GoogleGenerativeAIProvider.buildRequestBody(model: nonGemini3, context: AIContext(messages: [makeAssistant(model: makeModel(id: "other-model"))]), options: nil)
+        guard case .array(let nonContents)? = nonGeminiBody["contents"], case .object(let nonTurn) = nonContents[0], case .array(let nonParts)? = nonTurn["parts"], case .object(let nonFirst) = nonParts[0] else { return XCTFail("missing non-gemini") }
+        XCTAssertNil(nonFirst["thoughtSignature"])
+    }
+
     func testGoogleToolResultSerialization() {
         var result = Message(role: .toolResult, content: [.text("ok")])
         result.toolName = "lookup"

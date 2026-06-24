@@ -1555,6 +1555,23 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(first["reasoning_content"], .string("why"))
     }
 
+    func testOpenAIToolResultImagesBatchedAfterConsecutiveResults() {
+        let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, input: ["text", "image"])
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "tool-1", name: "read", arguments: ["path": .string("img-1.png")]), .toolCall(id: "tool-2", name: "read", arguments: ["path": .string("img-2.png")])])
+        assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .toolUse
+        var r1 = Message(role: .toolResult, content: [.text("Read image file [image/png]"), .image(data: "ZmFrZQ==", mimeType: "image/png")])
+        r1.toolCallId = "tool-1"; r1.toolName = "read"
+        var r2 = Message(role: .toolResult, content: [.text("Read image file [image/png]"), .image(data: "ZmFrZQ==", mimeType: "image/png")])
+        r2.toolCallId = "tool-2"; r2.toolName = "read"
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("Read the images"), assistant, r1, r2]), options: nil)
+        guard case .array(let messages)? = body["messages"] else { return XCTFail("missing messages") }
+        let roles = messages.compactMap { if case .object(let obj) = $0 { return obj["role"]?.stringValue }; return nil }
+        XCTAssertEqual(roles, ["user", "assistant", "tool", "tool", "user"])
+        guard case .object(let imageMessage) = messages.last, case .array(let content)? = imageMessage["content"] else { return XCTFail("missing image message") }
+        let imageParts = content.filter { if case .object(let obj) = $0 { return obj["type"] == .string("image_url") }; return false }
+        XCTAssertEqual(imageParts.count, 2)
+    }
+
     func testOpenAIMultimodalAndToolResultReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresAssistantAfterToolResult = true

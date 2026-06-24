@@ -87,7 +87,15 @@ public enum OpenAICompletionsProvider {
             out.append(.object(["role": .string(role), "content": .string(AIUtilities.sanitizeSurrogates(system))]))
         }
         var lastRole: Role?
+        var pendingToolResultImages: [ContentBlock] = []
+        func flushToolResultImages() {
+            if pendingToolResultImages.isEmpty { return }
+            if compat.requiresAssistantAfterToolResult == true { out.append(.object(["role": .string("assistant"), "content": .string("I have processed the tool results.")])) }
+            out.append(.object(["role": .string("user"), "content": .array(openAIContentParts(pendingToolResultImages, leadingText: "Tool result image:"))]))
+            pendingToolResultImages.removeAll()
+        }
         for message in AIUtilities.transformMessages(context.messages, for: model) {
+            if message.role != .toolResult { flushToolResultImages() }
             if compat.requiresAssistantAfterToolResult == true, lastRole == .toolResult, message.role == .user {
                 out.append(.object(["role": .string("assistant"), "content": .string("I have processed the tool results.")]))
             }
@@ -132,14 +140,11 @@ public enum OpenAICompletionsProvider {
             }
             out.append(.object(obj))
             if message.role == .toolResult {
-                let images = message.content.filter { $0.type == "image" }
-                if !images.isEmpty {
-                    if compat.requiresAssistantAfterToolResult == true { out.append(.object(["role": .string("assistant"), "content": .string("I have processed the tool results.")])) }
-                    out.append(.object(["role": .string("user"), "content": .array(openAIContentParts(images, leadingText: "Tool result image:"))]))
-                }
+                pendingToolResultImages.append(contentsOf: message.content.filter { $0.type == "image" })
             }
             lastRole = message.role
         }
+        flushToolResultImages()
         return out
     }
 

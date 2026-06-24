@@ -1859,6 +1859,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(first["reasoning_content"], .string("why"))
     }
 
+    func testOpenAICompletionsRequestCacheAndThinkingFormats() {
+        var options = StreamOptions(); options.sessionId = String(repeating: "x", count: 67); options.reasoning = .high
+        let openai = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, baseUrl: "https://api.openai.com/v1", reasoning: true)
+        let openaiBody = OpenAICompletionsProvider.buildRequestBody(model: openai, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(openaiBody["prompt_cache_key"], .string(String(repeating: "x", count: 64)))
+        XCTAssertEqual(openaiBody["reasoning_effort"], .string("high"))
+
+        let openRouter = Model(id: "or", name: "OR", api: .openAICompletions, provider: .openRouter, reasoning: true, completionsCompat: OpenAICompletionsCompat(thinkingFormat: "openrouter"))
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: openRouter, context: AIContext(messages: [.user("hi")]), options: options)["reasoning"], .object(["effort": .string("high")]))
+        let qwen = Model(id: "q", name: "Q", api: .openAICompletions, provider: .openRouter, reasoning: true, completionsCompat: OpenAICompletionsCompat(thinkingFormat: "qwen-chat-template"))
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: qwen, context: AIContext(messages: [.user("hi")]), options: options)["chat_template_kwargs"], .object(["enable_thinking": .bool(true), "preserve_thinking": .bool(true)]))
+    }
+
     func testOpenAIToolResultImagesBatchedAfterConsecutiveResults() {
         let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, input: ["text", "image"])
         var assistant = Message(role: .assistant, content: [.toolCall(id: "tool-1", name: "read", arguments: ["path": .string("img-1.png")]), .toolCall(id: "tool-2", name: "read", arguments: ["path": .string("img-2.png")])])

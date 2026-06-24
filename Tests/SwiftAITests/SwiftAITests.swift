@@ -1808,6 +1808,31 @@ final class SwiftAITests: XCTestCase {
         let replay = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: options)
         guard case .array(let messages)? = replay["messages"], case .object(let msg) = messages[0], case .array(let content)? = msg["content"], case .object(let block) = content[0] else { return XCTFail("missing replay tool") }
         XCTAssertEqual(block["name"], .string("TodoWrite"))
+
+        let sse = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"m","usage":{"input_tokens":1,"output_tokens":0}}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_1","name":"TodoWrite","input":{}}}
+
+        event: content_block_delta
+        data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\\"task\\\":\\\"buy milk\\\"}"}}
+
+        event: content_block_stop
+        data: {"type":"content_block_stop","index":0}
+
+        event: message_delta
+        data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":1}}
+
+        event: message_stop
+        data: {"type":"message_stop"}
+
+        """
+        let events = AnthropicMessagesProvider.processSSEText(sse, model: model, tools: [todo, read, find])
+        guard case .done(_, let streamed)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(streamed.content.first?.name, "todowrite")
+        XCTAssertEqual(streamed.content.first?.arguments?["task"], .string("buy milk"))
     }
 
     func testAnthropicEagerToolInputCompat() {

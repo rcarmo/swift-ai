@@ -15,8 +15,8 @@ Status legend:
 
 - Upstream test files inventoried: **86**
 - Ported/covered/classified files: **86/86**
-- Deterministic ported: **49/86**
-- Partial deterministic/pluggable coverage: **23**
+- Deterministic ported: **50/86**
+- Partial deterministic/pluggable coverage: **22**
 - Live-gated: **13**
 - Not applicable: **1**
 - Pending files: **0**
@@ -36,7 +36,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/anthropic-sse-parsing.test.ts` | 3 | repairs malformed SSE JSON/tool JSON; preserves refusal stop details; ignores unknown SSE after message_stop | ADAPTED (`testAnthropicRawSSEParsingRepairsMalformedToolJSON`, `testAnthropicRawSSEParsingRefusalAndPostStopUnknownEvents`) |
 | DETERMINISTIC-PORTED | `test/anthropic-temperature-compat.test.ts` | 6 | omits temperature for Claude Opus 4.7; omits temperature for Claude Opus 4.8; omits default temperature for Claude Opus 4.7; keeps temperature for Claude Opus 4.6; keeps temperature for Claude Sonnet 4.6 | ADAPTED (`testAnthropicTemperatureCompat`) |
 | DETERMINISTIC-PORTED | `test/anthropic-thinking-disable.test.ts` | 7 | sends thinking.type=disabled for budget-based reasoning models when thinking is off; sends thinking.type=disabled for adaptive reasoning models when thinking is off; sends thinking.type=disabled for Claude Opus 4.8 when thinking is off; omits thinking.type=disabled for Claude Fable 5 when thinking is off; uses adaptive thinking for Claude Opus 4.8 when reasoning is enabled | ADAPTED (`testAnthropicThinkingDisablePayload`) |
-| PARTIAL | `test/anthropic-tool-name-normalization.test.ts` | 4 | should normalize user-defined tool matching CC name (todowrite -> TodoWrite -> todowrite); should handle pi built-in tools; should NOT map find to Glob; should handle custom tools | PARTIAL (`testAnthropicOAuthToolNameNormalization`; inbound live OAuth round-trip remains credential-gated) |
+| DETERMINISTIC-PORTED | `test/anthropic-tool-name-normalization.test.ts` | 4 | should normalize user-defined tool matching CC name (todowrite -> TodoWrite -> todowrite); should handle pi built-in tools; should NOT map find to Glob; should handle custom tools | ADAPTED (`testAnthropicOAuthToolNameNormalization`; deterministic outbound and inbound SSE round-trip covered) |
 | DETERMINISTIC-PORTED | `test/azure-openai-base-url.test.ts` | 11 | Azure Responses base URL normalization; invalid URL error; prompt_cache_key clamp; store=false; resource-name default URL | ADAPTED (`testAzureOpenAIResponsesBaseURLNormalization`, `testAzureOpenAIResponsesConfigAndPayloadDefaults`) |
 | PARTIAL | `test/bedrock-convert-messages.test.ts` | 9 | skips unknown user content blocks instead of throwing; skips unknown assistant content blocks instead of throwing; replaces user messages with only unknown content blocks with a placeholder; replaces blank user string content with a placeholder; filters blank user text blocks when other content remains | PARTIAL (pluggable transport) |
 | PARTIAL | `test/bedrock-custom-headers.test.ts` | 6 | VC1: registers a build-step middleware that injects the caller header (happy path); VC2: skips reserved headers case-insensitively while applying allowed ones; VC3: registers no middleware when headers is undefined; VC3: registers no middleware when headers is empty; VC3 (structural guard): passes through unchanged when the request has no headers | PARTIAL (pluggable transport) |

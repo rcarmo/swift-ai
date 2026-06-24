@@ -81,7 +81,7 @@ public enum AnthropicMessagesProvider {
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
-        var state = AnthropicStreamState(model: model)
+        var state = AnthropicStreamState(model: model, tools: context.tools ?? [])
         var buffer = ""
         for try await byte in bytes {
             buffer += String(decoding: [byte], as: UTF8.self)
@@ -94,9 +94,11 @@ public enum AnthropicMessagesProvider {
         finish(state: &state) { continuation.yield($0) }
     }
 
-    public static func processSSEText(_ text: String, model: Model) -> [AIEvent] {
+    public static func processSSEText(_ text: String, model: Model) -> [AIEvent] { processSSEText(text, model: model, tools: []) }
+
+    public static func processSSEText(_ text: String, model: Model, tools: [Tool]) -> [AIEvent] {
         var events: [AIEvent] = []
-        var state = AnthropicStreamState(model: model)
+        var state = AnthropicStreamState(model: model, tools: tools)
         for event in SSEParser().parse(text) { process(event: event, state: &state) { events.append($0) } }
         finish(state: &state) { events.append($0) }
         return events
@@ -121,7 +123,7 @@ public enum AnthropicMessagesProvider {
             switch raw.contentBlock.type {
             case "text": state.partial.content[raw.index] = ContentBlock(type: "text"); yield(.textStart(contentIndex: raw.index, partial: state.partial))
             case "thinking": state.partial.content[raw.index] = ContentBlock(type: "thinking"); yield(.thinkingStart(contentIndex: raw.index, partial: state.partial))
-            case "tool_use": state.partial.content[raw.index] = ContentBlock(type: "toolCall", id: raw.contentBlock.id, name: raw.contentBlock.name); yield(.toolCallStart(contentIndex: raw.index, partial: state.partial))
+            case "tool_use": state.partial.content[raw.index] = ContentBlock(type: "toolCall", id: raw.contentBlock.id, name: fromClaudeCodeName(raw.contentBlock.name ?? "", toolsByClaudeCodeName: state.toolsByClaudeCodeName)); yield(.toolCallStart(contentIndex: raw.index, partial: state.partial))
             default: break
             }
         case "content_block_delta":
@@ -301,13 +303,13 @@ public enum AnthropicMessagesProvider {
     private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(isOAuthToken ? toClaudeCodeName(tool.name) : tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
     private static func normalizeAnthropicToolCallID(_ id: String) -> String { String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.prefix(64)) }
     private static func isOAuthToken(_ apiKey: String) -> Bool { apiKey.contains("sk-ant-oat") }
-    private static func toClaudeCodeName(_ name: String) -> String {
-        let tools = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "KillShell", "NotebookEdit", "Skill", "Task", "TaskOutput", "TodoWrite", "WebFetch", "WebSearch"]
-        return tools.first { $0.lowercased() == name.lowercased() } ?? name
-    }
+    private static let claudeCodeToolNames = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "KillShell", "NotebookEdit", "Skill", "Task", "TaskOutput", "TodoWrite", "WebFetch", "WebSearch"]
+    private static func toClaudeCodeName(_ name: String) -> String { claudeCodeToolNames.first { $0.lowercased() == name.lowercased() } ?? name }
+    private static func fromClaudeCodeName(_ name: String, toolsByClaudeCodeName: [String: String]) -> String { toolsByClaudeCodeName[name.lowercased()] ?? name }
+    fileprivate static func claudeCodeToolNameMap(_ tools: [Tool]) -> [String: String] { Dictionary(uniqueKeysWithValues: tools.map { (toClaudeCodeName($0.name).lowercased(), $0.name) }) }
 }
 
-private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
+private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; var toolsByClaudeCodeName: [String: String]; init(model: Model, tools: [Tool] = []) { self.model = model; self.toolsByClaudeCodeName = AnthropicMessagesProvider.claudeCodeToolNameMap(tools); var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var usage: AnthropicUsage? } }
 private struct AnthropicUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var cacheReadInputTokens: Int?; var cacheCreationInputTokens: Int?; var cacheCreation: CacheCreation?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case cacheReadInputTokens = "cache_read_input_tokens"; case cacheCreationInputTokens = "cache_creation_input_tokens"; case cacheCreation = "cache_creation" }; struct CacheCreation: Decodable { var ephemeral1hInputTokens: Int?; enum CodingKeys: String, CodingKey { case ephemeral1hInputTokens = "ephemeral_1h_input_tokens" } } }
 private struct AnthropicContentBlockStart: Decodable { var index: Int; var contentBlock: Block; enum CodingKeys: String, CodingKey { case index; case contentBlock = "content_block" }; struct Block: Decodable { var type: String; var id: String?; var name: String? } }

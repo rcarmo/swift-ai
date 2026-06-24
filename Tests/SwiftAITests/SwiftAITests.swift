@@ -381,12 +381,23 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testLoggerRegistrySetAndReset() async {
+        await LoggerRegistry.shared.setLogger(nil)
+        let defaultLogger = await LoggerRegistry.shared.current()
+        XCTAssertTrue(defaultLogger is DiscardLogger)
+        defaultLogger.info("discarded", [:])
         await LoggerRegistry.shared.setLogger(DiscardLogger())
         let logger = await LoggerRegistry.shared.current()
         logger.info("ok", [:])
         await LoggerRegistry.shared.setLogger(nil)
         let reset = await LoggerRegistry.shared.current()
+        XCTAssertTrue(reset is DiscardLogger)
         reset.warn("ok", [:])
+        let warnLogger = StderrLogger(level: .warn)
+        XCTAssertFalse(warnLogger.shouldEmit(.debug))
+        XCTAssertFalse(warnLogger.shouldEmit(.info))
+        XCTAssertTrue(warnLogger.shouldEmit(.warn))
+        XCTAssertTrue(warnLogger.shouldEmit(.error))
+        XCTAssertFalse(StderrLogger(level: .off).shouldEmit(.error))
     }
 
     func testAppendAssistantMessageAndGetTextContent() {

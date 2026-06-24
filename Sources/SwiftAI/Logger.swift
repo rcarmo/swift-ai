@@ -24,8 +24,9 @@ public struct StderrLogger: AILogger {
     public func info(_ message: String, _ keyValues: [String: String] = [:]) { emit(.info, message, keyValues) }
     public func warn(_ message: String, _ keyValues: [String: String] = [:]) { emit(.warn, message, keyValues) }
     public func error(_ message: String, _ keyValues: [String: String] = [:]) { emit(.error, message, keyValues) }
+    public func shouldEmit(_ eventLevel: LogLevel) -> Bool { eventLevel.rawValue >= level.rawValue && level != .off }
     private func emit(_ eventLevel: LogLevel, _ message: String, _ keyValues: [String: String]) {
-        guard eventLevel.rawValue >= level.rawValue, level != .off else { return }
+        guard shouldEmit(eventLevel) else { return }
         let attrs = keyValues.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
         let line = attrs.isEmpty ? "[swift-ai] \(eventLevel) \(message)" : "[swift-ai] \(eventLevel) \(message) \(attrs)"
         FileHandle.standardError.write((line + "\n").data(using: .utf8) ?? Data())

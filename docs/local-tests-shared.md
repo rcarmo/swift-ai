@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **91**
+- Adapted in Swift semantic tests: **93**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **88**
+- Pending direct Swift adaptation: **86**
 
 ## Highest-priority pending buckets
 
@@ -186,9 +186,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestIsRetryableStatus` | `internal/retry/backoff_test.go` | `testRetryPolicy` | retry/cancellation robustness: Is Retryable Status |
 | ADAPTED | `TestParseRetryAfter` | `internal/retry/backoff_test.go` | `testRetryPolicy` | retry/cancellation robustness: Parse Retry After |
 | PENDING | `TestParseDurationString` | `internal/retry/backoff_test.go` | `—` | Parse Duration String |
-| PENDING | `TestDiscardLoggerDefault` | `logger_test.go` | `—` | Discard Logger Default |
+| ADAPTED | `TestDiscardLoggerDefault` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Discard Logger Default |
 | ADAPTED | `TestSimpleLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Simple Logger |
-| PENDING | `TestLogLevelFiltering` | `logger_test.go` | `—` | Log Level Filtering |
+| ADAPTED | `TestLogLevelFiltering` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Log Level Filtering |
 | ADAPTED | `TestSetLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger |
 | ADAPTED | `TestSetLoggerNil` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Set Logger Nil |
 | ADAPTED | `TestTransformMessagesAddsSyntheticResultForTrailingOrphan` | `logic_audit_test.go` | `testTransformSkipsErroredAssistantMessagesAndInsertsSyntheticToolResults` | Transform Messages Adds Synthetic Result For Trailing Orphan |

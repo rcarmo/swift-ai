@@ -56,7 +56,7 @@ final class EnvironmentTests: XCTestCase {
     func testEnvFallbackNameAndCacheRetention() {
         XCTAssertEqual(ProviderEnvironment.envFallbackName(.zaiCodingCN), "ZAI_CODING_CN_API_KEY")
         XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(nil, env: ["PI_CACHE_RETENTION": "long"]), .long)
-        XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(.none, env: ["PI_CACHE_RETENTION": "long"]), .none)
+        XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(CacheRetention.none, env: ["PI_CACHE_RETENTION": "long"]), CacheRetention.none)
         XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(nil, env: [:]), .short)
     }
 }

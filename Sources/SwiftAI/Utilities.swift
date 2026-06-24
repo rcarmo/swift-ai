@@ -10,8 +10,11 @@ public enum AIUtilities {
         guard let model, model.reasoning else { return [.off] }
         var out: [ModelThinkingLevel] = []
         for level in extendedThinkingLevels {
-            if let map = model.thinkingLevelMap, let maybe = map[level], maybe == nil { continue }
-            if level == .xhigh && model.thinkingLevelMap?[level] == nil { continue }
+            if let map = model.thinkingLevelMap {
+                guard map.keys.contains(level), let mapped = map[level], mapped != nil else { continue }
+            } else if level == .xhigh {
+                continue
+            }
             out.append(level)
         }
         return out.isEmpty ? [.off] : out

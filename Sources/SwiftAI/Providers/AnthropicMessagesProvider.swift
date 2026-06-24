@@ -57,11 +57,11 @@ public enum AnthropicMessagesProvider {
         if model.provider == .githubCopilot {
             headers["Authorization"] = "Bearer \(key)"
             for (k, v) in AIUtilities.copilotHeaders() { headers[k] = v }
-            for (k, v) in AIUtilities.copilotDynamicHeaders(messages: context.messages) { headers[k] = v }
+            for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { headers[k] = v }
         } else {
             headers["X-Api-Key"] = key
         }
-        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none, model.anthropicCompat?.sendSessionAffinityHeaders == true { headers["x-session-affinity"] = session }
+        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none, model.anthropicCompat?.sendSessionAffinityHeaders == true { headers["x-session-affinity"] = session }
         let betas = betaHeaders(model: model, context: context)
         if !betas.isEmpty { headers["Anthropic-Beta"] = betas.joined(separator: ",") }
         for (k, v) in model.headers ?? [:] { headers[k] = v }
@@ -143,11 +143,13 @@ public enum AnthropicMessagesProvider {
             }
         case "message_delta":
             guard let raw = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data) else { return }
-            state.partial.usage?.output = raw.usage?.outputTokens ?? 0
-            if let cacheWrite = raw.usage?.cacheCreationInputTokens { state.partial.usage?.cacheWrite = cacheWrite }
-            if let cacheWrite1h = raw.usage?.cacheCreation?.ephemeral1hInputTokens { state.partial.usage?.cacheWrite1h = cacheWrite1h }
-            state.partial.usage?.totalTokens = (state.partial.usage?.input ?? 0) + (state.partial.usage?.output ?? 0)
-            if var usage = state.partial.usage { AIUtilities.applyCost(model: state.model, usage: &usage); state.partial.usage = usage }
+            var usage = state.partial.usage ?? Usage()
+            usage.output = raw.usage?.outputTokens ?? 0
+            if let cacheWrite = raw.usage?.cacheCreationInputTokens { usage.cacheWrite = cacheWrite }
+            if let cacheWrite1h = raw.usage?.cacheCreation?.ephemeral1hInputTokens { usage.cacheWrite1h = cacheWrite1h }
+            usage.totalTokens = usage.input + usage.output
+            AIUtilities.applyCost(model: state.model, usage: &usage)
+            state.partial.usage = usage
             state.partial.stopReason = stopReason(raw.delta.stopReason)
             if state.partial.stopReason == .error { state.partial.errorMessage = raw.delta.stopDetails?.explanation ?? "The model refused to complete the request" }
         case "message_stop": state.sawMessageStop = true
@@ -185,10 +187,60 @@ public enum AnthropicMessagesProvider {
             repaired.unicodeScalars.append(scalar)
         }
         if escaping { repaired += "\\" }
-        guard let data = repaired.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data)
+        if let fallback = fallbackAnthropicContentBlockDelta(text) { return fallback }
+        if let data = repaired.data(using: .utf8), let raw = try? JSONDecoder().decode(AnthropicContentBlockDelta.self, from: data) { return raw }
+        return nil
     }
-    private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
+
+    private static func fallbackAnthropicContentBlockDelta(_ text: String) -> AnthropicContentBlockDelta? {
+        guard let indexRange = text.range(of: #""index"\s*:\s*[0-9]+"#, options: .regularExpression),
+              let index = Int(text[indexRange].split(separator: ":").last?.trimmingCharacters(in: .whitespaces) ?? ""),
+              let keyRange = text.range(of: #""partial_json"\s*:\s*""#, options: .regularExpression) else { return nil }
+        var value = ""
+        var i = keyRange.upperBound
+        var escaping = false
+        while i < text.endIndex {
+            let ch = text[i]
+            if escaping {
+                switch ch {
+                case "\"", "\\", "/": value.append(ch)
+                case "b": value.append("\u{8}")
+                case "f": value.append("\u{c}")
+                case "n": value.append("\n")
+                case "r": value.append("\r")
+                case "t": value.append("\t")
+                default: value.append("\\"); value.append(ch)
+                }
+                escaping = false
+            } else if ch == "\\" {
+                escaping = true
+            } else if ch == "\"" {
+                break
+            } else {
+                value.append(ch)
+            }
+            i = text.index(after: i)
+        }
+        return AnthropicContentBlockDelta(index: index, delta: .init(type: "input_json_delta", text: nil, thinking: nil, partialJSON: value))
+    }
+    private static func parseJSONObject(_ text: String) -> [String: JSONValue] {
+        if let object = PartialJSONParser.parseObject(text) { return object }
+        let normalized = text.replacingOccurrences(of: #"\""#, with: #"""#)
+        var out: [String: JSONValue] = [:]
+        let pattern = #""([^"]+)"\s*:\s*"((?:\\.|[^"])*)""#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [:] }
+        let range = NSRange(normalized.startIndex..<normalized.endIndex, in: normalized)
+        for match in regex.matches(in: normalized, range: range) where match.numberOfRanges == 3 {
+            guard let keyRange = Range(match.range(at: 1), in: normalized), let valueRange = Range(match.range(at: 2), in: normalized) else { continue }
+            var value = String(normalized[valueRange])
+            value = value.replacingOccurrences(of: #"\t"#, with: "\t")
+            value = value.replacingOccurrences(of: #"\n"#, with: "\n")
+            value = value.replacingOccurrences(of: #"\r"#, with: "\r")
+            value = value.replacingOccurrences(of: #"\\"#, with: #"\"#)
+            out[String(normalized[keyRange])] = .string(value)
+        }
+        return out
+    }
     public static func normalizeBaseURL(_ base: String) -> String { let b = base.isEmpty ? "https://api.anthropic.com/v1" : base.trimmingCharacters(in: CharacterSet(charactersIn: "/")); return b.hasSuffix("/v1") ? b : b + "/v1" }
     private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh: return options?.thinkingBudgets?.high ?? 16384 } }
@@ -229,7 +281,7 @@ public enum AnthropicMessagesProvider {
     }
     private static func cacheControl(model: Model, options: StreamOptions?) -> JSONValue? {
         let retention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
-        if retention == .none { return nil }
+        if retention == CacheRetention.none { return nil }
         var object: [String: JSONValue] = ["type": .string("ephemeral")]
         if retention == .long && model.anthropicCompat?.supportsLongCacheRetention != false { object["ttl"] = .string("1h") }
         return .object(object)

@@ -36,7 +36,7 @@ public enum OpenAICompletionsProvider {
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(applyAnthropicCacheControlToTools(tools.map { toolJSON($0, compat: compat) }, compat: compat, cacheRetention: ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env))) }
         else if hasToolHistory(context.messages) { body["tools"] = .array([]) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
-        let shouldSendCacheKey = (model.baseUrl.contains("api.openai.com") && cacheRetention != .none) || (cacheRetention == .long && compat.supportsLongCacheRetention == true)
+        let shouldSendCacheKey = (model.baseUrl.contains("api.openai.com") && cacheRetention != CacheRetention.none) || (cacheRetention == .long && compat.supportsLongCacheRetention == true)
         if let session = options?.sessionId, !session.isEmpty, shouldSendCacheKey { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if cacheRetention == .long, compat.supportsLongCacheRetention == true { body["prompt_cache_retention"] = .string("24h") }
         if let toolChoice = options?.toolChoice { body["tool_choice"] = toolChoice }
@@ -182,7 +182,7 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func anthropicCacheControl(_ cacheRetention: CacheRetention) -> JSONValue? {
-        guard cacheRetention != .none else { return nil }
+        guard cacheRetention != CacheRetention.none else { return nil }
         var cc: [String: JSONValue] = ["type": .string("ephemeral")]
         if cacheRetention == .long { cc["ttl"] = .string("1h") }
         return .object(cc)
@@ -227,7 +227,7 @@ public enum OpenAICompletionsProvider {
         if stream { request.setValue("text/event-stream", forHTTPHeaderField: "Accept") }
         let compat = Compat.detect(for: model)
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
-        if let session = options?.sessionId, !session.isEmpty, cacheRetention != .none, compat.sendSessionAffinityHeaders == true {
+        if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none, compat.sendSessionAffinityHeaders == true {
             request.setValue(session, forHTTPHeaderField: "session_id")
             request.setValue(session, forHTTPHeaderField: "x-client-request-id")
             request.setValue(session, forHTTPHeaderField: "x-session-affinity")
@@ -295,7 +295,7 @@ public enum OpenAICompletionsProvider {
         if data == "[DONE]" { state.doneSeen = true; return }
         guard let raw = data.data(using: .utf8), let chunk = try? JSONDecoder().decode(SSEChunk.self, from: raw) else { return }
         if let id = chunk.id { state.partial.responseId = id }
-        if let responseModel = chunk.model, responseModel != model.id, state.partial.responseModel == nil { state.partial.responseModel = responseModel }
+        if let responseModel = chunk.model, !responseModel.isEmpty, responseModel != model.id, state.partial.responseModel == nil { state.partial.responseModel = responseModel }
         if let usage = chunk.usage { state.applyUsage(usage) }
         guard let choice = chunk.choices.first else { return }
         if let usage = choice.usage { state.applyUsage(usage) }

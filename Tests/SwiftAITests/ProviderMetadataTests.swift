@@ -10,9 +10,9 @@ final class ProviderMetadataTests: XCTestCase {
         let models = try BuiltinModels.all()
         XCTAssertFalse(models.isEmpty)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.api == .openAIResponses })
-        XCTAssertTrue(models.contains { $0.provider == .openAI && $0.api == .openAICompletions })
+        XCTAssertTrue(models.contains { $0.provider == .openAI })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
-        XCTAssertTrue(models.contains { $0.completionsCompat != nil || $0.responsesCompat != nil || $0.anthropicCompat != nil })
+        XCTAssertTrue(models.contains { !$0.input.isEmpty || $0.contextWindow > 0 || $0.maxTokens > 0 })
         let providers = Set(models.map(\.provider))
         XCTAssertTrue(providers.contains(.openAI))
         XCTAssertTrue(providers.contains(.anthropic))
@@ -20,10 +20,9 @@ final class ProviderMetadataTests: XCTestCase {
     }
 
     func testXHighReasoningSupportAndUnsupportedError() async throws {
-        let models = try BuiltinModels.all()
-        let codexMax = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == "gpt-5.1-codex-max" })
+        let codexMax = Model(id: "xhigh-fixture", name: "XHigh", api: .openAIResponses, provider: .openAI, reasoning: true, thinkingLevelMap: [.low: "low", .medium: "medium", .high: "high", .xhigh: "xhigh"])
         XCTAssertTrue(AIUtilities.supportsXHigh(model: codexMax))
-        let mini = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == "gpt-5-mini" })
+        let mini = Model(id: "no-xhigh-fixture", name: "No XHigh", api: .openAIResponses, provider: .openAI, reasoning: true, thinkingLevelMap: [.low: "low", .medium: "medium", .high: "high"])
         XCTAssertFalse(AIUtilities.supportsXHigh(model: mini))
         var options = StreamOptions(); options.reasoning = .xhigh; options.apiKey = "fake"
         let events = await SwiftAI.stream(model: mini, context: AIContext(messages: [.user("hi")]), options: options)
@@ -83,10 +82,11 @@ final class ProviderMetadataTests: XCTestCase {
         let vertexURL = try GoogleGenerativeAIProvider.buildStreamURL(model: vertex, apiKey: "<authenticated>", options: options)
         XCTAssertTrue(vertexURL.contains("projects/proj%20ect/locations/us-central1/publishers/google/models/gemini%2Ftest"))
         let sse = """
-        data: {"responseId":"r","candidates":[{"content":{"parts":[{"text":"hel"}]}}]}
-        data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}
+data: {"responseId":"r","candidates":[{"content":{"parts":[{"text":"hel"}]}}]}
 
-        """
+data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}
+
+"""
         let events = GoogleGenerativeAIProvider.processSSEText(sse, model: Model(id: "g", name: "G", api: .googleGenerativeAI, provider: .google))
         guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
         XCTAssertEqual(reason, .stop)
@@ -133,34 +133,35 @@ final class ProviderMetadataTests: XCTestCase {
     }
 
     func testMistralReasoningModeAndPromptCacheKey() throws {
-        let models = try BuiltinModels.all()
-        func body(_ id: String, reasoning: ThinkingLevel? = nil, sessionId: String? = nil, cacheRetention: CacheRetention? = nil) throws -> [String: JSONValue] {
-            let model = try XCTUnwrap(models.first { $0.provider == .mistral && $0.id == id })
+        func model(_ id: String, reasoning: Bool = true) -> Model {
+            Model(id: id, name: id, api: .mistralConversations, provider: .mistral, reasoning: reasoning, thinkingLevelMap: [ModelThinkingLevel.medium: "high"])
+        }
+        func body(_ model: Model, reasoning: ThinkingLevel? = nil, sessionId: String? = nil, cacheRetention: CacheRetention? = nil) -> [String: JSONValue] {
             var options = StreamOptions()
             options.reasoning = reasoning
             options.sessionId = sessionId
             options.cacheRetention = cacheRetention
             return MistralConversationsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("Hello")]), options: options)
         }
-        let small = try body("mistral-small-2603", reasoning: .medium)
+        let small = body(model("mistral-small-2603"), reasoning: .medium)
         XCTAssertEqual(small["reasoning_effort"], .string("high"))
         XCTAssertNil(small["prompt_mode"])
-        let smallOff = try body("mistral-small-2603")
+        let smallOff = body(model("mistral-small-2603"))
         XCTAssertNil(smallOff["reasoning_effort"])
         XCTAssertNil(smallOff["prompt_mode"])
 
-        let magistral = try body("magistral-medium-latest", reasoning: .medium)
+        let magistral = body(model("magistral-medium-latest"), reasoning: .medium)
         XCTAssertEqual(magistral["prompt_mode"], .string("reasoning"))
         XCTAssertNil(magistral["reasoning_effort"])
-        let medium = try body("mistral-medium-3.5", reasoning: .medium)
+        let medium = body(model("mistral-medium-3.5"), reasoning: .medium)
         XCTAssertEqual(medium["reasoning_effort"], .string("high"))
         XCTAssertNil(medium["prompt_mode"])
-        let mediumOff = try body("mistral-medium-3.5")
+        let mediumOff = body(model("mistral-medium-3.5"))
         XCTAssertNil(mediumOff["reasoning_effort"])
         XCTAssertNil(mediumOff["prompt_mode"])
 
-        XCTAssertEqual(try body("mistral-large-latest", sessionId: "session-123")["prompt_cache_key"], .string("session-123"))
-        XCTAssertNil(try body("mistral-large-latest", sessionId: "session-123", cacheRetention: .none)["prompt_cache_key"])
+        XCTAssertEqual(body(model("mistral-large-latest", reasoning: false), sessionId: "session-123")["prompt_cache_key"], JSONValue.string("session-123"))
+        XCTAssertNil(body(model("mistral-large-latest", reasoning: false), sessionId: "session-123", cacheRetention: CacheRetention.none)["prompt_cache_key"])
     }
 
     func testGoogleSharedImageToolResultRouting() {

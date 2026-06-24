@@ -31,7 +31,36 @@ public enum PartialJSONParser {
     }
 
     private static func decodeObject(_ text: String) -> [String: JSONValue]? {
-        guard let data = text.data(using: .utf8) else { return nil }
+        if let data = text.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data) { return object }
+        let repaired = repairMalformedJSONStrings(text)
+        guard repaired != text, let data = repaired.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode([String: JSONValue].self, from: data)
+    }
+
+    private static func repairMalformedJSONStrings(_ text: String) -> String {
+        var out = ""
+        var inString = false
+        var escaping = false
+        for scalar in text.unicodeScalars {
+            if escaping {
+                if "\\\"/bfnrtu".unicodeScalars.contains(scalar) { out.unicodeScalars.append(scalar) }
+                else { out += "\\\\"; out.unicodeScalars.append(scalar) }
+                escaping = false
+                continue
+            }
+            if scalar.value == 34 {
+                inString.toggle()
+                out.unicodeScalars.append(scalar)
+            } else if scalar.value == 92, inString {
+                out += "\\"
+                escaping = true
+            } else if inString && scalar.value == 9 {
+                out += "\\t"
+            } else {
+                out.unicodeScalars.append(scalar)
+            }
+        }
+        if escaping { out += "\\\\" }
+        return out
     }
 }

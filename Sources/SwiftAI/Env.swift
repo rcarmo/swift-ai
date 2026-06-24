@@ -38,7 +38,7 @@ public enum ProviderEnvironment {
     ]
 
     public static func value(_ name: String, env: ProviderEnv? = nil) -> String? {
-        if let value = env?[name] { return value }
+        if let env { return env[name] }
         return ProcessInfo.processInfo.environment[name]
     }
 

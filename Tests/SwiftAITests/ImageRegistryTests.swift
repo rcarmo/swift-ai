@@ -12,9 +12,12 @@ final class ImageRegistryTests: XCTestCase {
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages) { model, _, _ in
             AssistantImages(api: model.api, provider: model.provider, model: model.id, output: [ImageOutput(type: "image", data: "aGk=", mimeType: "image/png")], stopReason: .stop)
         })
-        XCTAssertEqual(await ImagesRegistry.shared.listProviders(), [.openRouter])
-        XCTAssertEqual(await ImagesRegistry.shared.listModels(provider: .openRouter).map(\.id), ["m1", "m2"])
-        XCTAssertEqual(await ImagesRegistry.shared.model(provider: .openRouter, id: "m2"), m2)
+        let providers = await ImagesRegistry.shared.listProviders()
+        let imageModels = await ImagesRegistry.shared.listModels(provider: .openRouter).map(\.id)
+        let foundM2 = await ImagesRegistry.shared.model(provider: .openRouter, id: "m2")
+        XCTAssertEqual(providers, [.openRouter])
+        XCTAssertEqual(imageModels, ["m1", "m2"])
+        XCTAssertEqual(foundM2, m2)
         let result = await SwiftAI.generateImages(model: m1, context: ImagesContext(input: [.text("a red circle")]))
         XCTAssertEqual(result.stopReason, .stop)
         XCTAssertEqual(result.output.first?.mimeType, "image/png")
@@ -43,7 +46,7 @@ final class ImageRegistryTests: XCTestCase {
         XCTAssertTrue(result.errorMessage?.contains("no image provider registered") == true)
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages) { model, _, options in
             var out = AssistantImages(api: model.api, provider: model.provider, model: model.id, stopReason: .stop)
-            do { _ = try await options?.onPayload?([:], model) } catch { out.stopReason = .error; out.errorMessage = error.localizedDescription }
+            do { _ = try await options?.onPayload?([:], model) } catch { out.stopReason = .error; out.errorMessage = String(describing: error) }
             return out
         })
         var options = ImagesOptions()

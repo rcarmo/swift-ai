@@ -121,24 +121,13 @@ public enum HTTPRetry {
         throw lastError ?? AIError.provider("retry failed")
     }
 
-    public static func bytes(for request: URLRequest, policy: RetryPolicy) async throws -> (URLSession.AsyncBytes, URLResponse) {
-        var lastError: Error?
-        for attempt in 0...policy.maxRetries {
-            do {
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                if let http = response as? HTTPURLResponse, shouldRetry(statusCode: http.statusCode, policy: policy), attempt < policy.maxRetries {
-                    let retryAfter = retryAfterMs(headers: http.allHeaderFields)
-                    try await Task.sleep(nanoseconds: try policy.delayNanoseconds(attempt: attempt + 1, retryAfterMs: retryAfter))
-                    continue
-                }
-                return (bytes, response)
-            } catch {
-                lastError = error
-                if attempt >= policy.maxRetries { throw error }
-                try await Task.sleep(nanoseconds: try policy.delayNanoseconds(attempt: attempt + 1))
-            }
+    public static func bytes(for request: URLRequest, policy: RetryPolicy) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        let (data, response) = try await data(for: request, policy: policy)
+        let stream = AsyncThrowingStream<UInt8, Error> { continuation in
+            for byte in data { continuation.yield(byte) }
+            continuation.finish()
         }
-        throw lastError ?? AIError.provider("retry failed")
+        return (stream, response)
     }
 }
 

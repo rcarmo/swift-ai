@@ -42,13 +42,13 @@ public enum GoogleGenerativeAIProvider {
             guard let project, !project.isEmpty else { throw AIError.provider("Vertex AI requires a project ID") }
             guard let location, !location.isEmpty else { throw AIError.provider("Vertex AI requires a location") }
             let base = (model.baseUrl.isEmpty ? "https://{location}-aiplatform.googleapis.com" : model.baseUrl).replacingOccurrences(of: "{location}", with: location).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            let resourcePath = base.contains("/v1/projects/") ? "" : "/v1/projects/\(project.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? project)/locations/\(location.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? location)"
-            var url = "\(base)\(resourcePath)/publishers/google/models/\(model.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model.id):streamGenerateContent?alt=sse"
+            let resourcePath = base.contains("/v1/projects/") ? "" : "/v1/projects/\(escapePathSegment(project))/locations/\(escapePathSegment(location))"
+            var url = "\(base)\(resourcePath)/publishers/google/models/\(escapePathSegment(model.id)):streamGenerateContent?alt=sse"
             if !isVertexADCMarker(apiKey) { url += "&key=\(apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? apiKey)" }
             return url
         }
         let base = (model.baseUrl.isEmpty ? "https://generativelanguage.googleapis.com/v1beta" : model.baseUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return "\(base)/models/\(model.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model.id):streamGenerateContent?alt=sse&key=\(apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? apiKey)"
+        return "\(base)/models/\(escapePathSegment(model.id)):streamGenerateContent?alt=sse&key=\(apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? apiKey)"
     }
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
@@ -164,6 +164,11 @@ public enum GoogleGenerativeAIProvider {
         }
         flushFunctionResponses()
         return out
+    }
+    private static func escapePathSegment(_ value: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "/")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
     public static func isThinkingPart(thought: Bool?, thoughtSignature _: String?) -> Bool { thought == true }
     public static func retainThoughtSignature(existing: String?, incoming: String?) -> String? { guard let incoming, !incoming.isEmpty else { return existing }; return incoming }

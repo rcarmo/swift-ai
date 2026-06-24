@@ -51,7 +51,7 @@ public enum OpenAIResponsesProvider {
         }
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
-        if let session = options?.sessionId, !session.isEmpty, cacheRetention != .none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
+        if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
         return body
     }
@@ -186,11 +186,11 @@ public enum OpenAIResponsesProvider {
             default: break
             }
         case "response.output_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].text = (state.partial.content[idx].text ?? "") + raw; yield(.textDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
-        case "response.reasoning_summary_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + raw; yield(.thinkingDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
+        case "response.reasoning_summary_text.delta", "response.reasoning_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + raw; yield(.thinkingDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.function_call_arguments.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.toolArgs[idx, default: ""] += raw; yield(.toolCallDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.function_call_arguments.done": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(ResponseArgumentsDone.self, from: data) { state.toolArgs[idx] = raw.arguments ?? state.toolArgs[idx] ?? "" }
         case "response.output_item.done": closeCurrent(state: &state, yield: yield)
-        case "response.completed", "response.incomplete": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; applyUsage(raw.response?.usage, state: &state); state.partial.stopReason = mapStatus(raw.response?.status ?? (eventName == "response.incomplete" ? "incomplete" : nil)); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
+        case "response.completed", "response.incomplete": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; if let responseModel = raw.response?.model, !responseModel.isEmpty, responseModel != state.model.id { state.partial.responseModel = responseModel }; applyUsage(raw.response?.usage, state: &state); state.partial.stopReason = mapStatus(raw.response?.status ?? (eventName == "response.incomplete" ? "incomplete" : nil)); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
         case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; state.partial.stopReason = .error; let msg = raw.response?.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? raw.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? "response failed"; state.partial.errorMessage = msg; yield(.error(reason: .error, message: state.partial, error: AIError.provider(msg))) }
         case "error": if let raw = try? JSONDecoder().decode(ResponseAPIError.self, from: data) { state.sawTerminal = true; state.partial.stopReason = .error; state.partial.errorMessage = "API error \(raw.code ?? "unknown"): \(raw.message ?? "")"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "API error"))) }
         default: break
@@ -224,7 +224,12 @@ public enum OpenAIResponsesProvider {
         for block in msg.content {
             switch block.type {
             case "thinking":
-                if let sig = block.thinkingSignature, let data = sig.data(using: .utf8), let value = try? JSONDecoder().decode(JSONValue.self, from: data) { items.append(value) }
+                if let sig = block.thinkingSignature, !sig.isEmpty, let data = sig.data(using: .utf8), let value = try? JSONDecoder().decode(JSONValue.self, from: data) {
+                    items.append(value)
+                } else {
+                    let fallback = "rs_pi_\(messageIndex)_\(items.count)"
+                    items.append(.object(["type": .string("reasoning"), "id": .string(fallback), "summary": .array([.object(["type": .string("summary_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])])]))
+                }
             case "text":
                 let fallback = textIndex == 0 ? "msg_pi_\(messageIndex)" : "msg_pi_\(messageIndex)_\(textIndex)"
                 var item: [String: JSONValue] = ["type": .string("message"), "id": .string(fallback), "role": .string("assistant"), "content": .array([.object(["type": .string("output_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])]), "status": .string("completed")]
@@ -271,7 +276,7 @@ private struct ResponseCreated: Decodable { var response: Inner?; struct Inner: 
 private struct ResponseOutputItemAdded: Decodable { var item: Item; struct Item: Decodable { var type: String; var id: String?; var callId: String?; var name: String?; enum CodingKeys: String, CodingKey { case type, id, name; case callId = "call_id" } } }
 private struct ResponseDelta: Decodable { var delta: String? }
 private struct ResponseArgumentsDone: Decodable { var arguments: String? }
-private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var usage: ResponseUsage? } }
+private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var model: String?; var usage: ResponseUsage? } }
 private struct ResponseUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var totalTokens: Int?; var inputTokenDetails: InputTokenDetails?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case totalTokens = "total_tokens"; case inputTokenDetails = "input_tokens_details" }; struct InputTokenDetails: Decodable { var cachedTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens" } } }
 private struct ResponseFailed: Decodable { var response: FailedResponse?; var error: Failure?; struct FailedResponse: Decodable { var id: String?; var error: Failure? }; struct Failure: Decodable { var message: String?; var code: String? } }
 private struct ResponseAPIError: Decodable { var code: String?; var message: String? }

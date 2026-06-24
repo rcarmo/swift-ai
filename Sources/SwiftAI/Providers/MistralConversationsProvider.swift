@@ -22,7 +22,7 @@ public enum MistralConversationsProvider {
             let mapped = mappedThinkingEffort(model: model, effort: reasoning.rawValue)
             if usesReasoningEffort(model) { body["reasoning_effort"] = .string(mapped) } else { body["prompt_mode"] = .string("reasoning") }
         }
-        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none { body["prompt_cache_key"] = .string(session) }
+        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none { body["prompt_cache_key"] = .string(session) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
         return body
     }

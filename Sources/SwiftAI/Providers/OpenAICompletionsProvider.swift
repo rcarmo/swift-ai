@@ -26,14 +26,14 @@ public enum OpenAICompletionsProvider {
         var body: [String: JSONValue] = [
             "model": .string(model.id),
             "stream": .bool(stream),
-            "messages": .array(convertMessages(model: model, context: context, compat: compat))
+            "messages": .array(applyAnthropicCacheControl(to: convertMessages(model: model, context: context, compat: compat), compat: compat, cacheRetention: ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)))
         ]
         if stream, compat.supportsUsageInStreaming != false { body["stream_options"] = .object(["include_usage": .bool(true)]) }
         if compat.supportsStore != false { body["store"] = .bool(false) }
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
         if let maxTokens = options?.maxTokens { body[maxTokensField] = .number(Double(maxTokens)) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map { toolJSON($0, compat: compat) }) }
+        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(applyAnthropicCacheControlToTools(tools.map { toolJSON($0, compat: compat) }, compat: compat, cacheRetention: ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env))) }
         else if hasToolHistory(context.messages) { body["tools"] = .array([]) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         let shouldSendCacheKey = (model.baseUrl.contains("api.openai.com") && cacheRetention != .none) || (cacheRetention == .long && compat.supportsLongCacheRetention == true)
@@ -162,6 +162,35 @@ public enum OpenAICompletionsProvider {
             if block.type == "image" { parts.append(.object(["type": .string("image_url"), "image_url": .object(["url": .string("data:\(block.mimeType ?? "application/octet-stream");base64,\(block.data ?? "")")])])) }
         }
         return parts
+    }
+
+    private static func anthropicCacheControl(_ cacheRetention: CacheRetention) -> JSONValue? {
+        guard cacheRetention != .none else { return nil }
+        var cc: [String: JSONValue] = ["type": .string("ephemeral")]
+        if cacheRetention == .long { cc["ttl"] = .string("1h") }
+        return .object(cc)
+    }
+
+    private static func applyAnthropicCacheControl(to messages: [JSONValue], compat: OpenAICompletionsCompat, cacheRetention: CacheRetention) -> [JSONValue] {
+        guard compat.cacheControlFormat == "anthropic", let cc = anthropicCacheControl(cacheRetention) else { return messages }
+        var messages = messages
+        if case .object(var first)? = messages.first, (first["role"] == .string("system") || first["role"] == .string("developer")), case .string(let text)? = first["content"] {
+            first["content"] = .array([.object(["type": .string("text"), "text": .string(text), "cache_control": cc])])
+            messages[0] = .object(first)
+        }
+        if let idx = messages.lastIndex(where: { if case .object(let obj) = $0 { return obj["role"] == .string("user") }; return false }), case .object(var msg) = messages[idx] {
+            if case .string(let text)? = msg["content"] { msg["content"] = .array([.object(["type": .string("text"), "text": .string(text), "cache_control": cc])]) }
+            else if case .array(var parts)? = msg["content"], !parts.isEmpty, case .object(var firstPart) = parts[0] { firstPart["cache_control"] = cc; parts[0] = .object(firstPart); msg["content"] = .array(parts) }
+            messages[idx] = .object(msg)
+        }
+        return messages
+    }
+
+    private static func applyAnthropicCacheControlToTools(_ tools: [JSONValue], compat: OpenAICompletionsCompat, cacheRetention: CacheRetention) -> [JSONValue] {
+        guard compat.cacheControlFormat == "anthropic", let cc = anthropicCacheControl(cacheRetention), !tools.isEmpty else { return tools }
+        var tools = tools
+        if case .object(var last) = tools[tools.count - 1] { last["cache_control"] = cc; tools[tools.count - 1] = .object(last) }
+        return tools
     }
 
     private static func toolJSON(_ tool: Tool, compat: OpenAICompletionsCompat) -> JSONValue {

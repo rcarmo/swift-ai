@@ -448,6 +448,21 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(options.apiKey, "explicit")
     }
 
+    func testOpenAICompletionsAnthropicCacheControlFormat() {
+        var compat = OpenAICompletionsCompat(); compat.cacheControlFormat = "anthropic"
+        let model = Model(id: "custom-qwen", name: "Custom Qwen", api: .openAICompletions, provider: .openRouter, baseUrl: "https://example.com/v1", completionsCompat: compat)
+        let tool = Tool(name: "read", description: "Read", parameters: .object(["type": .string("object")]))
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "System prompt", messages: [.user("Hello")], tools: [tool]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let system) = messages[0], case .array(let systemContent)? = system["content"], case .object(let systemPart) = systemContent[0], case .array(let tools)? = body["tools"], case .object(let toolObj) = tools[0], case .object(let lastUser) = messages.last, case .array(let userContent)? = lastUser["content"], case .object(let userPart) = userContent[0] else { return XCTFail("missing cache markers") }
+        XCTAssertEqual(systemPart["cache_control"], .object(["type": .string("ephemeral")]))
+        XCTAssertEqual(toolObj["cache_control"], .object(["type": .string("ephemeral")]))
+        XCTAssertEqual(userPart["cache_control"], .object(["type": .string("ephemeral")]))
+        var options = StreamOptions(); options.cacheRetention = .none
+        let none = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "System prompt", messages: [.user("Hello")], tools: [tool]), options: options)
+        guard case .array(let noneMessages)? = none["messages"], case .object(let noneSystem) = noneMessages[0] else { return XCTFail("missing none system") }
+        XCTAssertEqual(noneSystem["content"], .string("System prompt"))
+    }
+
     func testOpenAICompletionsPromptCacheParity() {
         var options = StreamOptions(); options.sessionId = "session-123"
         let openAI = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, baseUrl: "https://api.openai.com/v1")

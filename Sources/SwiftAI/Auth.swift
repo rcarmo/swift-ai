@@ -84,6 +84,28 @@ public struct AuthResult: Codable, Equatable, Sendable {
     public init(auth: ModelAuth, env: ProviderEnv? = nil, source: String? = nil) { self.auth = auth; self.env = env; self.source = source }
 }
 
+public struct ApiKeyAuth: Sendable {
+    public var name: String
+    public var resolve: @Sendable (Model, AuthContext, Credential?) async -> AuthResult?
+
+    public init(name: String, resolve: @escaping @Sendable (Model, AuthContext, Credential?) async -> AuthResult?) {
+        self.name = name
+        self.resolve = resolve
+    }
+}
+
+public enum AuthHelpers {
+    public static func envApiKeyAuth(_ name: String, _ envNames: [String]) -> ApiKeyAuth {
+        ApiKeyAuth(name: name) { _, ctx, credential in
+            if case .apiKey(let key?, _)? = credential, !key.isEmpty { return AuthResult(auth: ModelAuth(apiKey: key), source: "stored credential") }
+            for envName in envNames {
+                if let value = await ctx.env(envName), !value.isEmpty { return AuthResult(auth: ModelAuth(apiKey: value), source: envName) }
+            }
+            return nil
+        }
+    }
+}
+
 public enum AuthPrompt: Equatable, Sendable {
     case text(message: String, placeholder: String? = nil)
     case secret(message: String, placeholder: String? = nil)

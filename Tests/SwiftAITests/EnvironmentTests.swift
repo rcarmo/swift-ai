@@ -2,6 +2,20 @@ import XCTest
 @testable import SwiftAI
 
 final class EnvironmentTests: XCTestCase {
+    func testEnvApiKeyAuthHelper() async {
+        let auth = AuthHelpers.envApiKeyAuth("Test key", ["FIRST_KEY", "SECOND_KEY"])
+        let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI)
+        let ctx = FakeAuthContext(env: ["FIRST_KEY": "env", "SECOND_KEY": "second"])
+        let stored = await auth.resolve(model, ctx, .apiKey(key: "stored", env: nil))
+        XCTAssertEqual(stored?.auth.apiKey, "stored")
+        XCTAssertEqual(stored?.source, "stored credential")
+        let env = await auth.resolve(model, FakeAuthContext(env: ["SECOND_KEY": "second"]), nil)
+        XCTAssertEqual(env?.auth.apiKey, "second")
+        XCTAssertEqual(env?.source, "SECOND_KEY")
+        let missing = await auth.resolve(model, FakeAuthContext(env: [:]), nil)
+        XCTAssertNil(missing)
+    }
+
     func testGetEnvAPIKeyProviderMappings() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openAI, env: ["OPENAI_API_KEY": "openai-key"]), "openai-key")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")
@@ -31,4 +45,11 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(.none, env: ["PI_CACHE_RETENTION": "long"]), .none)
         XCTAssertEqual(ProviderEnvironment.resolveCacheRetention(nil, env: [:]), .short)
     }
+}
+
+private struct FakeAuthContext: AuthContext {
+    var envValues: [String: String]
+    init(env: [String: String]) { self.envValues = env }
+    func env(_ name: String) async -> String? { envValues[name] }
+    func fileExists(_ path: String) async -> Bool { false }
 }

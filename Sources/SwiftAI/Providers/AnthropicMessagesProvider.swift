@@ -27,7 +27,11 @@ public enum AnthropicMessagesProvider {
             "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model, isOAuthToken: isOAuth), cacheControl: cacheControl(model: model, options: options)))
         ]
         let cc = cacheControl(model: model, options: options)
-        if let system = context.systemPrompt, !system.isEmpty { body["system"] = .array([.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system)), "cache_control": cc ?? .null])]) }
+        if let system = context.systemPrompt, !system.isEmpty {
+            var sys: [String: JSONValue] = ["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system))]
+            if let cc { sys["cache_control"] = cc }
+            body["system"] = .array([.object(sys)])
+        }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, model: model, isOAuthToken: isOAuth, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
         if model.reasoning {

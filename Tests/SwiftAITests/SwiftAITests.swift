@@ -1132,6 +1132,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(toolObj["cache_control"])
     }
 
+    func testAnthropicCacheRetentionNoneAndLongCompat() {
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsLongCacheRetention: false))
+        var options = StreamOptions(); options.cacheRetention = .long
+        let longBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        guard case .array(let system)? = longBody["system"], case .object(let sysBlock) = system[0], case .object(let cc)? = sysBlock["cache_control"] else { return XCTFail("missing cache control") }
+        XCTAssertEqual(cc["type"], .string("ephemeral"))
+        XCTAssertNil(cc["ttl"])
+        options.cacheRetention = .none
+        let noneBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")]), options: options)
+        guard case .array(let noneSystem)? = noneBody["system"], case .object(let noneBlock) = noneSystem[0] else { return XCTFail("missing system") }
+        XCTAssertNil(noneBlock["cache_control"])
+    }
+
     func testAnthropicCacheControlRequest() {
         let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(supportsLongCacheRetention: true))
         var options = StreamOptions()

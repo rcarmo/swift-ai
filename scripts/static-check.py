@@ -6,9 +6,11 @@ Runs checks that do not require `swift`:
 - Swift delimiter balance outside string literals
 - duplicate private JSONValue extension guard
 - TODO/fatalError guard for committed sources
+- XCTest hygiene for deterministic tests (no hidden skips, assertions present)
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -86,6 +88,41 @@ def check_package_manifest() -> None:
     print("ok: SwiftPM manifest checks")
 
 
+def _extract_test_body(lines: list[str], start: int) -> str:
+    depth = 0
+    started = False
+    body: list[str] = []
+    for line in lines[start:]:
+        body.append(line)
+        for ch in line:
+            if ch == "{":
+                depth += 1
+                started = True
+            elif ch == "}":
+                depth -= 1
+                if started and depth <= 0:
+                    return "\n".join(body)
+    return "\n".join(body)
+
+
+def check_xctest_hygiene() -> None:
+    assertion_tokens = ["XCTAssert", "XCTFail", "XCTUnwrap", "XCTSkip", "#expect", "try await SwiftAI.complete"]
+    for path in (ROOT / "Tests").rglob("*.swift"):
+        text = path.read_text()
+        rel = path.relative_to(ROOT)
+        if path.name != "LiveGatedTests.swift" and re.search(r"\bXCTSkip(?:Unless|If)?\b", text):
+            raise SystemExit(f"deterministic test file must not skip tests: {rel}")
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            match = re.search(r"\bfunc\s+(test\w+)\s*\(", line)
+            if not match:
+                continue
+            body = _extract_test_body(lines, index)
+            if not any(token in body for token in assertion_tokens):
+                raise SystemExit(f"test has no assertions or explicit completion check: {rel}:{index + 1} {match.group(1)}")
+    print("ok: XCTest hygiene checks")
+
+
 def check_ci_workflow() -> None:
     workflow = ROOT / ".github" / "workflows" / "ci.yml"
     if not workflow.exists():
@@ -104,6 +141,7 @@ def main() -> int:
     grep_guard()
     check_package_manifest()
     check_ci_workflow()
+    check_xctest_hygiene()
     return 0
 
 

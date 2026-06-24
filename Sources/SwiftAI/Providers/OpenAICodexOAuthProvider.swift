@@ -7,9 +7,15 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
     public let id = "openai-codex"
     public let name = "OpenAI Codex"
 
-    private let deviceCodeURL = "https://auth0.openai.com/oauth/device/code"
-    private let accessTokenURL = "https://auth0.openai.com/oauth/token"
-    private let clientID = "DRivsnm2Mu42T3KOpqdtwB3NYviHYzwD"
+    public static let deviceUserCodeURL = "https://auth.openai.com/api/accounts/deviceauth/usercode"
+    public static let deviceTokenURL = "https://auth.openai.com/api/accounts/deviceauth/token"
+    public static let accessTokenURL = "https://auth.openai.com/oauth/token"
+    public static let codexDeviceVerificationURI = "https://auth.openai.com/codex/device"
+    public static let codexRedirectURI = "https://auth.openai.com/deviceauth/callback"
+    public static let clientID = "app_EMoamEEZ73f0CkXaXp7hrann"
+    private let legacyDeviceCodeURL = "https://auth0.openai.com/oauth/device/code"
+    private let legacyAccessTokenURL = "https://auth0.openai.com/oauth/token"
+    private let legacyClientID = "DRivsnm2Mu42T3KOpqdtwB3NYviHYzwD"
     private let audience = "https://api.openai.com/v1"
     private let scope = "openid profile email offline_access"
 
@@ -25,11 +31,24 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
 
+    public static func deviceUserCodeBody() -> [String: JSONValue] { ["client_id": .string(clientID)] }
+    public static func deviceTokenBody(deviceAuthID: String, userCode: String) -> [String: JSONValue] { ["device_auth_id": .string(deviceAuthID), "user_code": .string(userCode)] }
+    public static func authorizationCodeFields(code: String, verifier: String) -> [String: String] { ["grant_type": "authorization_code", "client_id": clientID, "code": code, "redirect_uri": codexRedirectURI, "code_verifier": verifier] }
+    public static func extractAccountID(from accessToken: String) throws -> String {
+        let parts = accessToken.split(separator: ".")
+        guard parts.count >= 2 else { throw AIError.provider("no chatgpt_account_id in token") }
+        var payload = String(parts[1])
+        while payload.count % 4 != 0 { payload += "=" }
+        payload = payload.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        guard let data = Data(base64Encoded: payload), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data), let auth = object["https://api.openai.com/auth"]?.objectValue, let account = auth["chatgpt_account_id"]?.stringValue, !account.isEmpty else { throw AIError.provider("no chatgpt_account_id in token") }
+        return account
+    }
+
     private func startDeviceFlow() async throws -> DeviceFlowResponse {
-        var request = URLRequest(url: URL(string: deviceCodeURL)!)
+        var request = URLRequest(url: URL(string: legacyDeviceCodeURL)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = form(["client_id": clientID, "scope": scope, "audience": audience])
+        request.httpBody = form(["client_id": legacyClientID, "scope": scope, "audience": audience])
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         return try JSONDecoder().decode(CodexDeviceResponse.self, from: data).asDeviceFlowResponse
@@ -40,11 +59,11 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
         var interval = max(1, interval)
         while Date() < deadline {
             try await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000)
-            var request = URLRequest(url: URL(string: accessTokenURL)!)
+            var request = URLRequest(url: URL(string: legacyAccessTokenURL)!)
             request.httpMethod = "POST"
             request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.httpBody = form(["grant_type": "urn:ietf:params:oauth:grant-type:device_code", "device_code": deviceCode, "client_id": clientID])
+            request.httpBody = form(["grant_type": "urn:ietf:params:oauth:grant-type:device_code", "device_code": deviceCode, "client_id": legacyClientID])
             let (data, _) = try await URLSession.shared.data(for: request)
             let raw = (try? JSONDecoder().decode([String: JSONValue].self, from: data)) ?? [:]
             if let token = raw["access_token"]?.stringValue {
@@ -62,11 +81,11 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
     }
 
     private func refreshCodexToken(refreshToken: String) async throws -> OAuthCredentials {
-        var request = URLRequest(url: URL(string: accessTokenURL)!)
+        var request = URLRequest(url: URL(string: legacyAccessTokenURL)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = form(["grant_type": "refresh_token", "client_id": clientID, "refresh_token": refreshToken])
+        request.httpBody = form(["grant_type": "refresh_token", "client_id": legacyClientID, "refresh_token": refreshToken])
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)

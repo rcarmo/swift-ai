@@ -654,6 +654,23 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(provider.apiKey(credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)), "a")
     }
 
+    func testOpenAICodexOAuthDeviceCodeHelpers() throws {
+        XCTAssertEqual(OpenAICodexOAuthProvider.deviceUserCodeURL, "https://auth.openai.com/api/accounts/deviceauth/usercode")
+        XCTAssertEqual(OpenAICodexOAuthProvider.deviceTokenURL, "https://auth.openai.com/api/accounts/deviceauth/token")
+        XCTAssertEqual(OpenAICodexOAuthProvider.accessTokenURL, "https://auth.openai.com/oauth/token")
+        XCTAssertEqual(OpenAICodexOAuthProvider.codexDeviceVerificationURI, "https://auth.openai.com/codex/device")
+        XCTAssertEqual(OpenAICodexOAuthProvider.deviceUserCodeBody(), ["client_id": .string("app_EMoamEEZ73f0CkXaXp7hrann")])
+        XCTAssertEqual(OpenAICodexOAuthProvider.deviceTokenBody(deviceAuthID: "device-auth-id", userCode: "ABCD-1234"), ["device_auth_id": .string("device-auth-id"), "user_code": .string("ABCD-1234")])
+        let fields = OpenAICodexOAuthProvider.authorizationCodeFields(code: "oauth-code", verifier: "device-code-verifier")
+        XCTAssertEqual(fields["grant_type"], "authorization_code")
+        XCTAssertEqual(fields["client_id"], "app_EMoamEEZ73f0CkXaXp7hrann")
+        XCTAssertEqual(fields["code"], "oauth-code")
+        XCTAssertEqual(fields["redirect_uri"], "https://auth.openai.com/deviceauth/callback")
+        XCTAssertEqual(fields["code_verifier"], "device-code-verifier")
+        let payload = #"{"https://api.openai.com/auth":{"chatgpt_account_id":"account-123"}}"#.data(using: .utf8)!.base64EncodedString()
+        XCTAssertEqual(try OpenAICodexOAuthProvider.extractAccountID(from: "header.\(payload).signature"), "account-123")
+    }
+
     func testCodexOAuthProviderShape() {
         let provider = OpenAICodexOAuthProvider()
         let creds = OAuthCredentials(refresh: "r", access: "a", expires: 0)

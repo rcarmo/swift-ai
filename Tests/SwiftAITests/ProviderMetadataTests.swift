@@ -6,6 +6,37 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testMistralReasoningModeAndPromptCacheKey() throws {
+        let models = try BuiltinModels.all()
+        func body(_ id: String, reasoning: ThinkingLevel? = nil, sessionId: String? = nil, cacheRetention: CacheRetention? = nil) throws -> [String: JSONValue] {
+            let model = try XCTUnwrap(models.first { $0.provider == .mistral && $0.id == id })
+            var options = StreamOptions()
+            options.reasoning = reasoning
+            options.sessionId = sessionId
+            options.cacheRetention = cacheRetention
+            return MistralConversationsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("Hello")]), options: options)
+        }
+        let small = try body("mistral-small-2603", reasoning: .medium)
+        XCTAssertEqual(small["reasoning_effort"], .string("high"))
+        XCTAssertNil(small["prompt_mode"])
+        let smallOff = try body("mistral-small-2603")
+        XCTAssertNil(smallOff["reasoning_effort"])
+        XCTAssertNil(smallOff["prompt_mode"])
+
+        let magistral = try body("magistral-medium-latest", reasoning: .medium)
+        XCTAssertEqual(magistral["prompt_mode"], .string("reasoning"))
+        XCTAssertNil(magistral["reasoning_effort"])
+        let medium = try body("mistral-medium-3.5", reasoning: .medium)
+        XCTAssertEqual(medium["reasoning_effort"], .string("high"))
+        XCTAssertNil(medium["prompt_mode"])
+        let mediumOff = try body("mistral-medium-3.5")
+        XCTAssertNil(mediumOff["reasoning_effort"])
+        XCTAssertNil(mediumOff["prompt_mode"])
+
+        XCTAssertEqual(try body("mistral-large-latest", sessionId: "session-123")["prompt_cache_key"], .string("session-123"))
+        XCTAssertNil(try body("mistral-large-latest", sessionId: "session-123", cacheRetention: .none)["prompt_cache_key"])
+    }
+
     func testGoogleSharedImageToolResultRouting() {
         func context(_ model: Model) -> AIContext {
             var assistant = Message(role: .assistant, content: [

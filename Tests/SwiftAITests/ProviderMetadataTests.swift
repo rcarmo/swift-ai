@@ -275,6 +275,18 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertNotNil(body["messages"]?.arrayValue)
     }
 
+    func testBedrockConverseRequestIncludesSystemToolsAndThinking() {
+        let tool = Tool(name: "lookup", description: "Lookup", parameters: .object(["type": .string("object")]))
+        let model = Model(id: "global.anthropic.claude-opus-4-7-v1", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true, thinkingLevelMap: [.xhigh: "xhigh"])
+        var options = StreamOptions(); options.reasoning = .xhigh; options.maxTokens = 256; options.temperature = 0.2
+        let request = BedrockProvider.buildConverseRequest(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")], tools: [tool]), options: options)
+        XCTAssertEqual(request["modelId"], .string(model.id))
+        XCTAssertNotNil(request["system"])
+        XCTAssertNotNil(request["toolConfig"])
+        XCTAssertEqual(request["inferenceConfig"]?.objectValue?["maxTokens"], .number(256))
+        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["thinking"], .object(["type": .string("enabled"), "effort": .string("xhigh")]))
+    }
+
     func testBedrockRegionStopReasonAndImageBlockHelpers() {
         XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime.eu-central-1.amazonaws.com"), "eu-central-1")
         XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime-fips.us-gov-west-1.amazonaws.com"), "us-gov-west-1")

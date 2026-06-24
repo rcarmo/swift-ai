@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **139**
+- Adapted in Swift semantic tests: **141**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **39**
+- Pending direct Swift adaptation: **37**
 
 ## Highest-priority pending buckets
 
@@ -129,8 +129,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestShouldUseExplicitBedrockEndpoint` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | Should Use Explicit Bedrock Endpoint |
 | PARTIAL | `TestBedrockCustomHeaderReservation` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | auth/header/env edge case: Bedrock Custom Header Reservation |
 | PARTIAL | `TestBedrockOptionPrecedenceAndRequestMetadata` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Option Precedence And Request Metadata |
-| PENDING | `TestBuildConverseInputIncludesSystemToolsAndThinking` | `inference/provider/bedrock/bedrock_test.go` | `—` | tool-call/schema conversion behavior: Build Converse Input Includes System Tools And Thinking |
-| PENDING | `TestBuildConverseInputUsesNativeXhighForClaudeOpus47` | `inference/provider/bedrock/bedrock_test.go` | `—` | Build Converse Input Uses Native Xhigh For Claude Opus47 |
+| ADAPTED | `TestBuildConverseInputIncludesSystemToolsAndThinking` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockConverseRequestIncludesSystemToolsAndThinking` | tool-call/schema conversion behavior: Build Converse Input Includes System Tools And Thinking |
+| ADAPTED | `TestBuildConverseInputUsesNativeXhighForClaudeOpus47` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockConverseRequestIncludesSystemToolsAndThinking` | Build Converse Input Uses Native Xhigh For ClaudeOpus47 |
 | PENDING | `TestConvertMessagesCoalescesConsecutiveToolResults` | `inference/provider/bedrock/bedrock_test.go` | `—` | tool-call/schema conversion behavior: Convert Messages Coalesces Consecutive Tool Results |
 | ADAPTED | `TestCreateImageBlockDecodesBase64` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | image generation behavior: Create Image Block Decodes Base64 |
 | PARTIAL | `TestBedrockPayloadHookCanReplaceInput` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Payload Hook Can Replace Input |

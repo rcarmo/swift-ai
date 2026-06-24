@@ -69,6 +69,10 @@ public enum BedrockProvider {
         if let temp = options?.temperature { inference["temperature"] = .number(temp) }
         if !inference.isEmpty { request["inferenceConfig"] = .object(inference) }
         if let tools = context.tools, !tools.isEmpty { request["toolConfig"] = .object(["tools": .array(tools.map(toolJSON))]) }
+        if let reasoning = options?.reasoning, model.reasoning {
+            let effort = AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: reasoning.rawValue) ?? .high) ?? reasoning.rawValue
+            request["additionalModelRequestFields"] = .object(["thinking": .object(["type": .string("enabled"), "effort": .string(effort)])])
+        }
         if let metadata = options?.requestMetadata, !metadata.isEmpty { request["requestMetadata"] = .object(metadata.mapValues { .string($0) }) }
         return request
     }

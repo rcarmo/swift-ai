@@ -7,10 +7,10 @@ public struct AnthropicOAuthProvider: OAuthProvider {
     public let id = "anthropic"
     public let name = "Anthropic"
 
-    private let authURL = "https://console.anthropic.com/oauth/authorize"
-    private let tokenURL = "https://console.anthropic.com/oauth/token"
+    private let authURL = "https://platform.claude.com/oauth/authorize"
+    private let tokenURL = "https://platform.claude.com/v1/oauth/token"
     private let clientID = "9d9e5f78-76ca-4484-be3c-e13fb3a3378c"
-    private let redirectURI = "http://localhost:19139/callback"
+    public static let redirectURI = "http://localhost:53692/callback"
 
     public init() {}
 
@@ -33,7 +33,7 @@ public struct AnthropicOAuthProvider: OAuthProvider {
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: clientID),
-            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "scope", value: "user:inference"),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256")
@@ -42,11 +42,19 @@ public struct AnthropicOAuthProvider: OAuthProvider {
     }
 
     public func exchangeCode(_ code: String, verifier: String) async throws -> OAuthCredentials {
-        try await tokenRequest(fields: ["grant_type": "authorization_code", "client_id": clientID, "code": code, "redirect_uri": redirectURI, "code_verifier": verifier], fallbackRefresh: nil)
+        try await tokenRequest(fields: Self.authorizationCodeFields(clientID: clientID, code: code, verifier: verifier), fallbackRefresh: nil)
+    }
+
+    public static func authorizationCodeFields(clientID: String, code: String, verifier: String) -> [String: String] {
+        ["grant_type": "authorization_code", "client_id": clientID, "code": code, "redirect_uri": redirectURI, "code_verifier": verifier]
+    }
+
+    public static func refreshTokenFields(clientID: String, refreshToken: String) -> [String: String] {
+        ["grant_type": "refresh_token", "client_id": clientID, "refresh_token": refreshToken]
     }
 
     private func refreshAnthropicToken(refreshToken: String) async throws -> OAuthCredentials {
-        try await tokenRequest(fields: ["grant_type": "refresh_token", "client_id": clientID, "refresh_token": refreshToken], fallbackRefresh: refreshToken)
+        try await tokenRequest(fields: Self.refreshTokenFields(clientID: clientID, refreshToken: refreshToken), fallbackRefresh: refreshToken)
     }
 
     private func tokenRequest(fields: [String: String], fallbackRefresh: String?) async throws -> OAuthCredentials {

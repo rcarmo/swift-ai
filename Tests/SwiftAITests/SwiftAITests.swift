@@ -644,6 +644,13 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(provider.id, "anthropic")
         XCTAssertTrue(url.contains("code_challenge=challenge"))
         XCTAssertTrue(url.contains("client_id="))
+        XCTAssertTrue(url.contains("redirect_uri=http://localhost:53692/callback") || url.contains("redirect_uri=http%3A//localhost%3A53692/callback") || url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A53692%2Fcallback"))
+        let authFields = AnthropicOAuthProvider.authorizationCodeFields(clientID: "client", code: "manual-code", verifier: "verifier")
+        XCTAssertEqual(authFields["redirect_uri"], AnthropicOAuthProvider.redirectURI)
+        let refreshFields = AnthropicOAuthProvider.refreshTokenFields(clientID: "client", refreshToken: "refresh-token")
+        XCTAssertEqual(refreshFields["grant_type"], "refresh_token")
+        XCTAssertEqual(refreshFields["refresh_token"], "refresh-token")
+        XCTAssertNil(refreshFields["scope"])
         XCTAssertEqual(provider.apiKey(credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)), "a")
     }
 

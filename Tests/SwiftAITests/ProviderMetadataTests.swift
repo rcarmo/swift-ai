@@ -6,6 +6,38 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testFireworksKimiK26ModelMetadataAndCompat() throws {
+        let model = try model(.fireworks, "accounts/fireworks/models/kimi-k2p6")
+        XCTAssertEqual(model.api, .anthropicMessages)
+        XCTAssertEqual(model.provider, .fireworks)
+        XCTAssertEqual(model.baseUrl, "https://api.fireworks.ai/inference")
+        XCTAssertTrue(model.reasoning)
+        XCTAssertEqual(model.input, ["text", "image"])
+        XCTAssertEqual(model.contextWindow, 262_000)
+        XCTAssertEqual(model.maxTokens, 262_000)
+        XCTAssertEqual(model.cost, ModelCost(input: 0.95, output: 4, cacheRead: 0.16, cacheWrite: 0))
+        XCTAssertEqual(model.anthropicCompat?.sendSessionAffinityHeaders, true)
+        XCTAssertEqual(model.anthropicCompat?.supportsEagerToolInputStreaming, false)
+        XCTAssertEqual(model.anthropicCompat?.supportsCacheControlOnTools, false)
+        XCTAssertEqual(model.anthropicCompat?.supportsLongCacheRetention, false)
+        XCTAssertNotNil(try BuiltinModels.all().first { $0.provider == .fireworks && $0.id.hasPrefix("accounts/fireworks/routers/") && $0.id.hasSuffix("-turbo") })
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .fireworks, env: ["FIREWORKS_API_KEY": "test-fireworks-key"]), "test-fireworks-key")
+    }
+
+    func testFireworksAnthropicToolCompatRequestShape() {
+        let model = Model(id: "accounts/fireworks/models/kimi-k2p6", name: "Kimi", api: .anthropicMessages, provider: .fireworks, anthropicCompat: AnthropicMessagesCompat(supportsEagerToolInputStreaming: false, supportsLongCacheRetention: false, sendSessionAffinityHeaders: true, supportsCacheControlOnTools: false))
+        let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [tool]), options: nil)
+        guard case .array(let tools)? = body["tools"], case .object(let first) = tools[0] else { return XCTFail("missing fireworks tool") }
+        XCTAssertNil(first["cache_control"])
+        XCTAssertNil(first["eager_input_streaming"])
+        let native = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let nativeBody = AnthropicMessagesProvider.buildRequestBody(model: native, context: AIContext(messages: [.user("hi")], tools: [tool]), options: nil)
+        guard case .array(let nativeTools)? = nativeBody["tools"], case .object(let nativeTool) = nativeTools[0] else { return XCTFail("missing native tool") }
+        XCTAssertNotNil(nativeTool["cache_control"])
+        XCTAssertEqual(nativeTool["eager_input_streaming"], .bool(true))
+    }
+
     func testTogetherKimiK26ModelMetadata() throws {
         let model = try model(.together, "moonshotai/Kimi-K2.6")
         XCTAssertEqual(model.api, .openAICompletions)

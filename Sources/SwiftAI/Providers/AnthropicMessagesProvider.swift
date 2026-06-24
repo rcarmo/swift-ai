@@ -65,7 +65,7 @@ public enum AnthropicMessagesProvider {
         } else {
             request.setValue(key, forHTTPHeaderField: "X-Api-Key")
         }
-        if let session = options?.sessionId, !session.isEmpty, model.anthropicCompat?.sendSessionAffinityHeaders == true {
+        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none, model.anthropicCompat?.sendSessionAffinityHeaders == true {
             request.setValue(session, forHTTPHeaderField: "x-session-affinity")
         }
         let betas = betaHeaders(model: model, context: context)

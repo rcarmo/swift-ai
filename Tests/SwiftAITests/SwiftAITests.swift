@@ -768,6 +768,53 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(apiEvents.contains { if case .error = $0 { return true }; return false })
     }
 
+    func testOpenAIResponsesTerminalEvents() {
+        let model = Model(id: "gpt-5-mini", name: "GPT", api: .openAIResponses, provider: .openAI)
+        let early = """
+        event: response.created
+        data: {"response":{"id":"resp_early_eof"}}
+
+        event: response.output_item.added
+        data: {"item":{"type":"reasoning","id":"rs_early_eof","summary":[]}}
+
+        event: response.reasoning_text.delta
+        data: {"type":"response.reasoning_text.delta","delta":"partial reasoning before the stream ends"}
+
+        """
+        let earlyEvents = OpenAIResponsesProvider.processSSEText(early, model: model)
+        XCTAssertTrue(earlyEvents.contains { if case .error(_, let message, _) = $0 { return message?.errorMessage == "OpenAI Responses stream ended before a terminal response event" }; return false })
+
+        let completed = """
+        event: response.completed
+        data: {"response":{"id":"resp_completed","status":"completed","usage":{"input_tokens":20,"output_tokens":7,"total_tokens":27,"input_tokens_details":{"cached_tokens":2}}}}
+
+        """
+        guard case .done(let doneReason, let doneMessage)? = OpenAIResponsesProvider.processSSEText(completed, model: model).last else { return XCTFail("missing completed") }
+        XCTAssertEqual(doneReason, .stop)
+        XCTAssertEqual(doneMessage.responseId, "resp_completed")
+        XCTAssertEqual(doneMessage.usage?.input, 18)
+        XCTAssertEqual(doneMessage.usage?.cacheRead, 2)
+
+        let incomplete = """
+        event: response.incomplete
+        data: {"response":{"id":"resp_incomplete","status":"incomplete","usage":{"input_tokens":30,"output_tokens":12,"total_tokens":42,"input_tokens_details":{"cached_tokens":5}}}}
+
+        """
+        guard case .done(let incompleteReason, let incompleteMessage)? = OpenAIResponsesProvider.processSSEText(incomplete, model: model).last else { return XCTFail("missing incomplete") }
+        XCTAssertEqual(incompleteReason, .length)
+        XCTAssertEqual(incompleteMessage.responseId, "resp_incomplete")
+        XCTAssertEqual(incompleteMessage.usage?.input, 25)
+        XCTAssertEqual(incompleteMessage.usage?.cacheRead, 5)
+
+        let failed = """
+        event: response.failed
+        data: {"response":{"id":"resp_failed","status":"failed","error":{"code":"server_error","message":"boom"}}}
+
+        """
+        let failedEvents = OpenAIResponsesProvider.processSSEText(failed, model: model)
+        XCTAssertTrue(failedEvents.contains { if case .error(_, let message, _) = $0 { return message?.errorMessage == "server_error: boom" }; return false })
+    }
+
     func testOpenAIResponsesStatusMapping() {
         let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
         let incomplete = """

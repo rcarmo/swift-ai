@@ -678,6 +678,50 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(pendingAfterError, 0)
     }
 
+    func testFauxProviderTokenCacheAndToolDeltas() async throws {
+        let registration = await FauxProvider.register()
+        await registration.setResponses([
+            .message(FauxProvider.textMessage("first")),
+            .message(FauxProvider.textMessage("second")),
+            .message(FauxProvider.textMessage("third")),
+            .message(FauxProvider.toolCallMessage(name: "echo", arguments: ["text": .string("abcdefghijklmnopqrstuvwxyz"), "count": .number(12)]))
+        ])
+        guard let model = await registration.model() else { return XCTFail("missing faux model") }
+        var context = AIContext(systemPrompt: "Be concise.", messages: [.user("hello")])
+        var options = StreamOptions(); options.sessionId = "session-1"; options.cacheRetention = .short
+        let first = try await SwiftAI.complete(model: model, context: context, options: options)
+        XCTAssertGreaterThan(first.usage?.input ?? 0, 0)
+        XCTAssertGreaterThan(first.usage?.output ?? 0, 0)
+        XCTAssertEqual(first.usage?.cacheRead, 0)
+        XCTAssertGreaterThan(first.usage?.cacheWrite ?? 0, 0)
+        context.messages.append(first)
+        context.messages.append(.user("follow up"))
+        let second = try await SwiftAI.complete(model: model, context: context, options: options)
+        XCTAssertGreaterThan(second.usage?.cacheRead ?? 0, 0)
+        options.sessionId = "session-2"
+        let third = try await SwiftAI.complete(model: model, context: context, options: options)
+        XCTAssertEqual(third.usage?.cacheRead, 0)
+        XCTAssertGreaterThan(third.usage?.cacheWrite ?? 0, 0)
+
+        var deltas: [String] = []
+        var eventTypes: [String] = []
+        for await event in await SwiftAI.stream(model: model, context: AIContext(messages: [.user("tool")])) {
+            switch event {
+            case .start: eventTypes.append("start")
+            case .toolCallStart: eventTypes.append("toolcall_start")
+            case .toolCallDelta(_, let delta, _): eventTypes.append("toolcall_delta"); deltas.append(delta)
+            case .toolCallEnd: eventTypes.append("toolcall_end")
+            case .done: eventTypes.append("done")
+            default: break
+            }
+        }
+        XCTAssertTrue(eventTypes.contains("toolcall_start"))
+        XCTAssertTrue(eventTypes.contains("toolcall_delta"))
+        XCTAssertTrue(eventTypes.contains("toolcall_end"))
+        XCTAssertGreaterThan(deltas.count, 1)
+        XCTAssertTrue(deltas.joined().contains("abcdefghijklmnopqrstuvwxyz"))
+    }
+
     func testGoogleOAuthProviderShape() {
         let gemini = GoogleGeminiCLIOAuthProvider()
         let anti = GoogleAntigravityOAuthProvider()

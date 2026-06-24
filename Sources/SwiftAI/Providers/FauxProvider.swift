@@ -15,6 +15,7 @@ public actor FauxRegistration {
     public nonisolated let models: [Model]
     public private(set) var state = FauxState()
     private var responses: [FauxResponseStep] = []
+    private var promptCache: [String: Int] = [:]
     private let tokensPerSecond: Int
 
     public init(options: FauxOptions = FauxOptions()) {
@@ -37,9 +38,62 @@ public actor FauxRegistration {
         case .factory(let factory): msg = factory(context, options, callState)
         case nil: msg = FauxProvider.errorMessage("No more faux responses queued")
         }
+        msg.usage = usage(for: msg, context: context, options: options)
         if msg.timestamp == 0 { msg.timestamp = Int64(Date().timeIntervalSince1970 * 1000) }
         return msg
     }
+
+    private func usage(for message: Message, context: AIContext, options: StreamOptions?) -> Usage {
+        let promptTokens = estimateTokens(promptText(context))
+        let outputTokens = estimateTokens(outputText(message))
+        var usage = message.usage ?? Usage()
+        usage.input = promptTokens
+        usage.output = outputTokens
+        usage.cacheRead = 0
+        usage.cacheWrite = 0
+        if let session = options?.sessionId, !session.isEmpty, ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env) != .none {
+            if let cached = promptCache[session] { usage.cacheRead = min(cached, promptTokens); usage.input = max(0, promptTokens - usage.cacheRead) }
+            usage.cacheWrite = promptTokens
+            promptCache[session] = max(promptCache[session] ?? 0, promptTokens)
+        }
+        usage.totalTokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite
+        return usage
+    }
+
+    private func promptText(_ context: AIContext) -> String {
+        var parts: [String] = []
+        if let system = context.systemPrompt, !system.isEmpty { parts.append("system:\(system)") }
+        for message in context.messages { parts.append(messageText(message)) }
+        if let tools = context.tools, !tools.isEmpty, let data = try? JSONEncoder().encode(tools), let text = String(data: data, encoding: .utf8) { parts.append("tools:\(text)") }
+        return parts.joined(separator: "\n\n")
+    }
+
+    private func messageText(_ message: Message) -> String {
+        let body = message.content.map { block -> String in
+            switch block.type {
+            case "text": return block.text ?? ""
+            case "thinking": return block.thinking ?? ""
+            case "image": return "[image:\(block.mimeType ?? "application/octet-stream"):\((block.data ?? "").count)]"
+            case "toolCall": return "\(block.name ?? "")\n\(jsonString(block.arguments ?? [:]))"
+            default: return ""
+            }
+        }.filter { !$0.isEmpty }.joined(separator: "\n")
+        return "\(message.role.rawValue):\(message.role == .toolResult ? "\(message.toolName ?? "")\n" : "")\(body)"
+    }
+
+    private func outputText(_ message: Message) -> String {
+        message.content.map { block -> String in
+            switch block.type {
+            case "text": return block.text ?? ""
+            case "thinking": return block.thinking ?? ""
+            case "toolCall": return jsonString(block.arguments ?? [:])
+            default: return ""
+            }
+        }.joined(separator: "")
+    }
+
+    private func estimateTokens(_ text: String) -> Int { text.isEmpty ? 0 : Int(ceil(Double(text.count) / 4.0)) }
+    private func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
 
     fileprivate func delayNanoseconds(for text: String) -> UInt64 {
         guard tokensPerSecond > 0, !text.isEmpty else { return 0 }
@@ -101,6 +155,7 @@ public enum FauxProvider {
                         continuation.yield(.thinkingEnd(contentIndex: idx, content: block.thinking ?? "", partial: msg))
                     case "toolCall":
                         continuation.yield(.toolCallStart(contentIndex: idx, partial: msg))
+                        for chunk in chunks(jsonString(block.arguments ?? [:]), size: 10) { continuation.yield(.toolCallDelta(contentIndex: idx, delta: chunk, partial: msg)); let delay = await registration.delayNanoseconds(for: chunk); if delay > 0 { try? await Task.sleep(nanoseconds: delay) } }
                         continuation.yield(.toolCallEnd(contentIndex: idx, toolCall: block, partial: msg))
                     default: break
                     }
@@ -112,5 +167,6 @@ public enum FauxProvider {
         }
     }
 
+    private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func chunks(_ text: String, size: Int) -> [String] { var out: [String] = []; var start = text.startIndex; while start < text.endIndex { let end = text.index(start, offsetBy: size, limitedBy: text.endIndex) ?? text.endIndex; out.append(String(text[start..<end])); start = end }; return out }
 }

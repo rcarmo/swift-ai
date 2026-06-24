@@ -15,8 +15,8 @@ Status legend:
 
 - Upstream test files inventoried: **86**
 - Ported/covered/classified files: **86/86**
-- Deterministic ported: **48/86**
-- Partial deterministic/pluggable coverage: **24**
+- Deterministic ported: **49/86**
+- Partial deterministic/pluggable coverage: **23**
 - Live-gated: **13**
 - Not applicable: **1**
 - Pending files: **0**
@@ -49,7 +49,7 @@ Status legend:
 | LIVE-GATED | `test/cross-provider-handoff.test.ts` | 0 | live cross-provider fixture generation and handoff compatibility matrix across many providers/models | LIVE-GATED (requires many provider API keys; deterministic transform/handoff coverage in `testTransformMessagesCopilotOpenAIToAnthropic`, tool ID normalization, and synthetic tool-result tests) |
 | PARTIAL | `test/empty.test.ts` | 88 | live provider matrix for empty content arrays/strings/whitespace and empty assistant history | PARTIAL (`testEmptyAndWhitespaceMessagesSerializeGracefully`; live provider matrix N/A without credentials) |
 | DETERMINISTIC-PORTED | `test/env-api-keys.test.ts` | 3 | Copilot ignores generic GitHub tokens; resolves COPILOT_GITHUB_TOKEN; resolves ZAI_CODING_CN_API_KEY | ADAPTED (`testEnvAPIKeysCopilotAndZAICodingCNMappings`) |
-| PARTIAL | `test/faux-provider.test.ts` | 22 | custom faux provider helpers, multiple models, queued responses/factories, exhaustion errors, streaming/cache/session behavior | PARTIAL (`testFauxProviderHelpers`, `testFauxThinkingToolFactoryMultipleAndError`, `testFauxProviderMultipleModelsAndQueueExhaustion`; remaining cache/session/stream timing cases pending) |
+| DETERMINISTIC-PORTED | `test/faux-provider.test.ts` | 22 | custom faux provider helpers, multiple models, queued responses/factories, exhaustion errors, streaming/cache/session behavior | ADAPTED (`testFauxProviderHelpers`, `testFauxThinkingToolFactoryMultipleAndError`, `testFauxProviderMultipleModelsAndQueueExhaustion`, `testFauxProviderTokenCacheAndToolDeltas`; abort-signal timing is not modeled in Swift options) |
 | PARTIAL | `test/fireworks-models.test.ts` | 9 | Fireworks Kimi/router metadata, env key, session-affinity and tool compat | PARTIAL (`testFireworksKimiK26ModelMetadataAndCompat`, `testFireworksAnthropicToolCompatRequestShape`; local HTTP header capture pending) |
 | DETERMINISTIC-PORTED | `test/github-copilot-anthropic.test.ts` | 3 | Copilot adaptive thinking overrides; Bearer/static/dynamic headers; valid Anthropic payload; omits interleaved beta for adaptive models | ADAPTED (`testGitHubCopilotAnthropicHeadersAndAdaptiveThinking`) |
 | PARTIAL | `test/github-copilot-oauth.test.ts` | 6 | model catalog filtering; device-code callback details; verification_uri trust/normalization; immediate polling/slow_down/timeout semantics | PARTIAL (`testGitHubCopilotOAuthModelFilteringAndVerificationURI`; polling cadence/device callback async tests pending) |

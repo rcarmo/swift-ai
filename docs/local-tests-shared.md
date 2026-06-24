@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **104**
+- Adapted in Swift semantic tests: **106**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **75**
+- Pending direct Swift adaptation: **73**
 
 ## Highest-priority pending buckets
 
@@ -39,7 +39,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNoRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: No Retry Config |
 | PENDING | `TestNewHTTPClient` | `coverage_boost_test.go` | `—` | New HTTPClient |
 | PENDING | `TestDoWithRetrySuccess` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Success |
-| PENDING | `TestDoWithRetry429` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry429 |
+| ADAPTED | `TestDoWithRetry429` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Do With Retry429 |
 | PENDING | `TestDoWithRetryExhausted` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Exhausted |
 | PENDING | `TestDoWithRetryOnRetryCallback` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry On Retry Callback |
 | ADAPTED | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Append Assistant Message |
@@ -65,7 +65,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestStreamNilModel` | `defensive_test.go` | `testStreamNilModelAndNoProvider` | streaming/event transport behavior: Stream Nil Model |
 | ADAPTED | `TestAppendAssistantMessageNilSafe` | `defensive_test.go` | `testAppendAssistantMessageNilSafe` | Append Assistant Message Nil Safe |
 | PENDING | `TestDoWithRetryRequiresReplayableBody` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Requires Replayable Body |
-| PENDING | `TestDoWithRetryNegativeMaxRetriesClampsToSingleAttempt` | `defensive_test.go` | `—` | retry/cancellation robustness: Do With Retry Negative Max Retries Clamps To Single Attempt |
+| ADAPTED | `TestDoWithRetryNegativeMaxRetriesClampsToSingleAttempt` | `defensive_test.go` | `testRetryPolicy` | retry/cancellation robustness: Do With Retry Negative Max Retries Clamps To Single Attempt |
 | PENDING | `TestDoWithRetryReplaysBodyAcrossRetries` | `defensive_test.go` | `—` | provider request/payload parity: Do With Retry Replays Body Across Retries |
 | PENDING | `TestExamplesBuild` | `examples_smoke_test.go` | `—` | Examples Build |
 | PENDING | `TestExamplesMissingCredentialMessages` | `examples_smoke_test.go` | `—` | Examples Missing Credential Messages |

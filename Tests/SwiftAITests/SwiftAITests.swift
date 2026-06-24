@@ -759,6 +759,7 @@ final class SwiftAITests: XCTestCase {
         explicit.maxRetries = 2
         let explicitPolicy = RetryPolicy(options: explicit)
         XCTAssertEqual(explicitPolicy.maxRetries, 2)
+        XCTAssertEqual(RetryPolicy(maxRetries: -5).maxRetries, 0)
         var options = StreamOptions()
         options.maxRetryDelayMs = 1_000
         let policy = RetryPolicy(options: options)
@@ -773,6 +774,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 502, policy: policy))
         XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 503, policy: policy))
         XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 504, policy: policy))
+        XCTAssertTrue(HTTPRetry.shouldRetry(statusCode: 429, policy: RetryPolicy(retryableStatuses: [429])))
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 501, policy: RetryPolicy(retryableStatuses: [429])))
         XCTAssertFalse(HTTPRetry.shouldRetry(statusCode: 400, policy: policy))
     }

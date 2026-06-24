@@ -1129,6 +1129,23 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(input.dropFirst().contains { if case .object(let obj) = $0 { return obj["role"] == .string("user") }; return false })
     }
 
+    func testCodexResponsesRequestHeadersAndErrors() throws {
+        let model = Model(id: "gpt-5.5", name: "Codex", api: .openAICodexResponses, provider: .openAICodex)
+        var options = StreamOptions(); options.sessionId = String(repeating: "x", count: 67); options.reasoning = .high
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["model"], .string("gpt-5.5"))
+        XCTAssertEqual(body["stream"], .bool(true))
+        XCTAssertEqual(body["store"], .bool(false))
+        XCTAssertEqual(body["prompt_cache_key"], .string(String(repeating: "x", count: 64)))
+        let payload = #"{"https://api.openai.com/auth":{"chatgpt_account_id":"account-123"}}"#.data(using: .utf8)!.base64EncodedString()
+        let token = "header.\(payload).signature"
+        let headers = try OpenAIResponsesProvider.codexHeaders(apiKey: token)
+        XCTAssertEqual(headers["chatgpt-account-id"], "account-123")
+        XCTAssertEqual(headers["originator"], "pi")
+        XCTAssertEqual(headers["OpenAI-Beta"], "responses=experimental")
+        XCTAssertEqual(OpenAIResponsesProvider.extractCodexEventError(.object(["event": .object(["error": .object(["message": .string("nested boom")])])])), "nested boom")
+    }
+
     func testOpenAIResponsesForeignToolCallIDNormalization() {
         let rawID = "call_4VnzVawQXPB9MgYib7CiQFEY|I9b95oN1wD/cHXKTw3PpRkL6KkCtzTJhUxMouMWYwHeTo2j3htzfSk7YPx2vifiIM4g3A8XXyOj8q4Bt6SLUG7gqY1E3ELkrkVQNHglRfUmWj84lqxJY+Puieb3VKyX0FB+83TUzn91cDMF/4gzt990IzqVrc+nIb9RRscRD070Du16q1glydVjWR0SBJsE6TbY/esOjFpqplogQqrajm1eI++f3eLi73R6q7hVusY0QbeFySVxABCjhN0lXB04caBe1rzHjYzul6MAXj7uq+0r17VLq+yrtyYhN12wkmFqHeqTyEei6EFPbMy24Nc+IbJlkP0OCg02W+gOnyBFcbi2ctvJFSOhSjt1CqBdqCnnhwUqXjbWiT0wh3DmLScRgTHmGkaI+oAcQQjfic65nxj+TnEkReA=="
         var assistant = Message(role: .assistant, content: [.toolCall(id: rawID, name: "edit", arguments: ["path": .string("src/styles/app.css")])])

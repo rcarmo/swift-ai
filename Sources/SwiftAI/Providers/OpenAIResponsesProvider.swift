@@ -63,6 +63,18 @@ public enum OpenAIResponsesProvider {
         return normalized + "/codex/responses"
     }
 
+    public static func codexHeaders(apiKey: String) throws -> [String: String] {
+        ["chatgpt-account-id": try extractCodexAccountID(apiKey), "originator": "pi", "OpenAI-Beta": "responses=experimental"]
+    }
+
+    public static func extractCodexEventError(_ value: JSONValue) -> String? {
+        guard case .object(let obj) = value else { return nil }
+        if let error = obj["error"]?.stringValue { return error }
+        if case .object(let nested)? = obj["error"] { return nested["message"]?.stringValue ?? nested["error"]?.stringValue }
+        if case .object(let event)? = obj["event"], case .object(let nested)? = event["error"] { return nested["message"]?.stringValue ?? nested["error"]?.stringValue }
+        return nil
+    }
+
     public static func extractCodexAccountID(_ token: String) throws -> String {
         let parts = token.split(separator: ".")
         guard parts.count == 3 else { throw AIError.provider("invalid token") }
@@ -123,11 +135,7 @@ public enum OpenAIResponsesProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        if model.api == .openAICodexResponses {
-            request.setValue(try extractCodexAccountID(key), forHTTPHeaderField: "chatgpt-account-id")
-            request.setValue("pi", forHTTPHeaderField: "originator")
-            request.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
-        }
+        if model.api == .openAICodexResponses { for (k, v) in try codexHeaders(apiKey: key) { request.setValue(v, forHTTPHeaderField: k) } }
         if let session = options?.sessionId, !session.isEmpty {
             if model.api == .azureOpenAIResponses { for (k, v) in AIUtilities.azureSessionHeaders(session) { request.setValue(v, forHTTPHeaderField: k) } }
             else { if model.responsesCompat?.sendSessionIdHeader != false { request.setValue(session, forHTTPHeaderField: "session_id") }; request.setValue(session, forHTTPHeaderField: "x-client-request-id") }

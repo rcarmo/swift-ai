@@ -9,7 +9,7 @@ The npm tarball omits these tests; this source checkout is the test-for-test par
 
 | Upstream test file | Cases | Sample cases | Swift status |
 |---|---:|---|---|
-| `test/abort.test.ts` | 31 | should abort mid-stream; should handle immediate abort; should abort mid-stream; should handle immediate abort; should abort mid-stream | PENDING |
+| `test/abort.test.ts` | 31 | live provider abort behavior: mid-stream/immediate abort across providers | LIVE-GATED (requires provider API keys; deterministic cancellation/polling and transform coverage in OAuth device-code/abort-token tracker plus provider parser tests) |
 | `test/anthropic-adaptive-thinking-models.test.ts` | 1 | marks built-in Anthropic Messages models that use adaptive thinking | ADAPTED (`testAnthropicAdaptiveThinkingModelMetadata`) |
 | `test/anthropic-cache-write-1h-cost.test.ts` | 2 | prices the 1h portion at 2x input and the rest at the 5m rate; falls back to the 5m rate when no breakdown is reported | ADAPTED (`testAnthropicCacheWrite1hCost`) |
 | `test/anthropic-eager-tool-input-compat.test.ts` | 3 | sends per-tool eager_input_streaming by default; uses the legacy fine-grained tool streaming beta when eager tool input streaming is disabled; does not send the legacy fine-grained tool streaming beta when there are no tools | ADAPTED (`testAnthropicEagerToolInputCompat`) |

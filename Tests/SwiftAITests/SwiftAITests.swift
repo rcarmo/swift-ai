@@ -187,7 +187,16 @@ final class SwiftAITests: XCTestCase {
     func testHashAndSanitizeUtilities() {
         XCTAssertEqual(AIUtilities.shortHash("abc"), AIUtilities.shortHash("abc"))
         XCTAssertEqual(AIUtilities.shortHash("abc").count, 16)
+        let emojiText = "Mario Zechner wann? Wo? Bin grad äußersr eventuninformiert 🙈 こんにちは 你好 ∑∫∂√"
+        XCTAssertEqual(AIUtilities.sanitizeSurrogates(emojiText), emojiText)
         XCTAssertEqual(AIUtilities.sanitizeSurrogates("ok\u{FFFD}"), "ok")
+        var toolResult = Message(role: .toolResult, content: [.text(emojiText + "\u{FFFD}")])
+        toolResult.toolCallId = "call_1"
+        toolResult.toolName = "test_tool"
+        let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI)
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [toolResult]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let message) = messages[0] else { return XCTFail("missing message") }
+        XCTAssertEqual(message["content"], .string(emojiText))
     }
 
     func testCopilotAndSessionHeaders() {

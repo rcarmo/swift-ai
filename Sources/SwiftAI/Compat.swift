@@ -96,7 +96,7 @@ public enum Compat {
         c.supportsDeveloperRole = true
         c.supportsReasoningEffort = false
         c.supportsUsageInStreaming = true
-        c.maxTokensField = "max_tokens"
+        c.maxTokensField = (provider == .openAI || lower.contains("api.openai.com")) ? "max_completion_tokens" : "max_tokens"
         c.thinkingFormat = "openai"
         c.openRouterRouting = [:]
         c.vercelGatewayRouting = [:]

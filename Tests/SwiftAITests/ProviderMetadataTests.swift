@@ -293,7 +293,8 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertNotNil(request["system"])
         XCTAssertNotNil(request["toolConfig"])
         XCTAssertEqual(request["inferenceConfig"]?.objectValue?["maxTokens"], .number(256))
-        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["thinking"], .object(["type": .string("enabled"), "effort": .string("xhigh")]))
+        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["output_config"], .object(["effort": .string("xhigh")]))
 
         var r1 = Message(role: .toolResult, content: [.text("one")]); r1.toolCallId = "t1"; r1.toolName = "lookup"
         var r2 = Message(role: .toolResult, content: [.text("two")]); r2.toolCallId = "t2"; r2.toolName = "lookup"

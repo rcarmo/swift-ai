@@ -1132,6 +1132,25 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.content, [.text("Hello")])
     }
 
+    func testOpenAIResponsesServiceTierCostMultipliers() {
+        func usage(modelID: String, tier: String) -> Usage? {
+            let model = Model(id: modelID, name: modelID, api: .openAIResponses, provider: .openAI, cost: ModelCost(input: 1, output: 2))
+            let sse = """
+            event: response.completed
+            data: {"type":"response.completed","response":{"id":"r","status":"completed","service_tier":"\(tier)","usage":{"input_tokens":1000000,"output_tokens":1000000,"total_tokens":2000000,"input_tokens_details":{"cached_tokens":0}}}}
+
+            """
+            guard case .done(_, let message)? = OpenAIResponsesProvider.processSSEText(sse, model: model).last else { return nil }
+            return message.usage
+        }
+        XCTAssertEqual(usage(modelID: "gpt-5.4", tier: "priority")?.cost.input, 2)
+        XCTAssertEqual(usage(modelID: "gpt-5.4", tier: "priority")?.cost.output, 4)
+        XCTAssertEqual(usage(modelID: "gpt-5.5", tier: "priority")?.cost.input, 2.5)
+        XCTAssertEqual(usage(modelID: "gpt-5.5", tier: "priority")?.cost.output, 5)
+        XCTAssertEqual(usage(modelID: "gpt-5.5", tier: "flex")?.cost.input, 0.5)
+        XCTAssertEqual(usage(modelID: "gpt-5.5", tier: "flex")?.cost.output, 1)
+    }
+
     func testAzureOpenAIResponsesBaseURLNormalization() throws {
         let cases = [
             ("https://marc-quicktests-resource.cognitiveservices.azure.com", "https://marc-quicktests-resource.cognitiveservices.azure.com/openai/v1"),
@@ -1337,14 +1356,90 @@ final class SwiftAITests: XCTestCase {
 
     func testBedrockRequestAndRegionHelpers() {
         XCTAssertEqual(BedrockProvider.arnRegion("arn:aws:bedrock:us-west-2:123:foundation-model/x"), "us-west-2")
+        XCTAssertEqual(BedrockProvider.arnRegion("arn:aws-us-gov:bedrock:us-gov-west-1:123456789012:application-inference-profile/abc123"), "us-gov-west-1")
         XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime.eu-central-1.amazonaws.com"), "eu-central-1")
+        XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime.cn-north-1.amazonaws.com.cn"), "cn-north-1")
+        XCTAssertNil(BedrockProvider.standardEndpointRegion("https://bedrock-vpc.example.com"))
         let model = Model(id: "anthropic.claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock, baseUrl: "https://bedrock-runtime.eu-central-1.amazonaws.com")
         XCTAssertEqual(BedrockProvider.configuredRegion(model: model, options: nil), "eu-central-1")
+        var regionOptions = StreamOptions(); regionOptions.env = ["AWS_REGION": "us-east-2"]
+        XCTAssertEqual(BedrockProvider.configuredRegion(model: model, options: regionOptions), "us-east-2")
+        regionOptions = StreamOptions(); regionOptions.env = ["AWS_DEFAULT_REGION": "us-west-1"]
+        XCTAssertEqual(BedrockProvider.configuredRegion(model: model, options: regionOptions), "us-west-1")
+        let arnModel = Model(id: "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/abc123", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock, baseUrl: "https://bedrock-runtime.eu-central-1.amazonaws.com")
+        regionOptions = StreamOptions(); regionOptions.env = ["AWS_REGION": "us-east-1"]
+        XCTAssertEqual(BedrockProvider.configuredRegion(model: arnModel, options: regionOptions), "us-west-2")
+        XCTAssertFalse(BedrockProvider.shouldUseExplicitEndpoint(baseURL: "https://bedrock-runtime.eu-central-1.amazonaws.com", configuredRegion: "us-east-2", hasAmbientConfiguredProfile: false))
+        XCTAssertFalse(BedrockProvider.shouldUseExplicitEndpoint(baseURL: "https://bedrock-runtime.eu-central-1.amazonaws.com", configuredRegion: nil, hasAmbientConfiguredProfile: true))
+        XCTAssertTrue(BedrockProvider.shouldUseExplicitEndpoint(baseURL: "https://bedrock-vpc.example.com", configuredRegion: "us-west-2", hasAmbientConfiguredProfile: true))
         let body = BedrockProvider.buildConverseRequest(model: model, context: AIContext(systemPrompt: "sys", messages: [.user("hi")], tools: [Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))]), options: nil)
         XCTAssertEqual(body["modelId"], .string("anthropic.claude"))
         XCTAssertNotNil(body["messages"])
         XCTAssertNotNil(body["system"])
         XCTAssertNotNil(body["toolConfig"])
+    }
+
+    func testBedrockConvertMessagesSkipsUnknownAndBlankContent() {
+        let model = Model(id: "anthropic.claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock)
+        func messages(_ context: AIContext) -> [JSONValue] {
+            guard case .array(let values)? = BedrockProvider.buildConverseRequest(model: model, context: context, options: nil)["messages"] else { XCTFail("missing messages"); return [] }
+            return values
+        }
+        var values = messages(AIContext(messages: [Message(role: .user, content: [.text("hello"), ContentBlock(type: "unknown", data: "foo")])]))
+        XCTAssertEqual(values, [.object(["role": .string("user"), "content": .array([.object(["text": .string("hello")])])])])
+        values = messages(AIContext(messages: [Message(role: .user, content: [ContentBlock(type: "unknown", data: "foo")])]))
+        XCTAssertEqual(values, [.object(["role": .string("user"), "content": .array([.object(["text": .string("<empty>")])])])])
+        values = messages(AIContext(messages: [.user("   ")]))
+        XCTAssertEqual(values, [.object(["role": .string("user"), "content": .array([.object(["text": .string("<empty>")])])])])
+        values = messages(AIContext(messages: [Message(role: .user, content: [.text(""), .text("hello")])]))
+        XCTAssertEqual(values, [.object(["role": .string("user"), "content": .array([.object(["text": .string("hello")])])])])
+        values = messages(AIContext(messages: [.user("\u{FFFD}")]))
+        XCTAssertEqual(values, [.object(["role": .string("user"), "content": .array([.object(["text": .string("<empty>")])])])])
+        var assistant = Message(role: .assistant, content: [.text("\u{FFFD}")])
+        assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .stop
+        XCTAssertEqual(messages(AIContext(messages: [assistant])), [])
+        assistant.content = [ContentBlock(type: "unknown", data: "foo")]
+        XCTAssertEqual(messages(AIContext(messages: [assistant])), [])
+        var tool = Message(role: .toolResult, content: [.text(" ")])
+        tool.toolCallId = "tool-1"; tool.toolName = "tool"; tool.isError = false
+        values = messages(AIContext(messages: [tool]))
+        XCTAssertEqual(values, [.object(["role": .string("user"), "content": .array([.object(["toolResult": .object(["toolUseId": .string("tool-1"), "content": .array([.object(["text": .string("<empty>")])]), "status": .string("success")])])])])])
+    }
+
+    func testBedrockCustomHeaderFiltering() {
+        var headers = ["authorization": "real-auth", "x-amz-date": "real-date", "host": "real-host"]
+        BedrockProvider.applyCustomHeaders(["authorization": "evil", "Authorization": "evil2", "x-amz-date": "evil", "X-Amz-Date": "evil2", "HOST": "evil3", "x-allowed": "ok"], to: &headers)
+        XCTAssertEqual(headers["authorization"], "real-auth")
+        XCTAssertEqual(headers["x-amz-date"], "real-date")
+        XCTAssertEqual(headers["host"], "real-host")
+        XCTAssertEqual(headers["x-allowed"], "ok")
+        XCTAssertNil(headers["Authorization"])
+        XCTAssertNil(headers["X-Amz-Date"])
+        XCTAssertNil(headers["HOST"])
+    }
+
+    func testBedrockThinkingPayloadParity() {
+        func fields(_ model: Model, reasoning: ThinkingLevel = .high, region: String? = nil) -> [String: JSONValue] {
+            var options = StreamOptions(); options.reasoning = reasoning; options.region = region
+            return BedrockProvider.additionalModelRequestFields(model: model, options: options) ?? [:]
+        }
+        let opus48 = Model(id: "global.anthropic.claude-opus-4-8-v1", name: "Claude Opus 4.8", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        var payload = fields(opus48)
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(payload["output_config"], .object(["effort": .string("high")]))
+        XCTAssertNil(payload["anthropic_beta"])
+        payload = fields(opus48, reasoning: .xhigh)
+        XCTAssertEqual(payload["output_config"], .object(["effort": .string("xhigh")]))
+        payload = fields(opus48, region: "us-gov-west-1")
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive")]))
+        let fable = Model(id: "global.anthropic.claude-fable-5", name: "Claude Fable 5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        XCTAssertEqual(fields(fable, reasoning: .xhigh)["output_config"], .object(["effort": .string("xhigh")]))
+        let sonnet45 = Model(id: "us-gov.anthropic.claude-sonnet-4-5-20250929-v1:0", name: "Claude Sonnet 4.5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        payload = fields(sonnet45)
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("enabled"), "budget_tokens": .number(16384)]))
+        XCTAssertEqual(payload["anthropic_beta"], .array([.string("interleaved-thinking-2025-05-14")]))
+        let arnProfile = Model(id: "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/my-profile", name: "Claude Opus 4.6", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        XCTAssertEqual(fields(arnProfile)["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
     }
 
     func testGeminiCLIRequestAndSSEProcessing() {
@@ -1876,8 +1971,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(noTools["max_completion_tokens"])
         var options = StreamOptions(); options.maxTokens = 1234
         let explicit = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
-        XCTAssertEqual(explicit["max_tokens"], JSONValue.number(1234))
-        XCTAssertNil(explicit["max_completion_tokens"])
+        XCTAssertNil(explicit["max_tokens"])
+        XCTAssertEqual(explicit["max_completion_tokens"], JSONValue.number(1234))
         var compat = OpenAICompletionsCompat(); compat.maxTokensField = "max_tokens"
         let maxTokensModel = Model(id: "cf", name: "CF", api: .openAICompletions, provider: .cloudflareAIGateway, completionsCompat: compat)
         let maxTokensBody = OpenAICompletionsProvider.buildRequestBody(model: maxTokensModel, context: AIContext(messages: [.user("hi")]), options: options)

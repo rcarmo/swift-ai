@@ -30,9 +30,29 @@ def check_delimiters() -> None:
             stack: list[str] = []
             in_string = False
             escaped = False
-            for index, ch in enumerate(text):
+            raw_hashes = 0
+            index = 0
+            while index < len(text):
+                ch = text[index]
+                if not in_string and ch == '#':
+                    hash_count = 0
+                    while index + hash_count < len(text) and text[index + hash_count] == '#':
+                        hash_count += 1
+                    if index + hash_count < len(text) and text[index + hash_count] == '"':
+                        in_string = True
+                        raw_hashes = hash_count
+                        index += hash_count + 1
+                        continue
                 if ch == '"' and not escaped:
-                    in_string = not in_string
+                    if raw_hashes:
+                        if text[index + 1:index + 1 + raw_hashes] == '#' * raw_hashes:
+                            in_string = False
+                            index += raw_hashes + 1
+                            raw_hashes = 0
+                            escaped = False
+                            continue
+                    else:
+                        in_string = not in_string
                 if not in_string:
                     if ch in "([{" :
                         stack.append(ch)
@@ -40,9 +60,10 @@ def check_delimiters() -> None:
                         if not stack or stack[-1] != pairs[ch]:
                             raise SystemExit(f"unbalanced {path.relative_to(ROOT)} at {index}: {ch}")
                         stack.pop()
-                escaped = (ch == "\\" and not escaped)
+                escaped = (ch == "\\" and not escaped and raw_hashes == 0)
                 if ch != "\\":
                     escaped = False
+                index += 1
             if stack:
                 raise SystemExit(f"unclosed delimiters in {path.relative_to(ROOT)}: {stack[-10:]}")
     print("ok: balanced Swift delimiters")

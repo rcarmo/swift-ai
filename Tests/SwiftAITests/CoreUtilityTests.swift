@@ -2,6 +2,15 @@ import XCTest
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
+    func testHTTPProxyResolution() throws {
+        XCTAssertNil(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "bedrock-runtime.us-east-1.amazonaws.com"]))
+        XCTAssertEqual(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://proxy.example:8080"])?.absoluteString, "http://proxy.example:8080")
+        XCTAssertEqual(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://scoped-proxy.example:8080", "https_proxy": "http://process-proxy.example:8080"])?.absoluteString, "http://scoped-proxy.example:8080")
+        XCTAssertThrowsError(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "socks5://proxy.example:1080"])) { error in
+            XCTAssertTrue(String(describing: error).contains(HTTPProxyResolver.unsupportedProxyProtocolMessage))
+        }
+    }
+
     func testModelsRuntimeRegistryOperationsAndUnknownProvider() async throws {
         await AIRegistry.shared.clearProviders()
         await AIRegistry.shared.clearModels()

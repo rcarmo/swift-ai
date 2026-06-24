@@ -53,7 +53,7 @@ The npm tarball omits these tests; this source checkout is the test-for-test par
 | `test/mistral-reasoning-mode.test.ts` | 7 | Mistral reasoning_effort vs prompt_mode selection; omit controls when off; session id prompt cache key; omit when cache disabled | ADAPTED (`testMistralReasoningModeAndPromptCacheKey`) |
 | `test/mistral-tool-schema.test.ts` | 1 | strips TypeBox symbol keys before the SDK validates tool schemas | PENDING |
 | `test/models-runtime.test.ts` | 17 | provider/model registry operations, auth resolution, refresh/error wrapping, unknown provider error streams | PARTIAL (`testModelsRuntimeRegistryOperationsAndUnknownProvider`; TS credential-store runtime auth matrix pending/not directly modeled) |
-| `test/node-http-proxy.test.ts` | 4 | respects NO_PROXY exclusions; resolves HTTP and HTTPS proxy URLs; prefers scoped proxy env aliases before process env aliases; rejects SOCKS and PAC proxy URLs explicitly | PENDING |
+| `test/node-http-proxy.test.ts` | 4 | NO_PROXY exclusions; HTTP/HTTPS proxy env resolution; scoped env precedence; reject SOCKS/PAC protocols | ADAPTED (`testHTTPProxyResolution`) |
 | `test/oauth-auth.test.ts` | 8 | OAuth toAuth/apiKey adapters, Copilot proxy/enterprise baseUrl fallback, model auth lazy chain | PARTIAL (`testAnthropicOAuthProviderShape`, `testCodexOAuthProviderShape`, `testOAuthPKCEAndCopilotHelpers`; lazy credential-store chain pending) |
 | `test/oauth-device-code.test.ts` | 2 | polls immediately and completes; cancels in-flight wait with Login cancelled semantics | ADAPTED (`testOAuthDeviceCodePollingImmediateAndCancellation`) |
 | `test/openai-codex-cache-affinity-e2e.test.ts` | 0 |  | PARTIAL (pluggable transport) |

@@ -119,7 +119,7 @@ public enum AzureHelpers {
             return result
         }
 
-        var removeCount = max(0, entries.count - config.limit)
+        let removeCount = max(0, entries.count - config.limit)
         var toRemove = Set<Int>()
         var summaryParts: [String] = []
         var budgetRemoved = 0

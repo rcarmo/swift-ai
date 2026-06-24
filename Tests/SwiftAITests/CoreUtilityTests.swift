@@ -48,6 +48,34 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertFalse(AIUtilities.modelsAreEqual(a, nil))
     }
 
+    func testTransformMessagesCopilotOpenAIToAnthropic() {
+        let model = Model(id: "claude-sonnet-4.6", name: "Claude", api: .anthropicMessages, provider: .githubCopilot, input: ["text", "image"])
+        var assistant = Message(role: .assistant, content: [.thinking("Let me think about this..."), .text("Hi there!")])
+        assistant.api = .openAICompletions; assistant.provider = .githubCopilot; assistant.model = "gpt-4o"; assistant.stopReason = .stop
+        assistant.content[0].thinkingSignature = "reasoning_content"
+        let transformed = AIUtilities.transformMessages([.user("hello"), assistant], for: model)
+        guard let convertedAssistant = transformed.first(where: { $0.role == .assistant }) else { return XCTFail("missing assistant") }
+        XCTAssertEqual(convertedAssistant.content.filter { $0.type == "thinking" }.count, 0)
+        XCTAssertGreaterThanOrEqual(convertedAssistant.content.filter { $0.type == "text" }.count, 2)
+
+        var toolAssistant = Message(role: .assistant, content: [.toolCall(id: "call_123", name: "bash", arguments: ["command": .string("ls")])])
+        toolAssistant.api = .openAIResponses; toolAssistant.provider = .githubCopilot; toolAssistant.model = "gpt-5"; toolAssistant.stopReason = .toolUse
+        toolAssistant.content[0].thoughtSignature = "{\"type\":\"reasoning.encrypted\"}"
+        var result = Message(role: .toolResult, content: [.text("output")]); result.toolCallId = "call_123"; result.toolName = "bash"
+        let stripped = AIUtilities.transformMessages([.user("run"), toolAssistant, result], for: model)
+        let strippedCall = stripped.first(where: { $0.role == .assistant })?.content.first(where: { $0.type == "toolCall" })
+        XCTAssertNil(strippedCall?.thoughtSignature)
+
+        var orphan = Message(role: .assistant, content: [.toolCall(id: "call_123|fc_123", name: "read", arguments: ["path": .string("README.md")])])
+        orphan.api = .openAIResponses; orphan.provider = .githubCopilot; orphan.model = "gpt-5"; orphan.stopReason = .toolUse
+        let orphaned = AIUtilities.transformMessages([.user("read"), orphan], for: model)
+        XCTAssertEqual(orphaned.last?.role, .toolResult)
+        XCTAssertEqual(orphaned.last?.toolCallId, "call_123_fc_123")
+        XCTAssertEqual(orphaned.last?.toolName, "read")
+        XCTAssertEqual(orphaned.last?.isError, true)
+        XCTAssertEqual(orphaned.last?.content, [.text("No result provided")])
+    }
+
     func testTransformPreservesImagesForVisionModelsAndDowngradesTextModels() {
         let image = ContentBlock.image(data: "abc", mimeType: "image/png")
         let messages = [Message(role: .user, content: [.text("see"), image])]

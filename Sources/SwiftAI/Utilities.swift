@@ -184,10 +184,11 @@ public enum AIUtilities {
         var result: [Message] = []
         var pending: [ContentBlock] = []
         var existing: Set<String> = []
+        func normalized(_ id: String) -> String { String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.prefix(64)) }
         func flush() {
-            for tc in pending where !existing.contains(tc.id ?? "") {
+            for tc in pending where !existing.contains(normalized(tc.id ?? "")) {
                 var msg = Message(role: .toolResult, content: [.text("No result provided")])
-                msg.toolCallId = tc.id
+                msg.toolCallId = normalized(tc.id ?? "")
                 msg.toolName = tc.name
                 msg.isError = true
                 result.append(msg)
@@ -202,7 +203,7 @@ public enum AIUtilities {
                 pending.append(contentsOf: msg.content.filter { $0.type == "toolCall" })
                 result.append(msg)
             case .toolResult:
-                if let id = msg.toolCallId { existing.insert(id) }
+                if let id = msg.toolCallId { existing.insert(normalized(id)) }
                 result.append(msg)
             case .user:
                 flush()

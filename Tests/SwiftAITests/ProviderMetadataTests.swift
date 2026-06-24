@@ -6,6 +6,25 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testGitHubCopilotOAuthModelFilteringAndVerificationURI() throws {
+        XCTAssertEqual(try GitHubCopilotOAuthProvider.normalizeVerificationURI("https://github.com/login/device"), "https://github.com/login/device")
+        XCTAssertThrowsError(try GitHubCopilotOAuthProvider.normalizeVerificationURI("$(id>/tmp/pwned)")) { error in
+            XCTAssertTrue(String(describing: error).contains("Untrusted verification_uri"))
+        }
+        let provider = GitHubCopilotOAuthProvider()
+        let allModels = [
+            Model(id: "gpt-4.1", name: "GPT", api: .openAICompletions, provider: .githubCopilot),
+            Model(id: "claude-opus-4.7", name: "Claude", api: .anthropicMessages, provider: .githubCopilot),
+            Model(id: "gpt-5.4-nano", name: "GPT", api: .openAIResponses, provider: .githubCopilot),
+            Model(id: "openai", name: "Other", api: .openAICompletions, provider: .openAI)
+        ]
+        let credentials = OAuthCredentials(refresh: "ghu_refresh_token", access: "tid=test;exp=9999999999;proxy-ep=proxy.individual.githubcopilot.com;", expires: 9999999999, extra: ["availableModelIds": .array([.string("gpt-4.1")])])
+        let filtered = provider.modifyModels(allModels, credentials: credentials)
+        XCTAssertEqual(filtered.filter { $0.provider == .githubCopilot }.map(\.id), ["gpt-4.1"])
+        XCTAssertEqual(filtered.first { $0.provider == .githubCopilot }?.baseUrl, "https://api.individual.githubcopilot.com")
+        XCTAssertTrue(filtered.contains { $0.provider == .openAI })
+    }
+
     func testGitHubCopilotAnthropicHeadersAndAdaptiveThinking() throws {
         let opus47 = try model(.githubCopilot, "claude-opus-4.7")
         XCTAssertEqual(opus47.thinkingLevelMap?[.minimal]!, "low")

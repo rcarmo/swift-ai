@@ -69,7 +69,16 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         request.httpBody = "client_id=\(clientID)&scope=read:user".data(using: .utf8)
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy())
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
-        return try JSONDecoder().decode(DeviceFlowResponse.self, from: data)
+        var device = try JSONDecoder().decode(DeviceFlowResponse.self, from: data)
+        device.verificationURI = try Self.normalizeVerificationURI(device.verificationURI)
+        return device
+    }
+
+    public static func normalizeVerificationURI(_ raw: String) throws -> String {
+        guard let components = URLComponents(string: raw), let scheme = components.scheme?.lowercased(), scheme == "http" || scheme == "https", let url = components.url else {
+            throw AIError.provider("Untrusted verification_uri: \(raw)")
+        }
+        return url.absoluteString
     }
 
     private func pollForAccessToken(domain: String, device: DeviceFlowResponse) async throws -> String {

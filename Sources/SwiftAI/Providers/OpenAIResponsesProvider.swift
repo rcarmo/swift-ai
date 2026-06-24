@@ -192,12 +192,12 @@ public enum OpenAIResponsesProvider {
     private static func convertInput(model: Model, context: AIContext) -> [JSONValue] {
         var out: [JSONValue] = []
         if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string(model.reasoning ? "developer" : "system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
-        for msg in AIUtilities.transformMessages(context.messages, for: model) {
+        for (msgIndex, msg) in AIUtilities.transformMessages(context.messages, for: model).enumerated() {
             switch msg.role {
             case .user:
                 out.append(.object(["role": .string("user"), "content": .array(msg.content.compactMap(userContent))]))
             case .assistant:
-                out.append(contentsOf: assistantItems(msg, model: model))
+                out.append(contentsOf: assistantItems(msg, model: model, messageIndex: msgIndex))
             case .toolResult:
                 let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
                 out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n")))]))
@@ -206,7 +206,7 @@ public enum OpenAIResponsesProvider {
         return out
     }
 
-    private static func assistantItems(_ msg: Message, model: Model) -> [JSONValue] {
+    private static func assistantItems(_ msg: Message, model: Model, messageIndex: Int) -> [JSONValue] {
         var items: [JSONValue] = []
         var textIndex = 0
         for block in msg.content {
@@ -214,9 +214,9 @@ public enum OpenAIResponsesProvider {
             case "thinking":
                 if let sig = block.thinkingSignature, let data = sig.data(using: .utf8), let value = try? JSONDecoder().decode(JSONValue.self, from: data) { items.append(value) }
             case "text":
-                var item: [String: JSONValue] = ["type": .string("message"), "role": .string("assistant"), "content": .array([.object(["type": .string("output_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])]), "status": .string("completed")]
+                let fallback = textIndex == 0 ? "msg_pi_\(messageIndex)" : "msg_pi_\(messageIndex)_\(textIndex)"
+                var item: [String: JSONValue] = ["type": .string("message"), "id": .string(fallback), "role": .string("assistant"), "content": .array([.object(["type": .string("output_text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])]), "status": .string("completed")]
                 if let sig = block.textSignature, let data = sig.data(using: .utf8), let object = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
-                    let fallback = textIndex == 0 ? "msg_pi" : "msg_pi_\(textIndex)"
                     item["id"] = .string(object["id"]?.stringValue ?? fallback)
                     if let phase = object["phase"] { item["phase"] = phase }
                 }

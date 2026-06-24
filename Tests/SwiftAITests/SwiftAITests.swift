@@ -800,6 +800,23 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(copilotBody["reasoning"])
     }
 
+    func testOpenAIResponsesFallbackMessageIDs() throws {
+        var assistant = Message(role: .assistant, content: [ContentBlock.thinking("private reasoning"), .text("visible answer")])
+        assistant.api = .anthropicMessages
+        assistant.provider = .anthropic
+        assistant.model = "claude-opus-4-8"
+        assistant.stopReason = .stop
+        let model = Model(id: "gpt-5.5", name: "Codex", api: .openAICodexResponses, provider: .openAICodex)
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(systemPrompt: "You are concise.", messages: [.user("hello"), assistant]), options: nil)
+        guard case .array(let input)? = body["input"] else { return XCTFail("missing input") }
+        let messageIds = input.compactMap { item -> String? in
+            if case .object(let obj) = item, obj["type"] == .string("message") { return obj["id"]?.stringValue }
+            return nil
+        }
+        XCTAssertEqual(messageIds, ["msg_pi_1", "msg_pi_1_1"])
+        XCTAssertEqual(Set(messageIds).count, messageIds.count)
+    }
+
     func testOpenAIResponsesAssistantReplayItems() throws {
         let reasoningSig = "{\"type\":\"reasoning\",\"summary\":[]}"
         let textSig = "{\"id\":\"msg_1\",\"phase\":\"final\"}"

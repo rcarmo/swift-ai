@@ -392,6 +392,8 @@ final class SwiftAITests: XCTestCase {
         let reset = await LoggerRegistry.shared.current()
         XCTAssertTrue(reset is DiscardLogger)
         reset.warn("ok", [:])
+        let defaultStderr = StderrLogger()
+        XCTAssertEqual(defaultStderr.level, .info)
         let warnLogger = StderrLogger(level: .warn)
         XCTAssertFalse(warnLogger.shouldEmit(.debug))
         XCTAssertFalse(warnLogger.shouldEmit(.info))

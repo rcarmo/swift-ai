@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **96**
+- Adapted in Swift semantic tests: **99**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **83**
+- Pending direct Swift adaptation: **80**
 
 ## Highest-priority pending buckets
 
@@ -33,7 +33,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestShortHash` | `coverage_boost_test.go` | `testHashAndSanitizeUtilities` | Short Hash |
 | ADAPTED | `TestCopilotHeaders` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers |
 | ADAPTED | `TestCopilotHeadersWithIntent` | `coverage_boost_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Copilot Headers With Intent |
-| PENDING | `TestNewStderrLogger` | `coverage_boost_test.go` | `—` | New Stderr Logger |
+| ADAPTED | `TestNewStderrLogger` | `coverage_boost_test.go` | `testLoggerRegistrySetAndReset` | New Stderr Logger |
 | ADAPTED | `TestClearModels` | `coverage_boost_test.go` | `testRegistryClearAndUnregister` | model registry/generated metadata parity: Clear Models |
 | ADAPTED | `TestDefaultRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Default Retry Config |
 | ADAPTED | `TestNoRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: No Retry Config |
@@ -42,8 +42,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestDoWithRetry429` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry429 |
 | PENDING | `TestDoWithRetryExhausted` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry Exhausted |
 | PENDING | `TestDoWithRetryOnRetryCallback` | `coverage_boost_test.go` | `—` | retry/cancellation robustness: Do With Retry On Retry Callback |
-| PENDING | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `—` | Append Assistant Message |
-| PENDING | `TestGetTextContent` | `coverage_boost_test.go` | `—` | Get Text Content |
+| ADAPTED | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Append Assistant Message |
+| ADAPTED | `TestGetTextContent` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Get Text Content |
 | ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
 | PENDING | `TestCompleteViaFaux` | `coverage_boost_test.go` | `—` | Complete Via Faux |
 | PENDING | `TestStreamMissingFunction` | `coverage_boost_test.go` | `—` | streaming/event transport behavior: Stream Missing Function |

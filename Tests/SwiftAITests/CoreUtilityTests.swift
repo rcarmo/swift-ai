@@ -48,6 +48,18 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertFalse(AIUtilities.modelsAreEqual(a, nil))
     }
 
+    func testTransformInsertsSyntheticToolResultBeforeFollowUpUser() {
+        let model = Model(id: "gpt-4o-mini", name: "GPT", api: .openAICompletions, provider: .openAI)
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "calculate_1", name: "calculate", arguments: ["expression": .string("25 * 18")])])
+        assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .toolUse
+        let transformed = AIUtilities.transformMessages([.user("Please calculate 25 * 18"), assistant, .user("Never mind, what is 2+2?")], for: model)
+        XCTAssertEqual(transformed.map(\.role), [.user, .assistant, .toolResult, .user])
+        XCTAssertEqual(transformed[2].toolCallId, "calculate_1")
+        XCTAssertEqual(transformed[2].toolName, "calculate")
+        XCTAssertEqual(transformed[2].isError, true)
+        XCTAssertEqual(transformed[2].content, [.text("No result provided")])
+    }
+
     func testTransformMessagesCopilotOpenAIToAnthropic() {
         let model = Model(id: "claude-sonnet-4.6", name: "Claude", api: .anthropicMessages, provider: .githubCopilot, input: ["text", "image"])
         var assistant = Message(role: .assistant, content: [.thinking("Let me think about this..."), .text("Hi there!")])

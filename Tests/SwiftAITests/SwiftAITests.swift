@@ -157,8 +157,10 @@ final class SwiftAITests: XCTestCase {
         """.data(using: .utf8)!
         let result = try OpenRouterImagesProvider.parseResponseData(json, model: model)
         XCTAssertEqual(result.responseId, "r")
+        XCTAssertEqual(result.stopReason, .stop)
         XCTAssertEqual(result.output.count, 3)
-        XCTAssertEqual(result.output[1].mimeType, "image/png")
+        XCTAssertEqual(result.output[0], ImageOutput(type: "text", text: "caption"))
+        XCTAssertEqual(result.output[1], ImageOutput(type: "image", data: "abc", mimeType: "image/png"))
         XCTAssertEqual(result.output[2].mimeType, "image/jpeg")
         XCTAssertEqual(result.usage?.cost.total, 0.002, accuracy: 0.0000001)
     }
@@ -171,6 +173,9 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(object["stream"], .bool(false))
         guard case .array(let modalities)? = object["modalities"] else { return XCTFail("missing modalities") }
         XCTAssertEqual(modalities, [.string("image"), .string("text")])
+        guard case .array(let messages)? = object["messages"], case .object(let message) = messages[0], case .array(let content)? = message["content"] else { return XCTFail("missing message content") }
+        XCTAssertEqual(message["role"], .string("user"))
+        XCTAssertEqual(content.first, .object(["type": .string("text"), "text": .string("draw")]))
     }
 
     func testCloudflareBaseURLHelpers() {

@@ -6,6 +6,35 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testGitHubCopilotAnthropicHeadersAndAdaptiveThinking() throws {
+        let opus47 = try model(.githubCopilot, "claude-opus-4.7")
+        XCTAssertEqual(opus47.thinkingLevelMap?[.minimal]!, "low")
+        XCTAssertEqual(opus47.thinkingLevelMap?[.xhigh]!, "xhigh")
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: opus47).contains(.xhigh))
+
+        let sonnet46 = try model(.githubCopilot, "claude-sonnet-4.6")
+        XCTAssertEqual(sonnet46.api, .anthropicMessages)
+        XCTAssertEqual(sonnet46.thinkingLevelMap?[.minimal]!, "low")
+        XCTAssertEqual(sonnet46.thinkingLevelMap?[.xhigh]!, "max")
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: sonnet46).contains(.xhigh))
+
+        let context = AIContext(systemPrompt: "You are a helpful assistant.", messages: [.user("Hello")])
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: sonnet46, context: context, apiKey: "tid_copilot_session_test_token", options: nil)
+        XCTAssertEqual(headers["Authorization"], "Bearer tid_copilot_session_test_token")
+        XCTAssertTrue(headers["User-Agent"]?.contains("GitHubCopilotChat") == true)
+        XCTAssertEqual(headers["Copilot-Integration-Id"], "vscode-chat")
+        XCTAssertEqual(headers["X-Initiator"], "user")
+        XCTAssertEqual(headers["Openai-Intent"], "conversation-edits")
+        XCTAssertFalse(headers["Anthropic-Beta"]?.contains("fine-grained-tool-streaming") == true)
+        XCTAssertFalse(headers["Anthropic-Beta"]?.contains("interleaved-thinking-2025-05-14") == true)
+
+        let body = AnthropicMessagesProvider.buildRequestBody(model: sonnet46, context: context, options: nil)
+        XCTAssertEqual(body["model"], .string("claude-sonnet-4.6"))
+        XCTAssertEqual(body["stream"], .bool(true))
+        XCTAssertEqual(body["max_tokens"], .number(Double(sonnet46.maxTokens)))
+        XCTAssertNotNil(body["messages"]?.arrayValue)
+    }
+
     func testFireworksKimiK26ModelMetadataAndCompat() throws {
         let model = try model(.fireworks, "accounts/fireworks/models/kimi-k2p6")
         XCTAssertEqual(model.api, .anthropicMessages)

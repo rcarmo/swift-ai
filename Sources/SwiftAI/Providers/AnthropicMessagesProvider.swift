@@ -52,25 +52,28 @@ public enum AnthropicMessagesProvider {
         return body
     }
 
+    public static func buildRequestHeaders(model: Model, context: AIContext, apiKey key: String, options: StreamOptions?) -> [String: String] {
+        var headers: [String: String] = ["Content-Type": "application/json", "Accept": "text/event-stream", "Anthropic-Version": apiVersion]
+        if model.provider == .githubCopilot {
+            headers["Authorization"] = "Bearer \(key)"
+            for (k, v) in AIUtilities.copilotHeaders() { headers[k] = v }
+            for (k, v) in AIUtilities.copilotDynamicHeaders(messages: context.messages) { headers[k] = v }
+        } else {
+            headers["X-Api-Key"] = key
+        }
+        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none, model.anthropicCompat?.sendSessionAffinityHeaders == true { headers["x-session-affinity"] = session }
+        let betas = betaHeaders(model: model, context: context)
+        if !betas.isEmpty { headers["Anthropic-Beta"] = betas.joined(separator: ",") }
+        for (k, v) in model.headers ?? [:] { headers[k] = v }
+        for (k, v) in options?.headers ?? [:] { headers[k] = v }
+        return headers
+    }
+
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
         guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         var request = URLRequest(url: URL(string: normalizeBaseURL(model.baseUrl) + "/messages")!)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        request.setValue(apiVersion, forHTTPHeaderField: "Anthropic-Version")
-        if model.provider == .githubCopilot {
-            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-            for (k, v) in AIUtilities.copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
-        } else {
-            request.setValue(key, forHTTPHeaderField: "X-Api-Key")
-        }
-        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != .none, model.anthropicCompat?.sendSessionAffinityHeaders == true {
-            request.setValue(session, forHTTPHeaderField: "x-session-affinity")
-        }
-        let betas = betaHeaders(model: model, context: context)
-        if !betas.isEmpty { request.setValue(betas.joined(separator: ","), forHTTPHeaderField: "Anthropic-Beta") }
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        for (k, v) in buildRequestHeaders(model: model, context: context, apiKey: key, options: options) { request.setValue(v, forHTTPHeaderField: k) }
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)

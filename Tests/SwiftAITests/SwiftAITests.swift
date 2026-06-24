@@ -657,6 +657,28 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(provider.modifyModels(models, credentials: creds).count, 1)
     }
 
+    func testOAuthDeviceCodePollingImmediateAndCancellation() async throws {
+        final class Box: @unchecked Sendable { var polls = 0 }
+        let box = Box()
+        let token = try await OAuthDeviceCodePoller.poll(intervalSeconds: 30, expiresInSeconds: 60) {
+            box.polls += 1
+            return box.polls == 1 ? .complete("token") : .pending
+        }
+        XCTAssertEqual(token, "token")
+        XCTAssertEqual(box.polls, 1)
+
+        let task = Task {
+            try await OAuthDeviceCodePoller.poll(intervalSeconds: 30, expiresInSeconds: 60) { OAuthDeviceCodePollStatus<String>.pending }
+        }
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("expected cancellation")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("Login cancelled") || error is CancellationError)
+        }
+    }
+
     func testOAuthPKCEAndCopilotHelpers() throws {
         let pair = try OAuthUtilities.generatePKCE()
         XCTAssertFalse(pair.verifier.isEmpty)

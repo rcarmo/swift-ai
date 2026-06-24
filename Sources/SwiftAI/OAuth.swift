@@ -70,6 +70,35 @@ public enum OAuthUtilities {
     }
 }
 
+public enum OAuthDeviceCodePollStatus<Value: Sendable>: Sendable {
+    case pending
+    case slowDown
+    case complete(Value)
+}
+
+public enum OAuthDeviceCodePoller {
+    public static func poll<Value: Sendable>(intervalSeconds: Int, expiresInSeconds: Int, poll: @escaping @Sendable () async throws -> OAuthDeviceCodePollStatus<Value>) async throws -> Value {
+        let deadline = Date().addingTimeInterval(TimeInterval(expiresInSeconds))
+        var interval = max(1, intervalSeconds)
+        var sawSlowDown = false
+        while Date() < deadline {
+            try Task.checkCancellation()
+            switch try await poll() {
+            case .complete(let value): return value
+            case .pending: break
+            case .slowDown: interval += max(1, intervalSeconds); sawSlowDown = true
+            }
+            let now = Date()
+            if now.addingTimeInterval(TimeInterval(interval)) >= deadline {
+                break
+            }
+            do { try await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000) }
+            catch is CancellationError { throw AIError.provider("Login cancelled") }
+        }
+        throw AIError.provider(sawSlowDown ? "Device flow timed out after one or more slow_down responses" : "device flow timed out")
+    }
+}
+
 public struct DeviceFlowResponse: Decodable, Sendable {
     public var deviceCode: String
     public var userCode: String

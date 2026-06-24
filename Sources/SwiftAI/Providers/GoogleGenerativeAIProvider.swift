@@ -42,7 +42,10 @@ public enum GoogleGenerativeAIProvider {
             guard let project, !project.isEmpty else { throw AIError.provider("Vertex AI requires a project ID") }
             guard let location, !location.isEmpty else { throw AIError.provider("Vertex AI requires a location") }
             let base = (model.baseUrl.isEmpty ? "https://{location}-aiplatform.googleapis.com" : model.baseUrl).replacingOccurrences(of: "{location}", with: location).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            return "\(base)/v1/projects/\(project.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? project)/locations/\(location.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? location)/publishers/google/models/\(model.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model.id):streamGenerateContent?alt=sse&key=\(apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? apiKey)"
+            let resourcePath = base.contains("/v1/projects/") ? "" : "/v1/projects/\(project.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? project)/locations/\(location.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? location)"
+            var url = "\(base)\(resourcePath)/publishers/google/models/\(model.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model.id):streamGenerateContent?alt=sse"
+            if !isVertexADCMarker(apiKey) { url += "&key=\(apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? apiKey)" }
+            return url
         }
         let base = (model.baseUrl.isEmpty ? "https://generativelanguage.googleapis.com/v1beta" : model.baseUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         return "\(base)/models/\(model.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model.id):streamGenerateContent?alt=sse&key=\(apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? apiKey)"
@@ -162,6 +165,7 @@ public enum GoogleGenerativeAIProvider {
         flushFunctionResponses()
         return out
     }
+    public static func isVertexADCMarker(_ apiKey: String) -> Bool { apiKey == "<authenticated>" || apiKey == "gcp-vertex-credentials" }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesThinkingLevel(_ model: Model) -> Bool { model.id.lowercased().contains("gemini-3") || model.id.lowercased().contains("gemma-4") || model.id == "gemini-flash-latest" || model.id == "gemini-flash-lite-latest" }
     private static func supportsMultimodalFunctionResponse(_ modelID: String) -> Bool { let lower = modelID.lowercased(); if lower.hasPrefix("gemini-") { return lower.contains("gemini-3") }; return true }

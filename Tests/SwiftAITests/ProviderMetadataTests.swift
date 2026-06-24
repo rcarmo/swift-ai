@@ -6,6 +6,30 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testGoogleVertexAPIKeyResolutionURLSemantics() throws {
+        let model = Model(id: "gemini-3-flash-preview", name: "Gemini", api: .googleVertex, provider: .googleVertex)
+        var options = StreamOptions(); options.project = "test-project"; options.location = "us-central1"
+        let adc = try GoogleGenerativeAIProvider.buildStreamURL(model: model, apiKey: "<authenticated>", options: options)
+        XCTAssertTrue(adc.contains("/v1/projects/test-project/locations/us-central1/"))
+        XCTAssertFalse(adc.contains("key=%3Cauthenticated%3E"))
+        XCTAssertFalse(adc.contains("key=<authenticated>"))
+        let adc2 = try GoogleGenerativeAIProvider.buildStreamURL(model: model, apiKey: "gcp-vertex-credentials", options: options)
+        XCTAssertFalse(adc2.contains("key=gcp-vertex-credentials"))
+        let keyed = try GoogleGenerativeAIProvider.buildStreamURL(model: model, apiKey: "AIzaSyExampleRealisticLookingApiKey123456", options: options)
+        XCTAssertTrue(keyed.contains("key=AIzaSyExampleRealisticLookingApiKey123456"))
+
+        let custom = Model(id: "gemini-3-flash-preview", name: "Gemini", api: .googleVertex, provider: .googleVertex, baseUrl: "https://proxy.example.com")
+        let customURL = try GoogleGenerativeAIProvider.buildStreamURL(model: custom, apiKey: "<authenticated>", options: options)
+        XCTAssertTrue(customURL.hasPrefix("https://proxy.example.com/v1/projects/test-project/locations/us-central1/"))
+        let fullBase = Model(id: "gemini-3-flash-preview", name: "Gemini", api: .googleVertex, provider: .googleVertex, baseUrl: "https://proxy.example.com/v1/projects/test-project/locations/global")
+        let fullURL = try GoogleGenerativeAIProvider.buildStreamURL(model: fullBase, apiKey: "<authenticated>", options: options)
+        XCTAssertTrue(fullURL.hasPrefix("https://proxy.example.com/v1/projects/test-project/locations/global/publishers/google/models/"))
+        XCTAssertFalse(fullURL.contains("/v1/projects/test-project/locations/global/v1/projects/"))
+        XCTAssertTrue(GoogleGenerativeAIProvider.isVertexADCMarker("<authenticated>"))
+        XCTAssertTrue(GoogleGenerativeAIProvider.isVertexADCMarker("gcp-vertex-credentials"))
+        XCTAssertFalse(GoogleGenerativeAIProvider.isVertexADCMarker("AIzaSyExampleRealisticLookingApiKey123456"))
+    }
+
     func testMistralReasoningModeAndPromptCacheKey() throws {
         let models = try BuiltinModels.all()
         func body(_ id: String, reasoning: ThinkingLevel? = nil, sessionId: String? = nil, cacheRetention: CacheRetention? = nil) throws -> [String: JSONValue] {

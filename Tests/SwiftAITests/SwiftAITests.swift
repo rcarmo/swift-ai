@@ -448,6 +448,28 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(options.apiKey, "explicit")
     }
 
+    func testOpenAICompletionsPromptCacheParity() {
+        var options = StreamOptions(); options.sessionId = "session-123"
+        let openAI = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, baseUrl: "https://api.openai.com/v1")
+        let direct = OpenAICompletionsProvider.buildRequestBody(model: openAI, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(direct["prompt_cache_key"], .string("session-123"))
+        XCTAssertNil(direct["prompt_cache_retention"])
+        options.cacheRetention = .long
+        let long = OpenAICompletionsProvider.buildRequestBody(model: openAI, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(long["prompt_cache_key"], .string("session-123"))
+        XCTAssertEqual(long["prompt_cache_retention"], .string("24h"))
+        options.cacheRetention = .none
+        let none = OpenAICompletionsProvider.buildRequestBody(model: openAI, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(none["prompt_cache_key"])
+        XCTAssertNil(none["prompt_cache_retention"])
+        var proxyCompat = OpenAICompletionsCompat(); proxyCompat.supportsLongCacheRetention = false
+        options.cacheRetention = .long
+        let proxy = Model(id: "proxy", name: "Proxy", api: .openAICompletions, provider: .openRouter, baseUrl: "https://proxy.example.com/v1", completionsCompat: proxyCompat)
+        let proxyBody = OpenAICompletionsProvider.buildRequestBody(model: proxy, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(proxyBody["prompt_cache_key"])
+        XCTAssertNil(proxyBody["prompt_cache_retention"])
+    }
+
     func testEnvDrivenPromptCacheRetention() {
         var options = StreamOptions()
         options.sessionId = String(repeating: "s", count: 80)

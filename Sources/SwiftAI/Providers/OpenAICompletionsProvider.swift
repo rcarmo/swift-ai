@@ -180,7 +180,8 @@ public enum OpenAICompletionsProvider {
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         if stream { request.setValue("text/event-stream", forHTTPHeaderField: "Accept") }
         let compat = Compat.detect(for: model)
-        if let session = options?.sessionId, !session.isEmpty, compat.sendSessionAffinityHeaders == true {
+        let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
+        if let session = options?.sessionId, !session.isEmpty, cacheRetention != .none, compat.sendSessionAffinityHeaders == true {
             request.setValue(session, forHTTPHeaderField: "session_id")
             request.setValue(session, forHTTPHeaderField: "x-client-request-id")
             request.setValue(session, forHTTPHeaderField: "x-session-affinity")

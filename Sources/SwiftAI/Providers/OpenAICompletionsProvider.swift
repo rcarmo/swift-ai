@@ -110,12 +110,12 @@ public enum OpenAICompletionsProvider {
                     obj["reasoning_content"] = .string(AIUtilities.sanitizeSurrogates(reasoning))
                 }
                 let calls = message.content.filter { $0.type == "toolCall" }.map { block in
-                    JSONValue.object(["id": .string(block.id ?? ""), "type": .string("function"), "function": .object(["name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))])])
+                    JSONValue.object(["id": .string(normalizeToolCallID(block.id ?? "")), "type": .string("function"), "function": .object(["name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))])])
                 }
                 if !calls.isEmpty { obj["tool_calls"] = .array(calls) }
             }
             if message.role == .toolResult, let id = message.toolCallId {
-                obj["tool_call_id"] = .string(id)
+                obj["tool_call_id"] = .string(normalizeToolCallID(id))
                 if compat.requiresToolResultName == true, let name = message.toolName { obj["name"] = .string(name) }
             }
             out.append(.object(obj))
@@ -132,6 +132,12 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+
+    private static func normalizeToolCallID(_ value: String) -> String {
+        let callID = value.split(separator: "|", maxSplits: 1).first.map(String.init) ?? value
+        let sanitized = String(callID.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" })
+        return sanitized.count <= 64 ? sanitized : "call_" + AIUtilities.shortHash(sanitized)
+    }
 
     private static func hasToolHistory(_ messages: [Message]) -> Bool {
         messages.contains { message in message.role == .toolResult || (message.role == .assistant && message.content.contains { $0.type == "toolCall" }) }

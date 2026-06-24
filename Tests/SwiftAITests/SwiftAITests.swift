@@ -1310,6 +1310,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(messages.contains { if case .object(let obj) = $0, obj["role"] == .string("user"), case .array(let content)? = obj["content"] { return content.count == 2 }; return false })
     }
 
+    func testOpenAIToolCallIDNormalizationFromResponses() {
+        let failingID = "call_pAYbIr76hXIjncD9UE4eGfnS|t5nnb2qYMFWGSsr13fhCd1CaCu3t3qONEPuOudu4HSVEtA8YJSL6FAZUxvoOoD792VIJWl91g87EdqsCWp9krVsdBysQoDaf9lMCLb8BS4EYi4gQd5kBQBYLlgD71PYwvf+TbMD9J9/5OMD42oxSRj8H+vRf78/l2Xla33LWz4nOgsddBlbvabICRs8GHt5C9PK5keFtzyi3lsyVKNlfduK3iphsZqs4MLv4zyGJnvZo/+QzShyk5xnMSQX/f98+aEoNflEApCdEOXipipgeiNWnpFSHbcwmMkZoJhURNu+JEz3xCh1mrXeYoN5o+trLL3IXJacSsLYXDrYTipZZbJFRPAucgbnjYBC+/ZzJOfkwCs+Gkw7EoZR7ZQgJ8ma+9586n4tT4cI8DEhBSZsWMjrCt8dxKg=="
+        var assistant = Message(role: .assistant, content: [.toolCall(id: failingID, name: "echo", arguments: ["message": .string("hello")])])
+        var result = Message(role: .toolResult, content: [.text("hello")])
+        result.toolCallId = failingID
+        result.toolName = "echo"
+        let model = Model(id: "openai/gpt-5.2-codex", name: "GPT", api: .openAICompletions, provider: .openRouter)
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("use tool"), assistant, result]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let replay) = messages[1], case .array(let calls)? = replay["tool_calls"], case .object(let call) = calls[0], case .object(let toolResult) = messages[2] else { return XCTFail("missing normalized tool call replay") }
+        XCTAssertEqual(call["id"], .string("call_pAYbIr76hXIjncD9UE4eGfnS"))
+        XCTAssertEqual(toolResult["tool_call_id"], .string("call_pAYbIr76hXIjncD9UE4eGfnS"))
+    }
+
     func testOpenAIToolCallReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresToolResultName = true

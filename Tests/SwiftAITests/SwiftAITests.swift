@@ -261,6 +261,42 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(ContextUtilities.isContextOverflow(message, contextWindow: 0))
     }
 
+    func testToolValidationCoercionParity() throws {
+        func tool(_ schema: JSONValue, _ value: JSONValue) -> (Tool, [String: JSONValue]) {
+            (Tool(name: "echo", description: "Echo", parameters: .object(["type": .string("object"), "properties": .object(["value": schema]), "required": .array([.string("value")])])), ["value": value])
+        }
+        let passing: [(JSONValue, JSONValue, JSONValue)] = [
+            (.object(["type": .string("number")]), .string("42"), .number(42)),
+            (.object(["type": .string("number")]), .bool(true), .number(1)),
+            (.object(["type": .string("number")]), .null, .number(0)),
+            (.object(["type": .string("integer")]), .string("42"), .number(42)),
+            (.object(["type": .string("boolean")]), .string("true"), .bool(true)),
+            (.object(["type": .string("boolean")]), .string("false"), .bool(false)),
+            (.object(["type": .string("boolean")]), .number(1), .bool(true)),
+            (.object(["type": .string("boolean")]), .number(0), .bool(false)),
+            (.object(["type": .string("string")]), .null, .string("")),
+            (.object(["type": .string("string")]), .bool(true), .string("true")),
+            (.object(["type": .string("null")]), .string(""), .null),
+            (.object(["type": .string("null")]), .number(0), .null),
+            (.object(["type": .string("null")]), .bool(false), .null),
+            (.object(["type": .array([.string("number"), .string("string")])]), .string("1"), .string("1")),
+            (.object(["type": .array([.string("boolean"), .string("number")])]), .string("1"), .number(1))
+        ]
+        for (schema, input, expected) in passing {
+            let (t, args) = tool(schema, input)
+            XCTAssertEqual(try ContextUtilities.validateToolArguments(tool: t, arguments: args), ["value": expected])
+        }
+        for (schema, input) in [
+            (JSONValue.object(["type": .string("boolean")]), JSONValue.string("1")),
+            (.object(["type": .string("boolean")]), .string("0")),
+            (.object(["type": .string("null")]), .string("null")),
+            (.object(["type": .string("integer")]), .string("42.1"))
+        ] {
+            let (t, args) = tool(schema, input)
+            XCTAssertThrowsError(try ContextUtilities.validateToolArguments(tool: t, arguments: args))
+        }
+    }
+
     func testContextOverflowAndToolValidation() throws {
         var overflow = Message(role: .assistant, content: [])
         overflow.stopReason = .error

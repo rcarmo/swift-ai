@@ -47,35 +47,67 @@ public enum ContextUtilities {
                 if case .string(let name) = item, arguments[name] == nil { throw AIError.provider("validation failed for tool \(tool.name): missing required field \(name)") }
             }
         }
+        var coerced = arguments
         if case .object(let properties)? = schema["properties"] {
             for (name, value) in arguments {
-                if case .object(let propertySchema)? = properties[name] { try validateType(name: name, value: value, schema: propertySchema, toolName: tool.name) }
+                if case .object(let propertySchema)? = properties[name] { coerced[name] = try validateAndCoerce(name: name, value: value, schema: propertySchema, toolName: tool.name) }
             }
         }
-        return arguments
+        return coerced
     }
 
-    private static func validateType(name: String, value: JSONValue, schema: [String: JSONValue], toolName: String) throws {
-        guard case .string(let expected)? = schema["type"] else { return }
+    private static func validateAndCoerce(name: String, value: JSONValue, schema: [String: JSONValue], toolName: String) throws -> JSONValue {
+        let expectedTypes: [String]
+        switch schema["type"] {
+        case .string(let expected)?: expectedTypes = [expected]
+        case .array(let values)?: expectedTypes = values.compactMap(\.stringValue)
+        default: return value
+        }
+        if let actual = jsonType(value), expectedTypes.contains(actual) {
+            return try coerce(name: name, value: value, expected: actual, schema: schema, toolName: toolName)
+        }
+        var lastError: Error?
+        for expected in expectedTypes {
+            do { return try coerce(name: name, value: value, expected: expected, schema: schema, toolName: toolName) } catch { lastError = error }
+        }
+        throw lastError ?? typeError(toolName: toolName, field: name, expected: expectedTypes.joined(separator: "/"), actual: value)
+    }
+
+    private static func jsonType(_ value: JSONValue) -> String? {
+        switch value { case .string: return "string"; case .number(let n): return n.rounded() == n ? "integer" : "number"; case .bool: return "boolean"; case .array: return "array"; case .object: return "object"; case .null: return "null" }
+    }
+
+    private static func coerce(name: String, value: JSONValue, expected: String, schema: [String: JSONValue], toolName: String) throws -> JSONValue {
         switch expected {
         case "string":
-            guard case .string(let stringValue) = value else { throw typeError(toolName: toolName, field: name, expected: "string", actual: value) }
+            let stringValue: String
+            switch value { case .string(let v): stringValue = v; case .null: stringValue = ""; case .bool(let v): stringValue = v ? "true" : "false"; case .number(let v): stringValue = String(v); default: throw typeError(toolName: toolName, field: name, expected: "string", actual: value) }
             if case .array(let allowed)? = schema["enum"] {
                 let allowedStrings = allowed.compactMap { item -> String? in if case .string(let v) = item { return v }; return nil }
                 if !allowedStrings.isEmpty, !allowedStrings.contains(stringValue) { throw AIError.provider("validation failed for tool \(toolName): field \(name): value \(stringValue) not in enum") }
             }
+            return .string(stringValue)
         case "number":
-            guard case .number = value else { throw typeError(toolName: toolName, field: name, expected: "number", actual: value) }
+            switch value { case .number: return value; case .string(let s): if let n = Double(s) { return .number(n) }; case .bool(let b): return .number(b ? 1 : 0); case .null: return .number(0); default: break }
+            throw typeError(toolName: toolName, field: name, expected: "number", actual: value)
         case "integer":
-            guard case .number(let n) = value, n.rounded() == n else { throw typeError(toolName: toolName, field: name, expected: "integer", actual: value) }
+            let numeric: Double
+            switch value { case .number(let n): numeric = n; case .string(let s): guard let n = Double(s) else { throw typeError(toolName: toolName, field: name, expected: "integer", actual: value) }; numeric = n; default: throw typeError(toolName: toolName, field: name, expected: "integer", actual: value) }
+            guard numeric.rounded() == numeric else { throw typeError(toolName: toolName, field: name, expected: "integer", actual: value) }
+            return .number(numeric)
         case "boolean":
-            guard case .bool = value else { throw typeError(toolName: toolName, field: name, expected: "boolean", actual: value) }
+            switch value { case .bool: return value; case .string("true"): return .bool(true); case .string("false"): return .bool(false); case .number(1): return .bool(true); case .number(0): return .bool(false); default: break }
+            throw typeError(toolName: toolName, field: name, expected: "boolean", actual: value)
         case "array":
             guard case .array = value else { throw typeError(toolName: toolName, field: name, expected: "array", actual: value) }
+            return value
         case "object":
             guard case .object = value else { throw typeError(toolName: toolName, field: name, expected: "object", actual: value) }
+            return value
+        case "null":
+            switch value { case .null, .string(""), .number(0), .bool(false): return .null; default: throw typeError(toolName: toolName, field: name, expected: "null", actual: value) }
         default:
-            return
+            return value
         }
     }
 

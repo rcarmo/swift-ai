@@ -2,6 +2,60 @@ import XCTest
 @testable import SwiftAI
 
 final class LiveGatedTests: XCTestCase {
+    func testOpenAIResponsesCacheAffinityLive() async throws {
+        let apiKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
+        try XCTSkipUnless(apiKey != nil && !(apiKey ?? "").isEmpty, "requires OPENAI_API_KEY")
+        await SwiftAI.bootstrap()
+        let model = try XCTUnwrap(await AIRegistry.shared.model(provider: .openAI, id: "gpt-5.4-mini") ?? await AIRegistry.shared.model(provider: .openAI, id: "gpt-5-mini"))
+        var options = StreamOptions()
+        options.apiKey = apiKey
+        options.sessionId = "swift-ai-live-cache-affinity"
+        options.maxTokens = 32
+        let response = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("Reply with exactly: OK")]), options: options)
+        XCTAssertNotEqual(response.stopReason, .error)
+        XCTAssertNil(response.errorMessage)
+    }
+
+    func testAnthropicOpus48ReasoningSmokeLive() async throws {
+        let apiKey = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]
+        try XCTSkipUnless(apiKey != nil && !(apiKey ?? "").isEmpty, "requires ANTHROPIC_API_KEY")
+        await SwiftAI.bootstrap()
+        let model = try XCTUnwrap(await AIRegistry.shared.model(provider: .anthropic, id: "claude-opus-4-8"))
+        var options = StreamOptions()
+        options.apiKey = apiKey
+        options.reasoning = .high
+        options.maxTokens = 256
+        let response = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("Think briefly, then reply with exactly: opus-ok")]), options: options)
+        XCTAssertEqual(response.stopReason, .stop)
+        XCTAssertTrue(response.content.contains { $0.type == "text" })
+    }
+
+    func testOpenRouterImagesBasicLive() async throws {
+        let apiKey = ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"]
+        try XCTSkipUnless(apiKey != nil && !(apiKey ?? "").isEmpty, "requires OPENROUTER_API_KEY")
+        await SwiftAI.bootstrap()
+        let model = try XCTUnwrap(await ImagesRegistry.shared.model(provider: .openRouter, id: "google/gemini-2.5-flash-image") ?? await ImagesRegistry.shared.listModels(provider: .openRouter).first)
+        var options = ImagesOptions()
+        options.apiKey = apiKey
+        let response = await SwiftAI.generateImages(model: model, context: ImagesContext(input: [.text("Generate a simple red circle on a white background. No text.")]), options: options)
+        XCTAssertEqual(response.stopReason, .stop)
+        XCTAssertTrue(response.output.contains { $0.type == "image" })
+    }
+
+    func testOpenAICompletionsBasicStreamLive() async throws {
+        let apiKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
+        try XCTSkipUnless(apiKey != nil && !(apiKey ?? "").isEmpty, "requires OPENAI_API_KEY")
+        await SwiftAI.bootstrap()
+        var model = try XCTUnwrap(await AIRegistry.shared.model(provider: .openAI, id: "gpt-4o-mini"))
+        model.api = .openAICompletions
+        var options = StreamOptions()
+        options.apiKey = apiKey
+        options.maxTokens = 32
+        let response = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("Reply with exactly: stream-ok")]), options: options)
+        XCTAssertEqual(response.stopReason, .stop)
+        XCTAssertTrue(response.content.contains { $0.type == "text" })
+    }
+
     func testOpenRouterCacheWriteReproLive() async throws {
         let apiKey = ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"]
         try XCTSkipUnless(apiKey != nil && !(apiKey ?? "").isEmpty, "requires OPENROUTER_API_KEY")

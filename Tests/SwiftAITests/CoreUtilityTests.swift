@@ -115,6 +115,16 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertFalse(AIUtilities.modelsAreEqual(a, nil))
     }
 
+    func testHarnessCloneNilAndSaveLoadContext() throws {
+        XCTAssertNil(Harness.cloneContext(nil))
+        let context = AIContext(systemPrompt: "sys", messages: [.user("hello")], tools: [Tool(name: "echo", description: "Echo", parameters: .object(["type": .string("object")]))])
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-context-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Harness.saveContext(context, to: url)
+        let loaded = try Harness.loadContext(from: url)
+        XCTAssertEqual(loaded, context)
+    }
+
     func testTransformInsertsSyntheticToolResultBeforeFollowUpUser() {
         let model = Model(id: "gpt-4o-mini", name: "GPT", api: .openAICompletions, provider: .openAI)
         var assistant = Message(role: .assistant, content: [.toolCall(id: "calculate_1", name: "calculate", arguments: ["expression": .string("25 * 18")])])

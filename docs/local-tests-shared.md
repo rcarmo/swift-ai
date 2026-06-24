@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **130**
+- Adapted in Swift semantic tests: **132**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **48**
+- Pending direct Swift adaptation: **46**
 
 ## Highest-priority pending buckets
 
@@ -100,8 +100,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestHooksHarness` | `harness_integration_test.go` | `—` | Hooks Harness |
 | PENDING | `TestCrossProviderHandoff` | `harness_integration_test.go` | `—` | Cross Provider Handoff |
 | ADAPTED | `TestCloneContext` | `harness_test.go` | `testHarnessHelpers` | Clone Context |
-| PENDING | `TestCloneContextNil` | `harness_test.go` | `—` | Clone Context Nil |
-| PENDING | `TestSaveLoadContext` | `harness_test.go` | `—` | Save Load Context |
+| ADAPTED | `TestCloneContextNil` | `harness_test.go` | `testHarnessCloneNilAndSaveLoadContext` | Clone Context Nil |
+| ADAPTED | `TestSaveLoadContext` | `harness_test.go` | `testHarnessCloneNilAndSaveLoadContext` | Save Load Context |
 | ADAPTED | `TestEstimateTokens` | `harness_test.go` | `testHarnessHelpers` | Estimate Tokens |
 | ADAPTED | `TestFitsInContextWindow` | `harness_test.go` | `testHarnessHelpers` | Fits In Context Window |
 | ADAPTED | `TestCompactContext` | `harness_test.go` | `testHarnessHelpers` | Compact Context |

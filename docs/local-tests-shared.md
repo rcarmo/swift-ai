@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **134**
+- Adapted in Swift semantic tests: **136**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **44**
+- Pending direct Swift adaptation: **42**
 
 ## Highest-priority pending buckets
 
@@ -155,8 +155,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestStreamOpenAICloudflareAIGatewayHeadersAndURL` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AICloudflare AIGateway Headers And URL |
 | ADAPTED | `TestBuildRequestBodyClampsPromptCacheKey` | `inference/provider/openai/openai_payload_test.go` | `testOpenAICompletionsRequestCacheAndThinkingFormats` | provider request/payload parity: Build Request Body Clamps Prompt Cache Key |
 | ADAPTED | `TestBuildRequestBodyUsesCompatThinkingFormats` | `inference/provider/openai/openai_payload_test.go` | `testOpenAICompletionsRequestCacheAndThinkingFormats` | provider request/payload parity: Build Request Body Uses Compat Thinking Formats |
-| PENDING | `TestProcessSSEStreamCapturesResponseModelAndCacheUsage` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Process SSEStream Captures Response Model And Cache Usage |
-| PENDING | `TestProcessSSEStreamAttachesPendingEncryptedReasoningDetails` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Process SSEStream Attaches Pending Encrypted Reasoning Details |
+| ADAPTED | `TestProcessSSEStreamCapturesResponseModelAndCacheUsage` | `inference/provider/openai/openai_payload_test.go` | `testOpenAISSEProcessing`, `testOpenAIResponseModelEchoAndEmptyIgnored` | streaming/event transport behavior: Process SSEStream Captures Response Model And Cache Usage |
+| ADAPTED | `TestProcessSSEStreamAttachesPendingEncryptedReasoningDetails` | `inference/provider/openai/openai_payload_test.go` | `testOpenAIReasoningDetailsStreamingAndReplay` | streaming/event transport behavior: Process SSEStream Attaches Pending Encrypted Reasoning Details |
 | PENDING | `TestStreamOpenAIRetries429AndSucceeds` | `inference/provider/openai/openai_retry_test.go` | `—` | streaming/event transport behavior: Stream Open AIRetries429 And Succeeds |
 | ADAPTED | `TestBuildCodexRequestClampsPromptCacheKey` | `inference/provider/openaicodex/codex_request_test.go` | `testCodexResponsesRequestHeadersAndErrors` | provider request/payload parity: Build Codex Request Clamps Prompt Cache Key |
 | ADAPTED | `TestBuildCodexRequestMatchesPiaiShape` | `inference/provider/openaicodex/codex_request_test.go` | `testCodexResponsesRequestHeadersAndErrors` | provider request/payload parity: Build Codex Request Matches Piai Shape |

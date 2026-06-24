@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **124**
+- Adapted in Swift semantic tests: **125**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **54**
+- Pending direct Swift adaptation: **53**
 
 ## Highest-priority pending buckets
 
@@ -185,7 +185,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestComputeBackoffConstant` | `internal/retry/backoff_test.go` | `testRetryPolicy` | Compute Backoff Constant |
 | ADAPTED | `TestIsRetryableStatus` | `internal/retry/backoff_test.go` | `testRetryPolicy` | retry/cancellation robustness: Is Retryable Status |
 | ADAPTED | `TestParseRetryAfter` | `internal/retry/backoff_test.go` | `testRetryPolicy` | retry/cancellation robustness: Parse Retry After |
-| PENDING | `TestParseDurationString` | `internal/retry/backoff_test.go` | `—` | Parse Duration String |
+| ADAPTED | `TestParseDurationString` | `internal/retry/backoff_test.go` | `testRetryPolicy` | Parse Duration String |
 | ADAPTED | `TestDiscardLoggerDefault` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Discard Logger Default |
 | ADAPTED | `TestSimpleLogger` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Simple Logger |
 | ADAPTED | `TestLogLevelFiltering` | `logger_test.go` | `testLoggerRegistrySetAndReset` | Log Level Filtering |

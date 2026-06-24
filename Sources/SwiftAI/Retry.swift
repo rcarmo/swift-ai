@@ -70,6 +70,16 @@ public enum HTTPRetry {
         return nil
     }
 
+    public static func parseDurationMilliseconds(_ raw: String) -> Int? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        let pattern = #"^([0-9]+(?:\.[0-9]+)?)(ms|s|m|h)$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern), let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)), let valueRange = Range(match.range(at: 1), in: text), let unitRange = Range(match.range(at: 2), in: text), let value = Double(text[valueRange]) else { return nil }
+        let multiplier: Double
+        switch String(text[unitRange]) { case "ms": multiplier = 1; case "s": multiplier = 1_000; case "m": multiplier = 60_000; case "h": multiplier = 3_600_000; default: return nil }
+        return Int(value * multiplier)
+    }
+
     private static func header(_ headers: [AnyHashable: Any], _ key: String) -> String? {
         for (k, v) in headers where String(describing: k).lowercased() == key.lowercased() { return String(describing: v) }
         return nil

@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **136**
+- Adapted in Swift semantic tests: **139**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **42**
+- Pending direct Swift adaptation: **39**
 
 ## Highest-priority pending buckets
 
@@ -124,15 +124,15 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestStreamAnthropicUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Uses Explicit Auth Header Without APIKey |
 | PENDING | `TestStreamAnthropicRetries429AndSucceeds` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Retries429 And Succeeds |
 | PENDING | `TestProcessConverseStreamSurfacesStreamErr` | `inference/provider/bedrock/bedrock_stream_test.go` | `—` | streaming/event transport behavior: Process Converse Stream Surfaces Stream Err |
-| PENDING | `TestMapStopReason` | `inference/provider/bedrock/bedrock_stream_test.go` | `—` | Map Stop Reason |
-| PENDING | `TestExtractRegionFromURL` | `inference/provider/bedrock/bedrock_test.go` | `—` | Extract Region From URL |
+| ADAPTED | `TestMapStopReason` | `inference/provider/bedrock/bedrock_stream_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Map Stop Reason |
+| ADAPTED | `TestExtractRegionFromURL` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Extract Region From URL |
 | PARTIAL | `TestShouldUseExplicitBedrockEndpoint` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | Should Use Explicit Bedrock Endpoint |
 | PARTIAL | `TestBedrockCustomHeaderReservation` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | auth/header/env edge case: Bedrock Custom Header Reservation |
 | PARTIAL | `TestBedrockOptionPrecedenceAndRequestMetadata` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Option Precedence And Request Metadata |
 | PENDING | `TestBuildConverseInputIncludesSystemToolsAndThinking` | `inference/provider/bedrock/bedrock_test.go` | `—` | tool-call/schema conversion behavior: Build Converse Input Includes System Tools And Thinking |
 | PENDING | `TestBuildConverseInputUsesNativeXhighForClaudeOpus47` | `inference/provider/bedrock/bedrock_test.go` | `—` | Build Converse Input Uses Native Xhigh For Claude Opus47 |
 | PENDING | `TestConvertMessagesCoalescesConsecutiveToolResults` | `inference/provider/bedrock/bedrock_test.go` | `—` | tool-call/schema conversion behavior: Convert Messages Coalesces Consecutive Tool Results |
-| PENDING | `TestCreateImageBlockDecodesBase64` | `inference/provider/bedrock/bedrock_test.go` | `—` | image generation behavior: Create Image Block Decodes Base64 |
+| ADAPTED | `TestCreateImageBlockDecodesBase64` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | image generation behavior: Create Image Block Decodes Base64 |
 | PARTIAL | `TestBedrockPayloadHookCanReplaceInput` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Payload Hook Can Replace Input |
 | ADAPTED | `TestFauxContentAndAssistantHelpers` | `inference/provider/faux/faux_test.go` | `testFauxProviderHelpers` | Faux Content And Assistant Helpers |
 | ADAPTED | `TestFauxTextStream` | `inference/provider/faux/faux_test.go` | `testFauxProviderHelpers` | streaming/event transport behavior: Faux Text Stream |

@@ -53,6 +53,14 @@ public enum BedrockProvider {
         return rest.components(separatedBy: ".amazonaws.com").first?.components(separatedBy: ".amazonaws.com.cn").first
     }
 
+    public static func mapStopReason(_ raw: String?) -> StopReason {
+        switch raw { case "end_turn", "stop_sequence": return .stop; case "tool_use": return .toolUse; case "max_tokens": return .length; case "guardrail_intervened", "content_filtered", "error": return .error; default: return .stop }
+    }
+
+    public static func createImageBlock(data: String, mimeType: String) -> JSONValue {
+        .object(["image": .object(["format": .string(mimeType.components(separatedBy: "/").last ?? "png"), "source": .object(["bytes": .string(data)])])])
+    }
+
     public static func buildConverseRequest(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
         var request: [String: JSONValue] = ["modelId": .string(model.id), "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model)))]
         if let system = context.systemPrompt, !system.isEmpty { request["system"] = .array([.object(["text": .string(AIUtilities.sanitizeSurrogates(system))])]) }
@@ -87,7 +95,7 @@ public enum BedrockProvider {
     private static func contentBlock(_ block: ContentBlock) -> JSONValue? {
         switch block.type {
         case "text": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])
-        case "image": return .object(["image": .object(["format": .string((block.mimeType ?? "image/png").components(separatedBy: "/").last ?? "png"), "source": .object(["bytes": .string(block.data ?? "")])])])
+        case "image": return createImageBlock(data: block.data ?? "", mimeType: block.mimeType ?? "image/png")
         case "toolCall": return .object(["toolUse": .object(["toolUseId": .string(block.id ?? ""), "name": .string(block.name ?? ""), "input": .object(block.arguments ?? [:])])])
         case "thinking": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])
         default: return nil

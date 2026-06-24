@@ -275,6 +275,17 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertNotNil(body["messages"]?.arrayValue)
     }
 
+    func testBedrockRegionStopReasonAndImageBlockHelpers() {
+        XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime.eu-central-1.amazonaws.com"), "eu-central-1")
+        XCTAssertEqual(BedrockProvider.standardEndpointRegion("https://bedrock-runtime-fips.us-gov-west-1.amazonaws.com"), "us-gov-west-1")
+        XCTAssertNil(BedrockProvider.standardEndpointRegion("https://proxy.example.com"))
+        XCTAssertEqual(BedrockProvider.mapStopReason("end_turn"), .stop)
+        XCTAssertEqual(BedrockProvider.mapStopReason("tool_use"), .toolUse)
+        XCTAssertEqual(BedrockProvider.mapStopReason("max_tokens"), .length)
+        XCTAssertEqual(BedrockProvider.mapStopReason("guardrail_intervened"), .error)
+        XCTAssertEqual(BedrockProvider.createImageBlock(data: "YWJj", mimeType: "image/png"), .object(["image": .object(["format": .string("png"), "source": .object(["bytes": .string("YWJj")])])]))
+    }
+
     func testFireworksKimiK26ModelMetadataAndCompat() throws {
         let model = try model(.fireworks, "accounts/fireworks/models/kimi-k2p6")
         XCTAssertEqual(model.api, .anthropicMessages)

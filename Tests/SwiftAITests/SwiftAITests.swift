@@ -1290,6 +1290,31 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.output, 2)
     }
 
+    func testOpenAIResponseModelEchoAndEmptyIgnored() {
+        let model = Model(id: "openrouter/auto", name: "Auto", api: .openAICompletions, provider: .openRouter)
+        let echo = """
+        data: {"id":"chatcmpl-2","model":"openrouter/auto","choices":[{"index":0,"delta":{"content":"hi"}}]}
+
+        data: {"id":"chatcmpl-2","model":"openrouter/auto","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"prompt_tokens_details":{"cached_tokens":0}}}
+
+        """
+        guard case .done(_, let echoMessage)? = OpenAICompletionsProvider.processSSEText(echo, model: model).last else { return XCTFail("missing echo done") }
+        XCTAssertEqual(echoMessage.model, "openrouter/auto")
+        XCTAssertNil(echoMessage.responseModel)
+
+        let missing = """
+        data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{"content":"hi"}}]}
+
+        data: {"id":"chatcmpl-3","model":"","choices":[{"index":0,"delta":{"content":"!"}}]}
+
+        data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":0}}}
+
+        """
+        guard case .done(_, let missingMessage)? = OpenAICompletionsProvider.processSSEText(missing, model: model).last else { return XCTFail("missing missing done") }
+        XCTAssertEqual(missingMessage.model, "openrouter/auto")
+        XCTAssertNil(missingMessage.responseModel)
+    }
+
     func testOpenAISSEErrorFinishEmitsError() {
         let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI)
         let sse = """

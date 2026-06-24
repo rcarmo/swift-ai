@@ -112,6 +112,11 @@ public enum OpenAICompletionsProvider {
             }
             var obj: [String: JSONValue] = ["role": .string(role), "content": contentValue]
             if message.role == .assistant {
+                let reasoningDetails = message.content.compactMap { block -> JSONValue? in
+                    guard block.type == "toolCall", let sig = block.thoughtSignature, let data = sig.data(using: .utf8) else { return nil }
+                    return try? JSONDecoder().decode(JSONValue.self, from: data)
+                }
+                if !reasoningDetails.isEmpty { obj["reasoning_details"] = .array(reasoningDetails) }
                 if compat.requiresReasoningContentOnAssistantMessages == true {
                     let reasoning = message.content.filter { $0.type == "thinking" }.compactMap(\.thinking).joined()
                     obj["reasoning_content"] = .string(AIUtilities.sanitizeSurrogates(reasoning))
@@ -304,16 +309,26 @@ public enum OpenAICompletionsProvider {
             state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + reasoning
             yield(.thinkingDelta(contentIndex: idx, delta: reasoning, partial: state.partial))
         }
+        for detail in delta.reasoningDetails ?? [] {
+            if let id = reasoningDetailID(detail) {
+                if let idx = state.partial.content.firstIndex(where: { $0.type == "toolCall" && $0.id == id }) {
+                    state.partial.content[idx].thoughtSignature = jsonString(detail)
+                } else {
+                    state.pendingReasoningDetails[id] = detail
+                }
+            }
+        }
         for tool in delta.toolCalls ?? [] {
             let key = tool.index
             if state.activeTools[key] == nil {
                 let idx = state.partial.content.count
                 state.partial.content.append(ContentBlock(type: "toolCall", id: tool.id, name: tool.function?.name))
                 state.activeTools[key] = ActiveTool(index: key, id: tool.id, name: tool.function?.name, args: "", contentIndex: idx)
+                if let id = tool.id, let detail = state.pendingReasoningDetails[id] { state.partial.content[idx].thoughtSignature = jsonString(detail) }
                 yield(.toolCallStart(contentIndex: idx, partial: state.partial))
             }
             guard var active = state.activeTools[key] else { continue }
-            if let id = tool.id { active.id = id; state.partial.content[active.contentIndex].id = id }
+            if let id = tool.id { active.id = id; state.partial.content[active.contentIndex].id = id; if let detail = state.pendingReasoningDetails[id] { state.partial.content[active.contentIndex].thoughtSignature = jsonString(detail) } }
             if let name = tool.function?.name { active.name = name; state.partial.content[active.contentIndex].name = name }
             if let args = tool.function?.arguments, !args.isEmpty { active.args += args; yield(.toolCallDelta(contentIndex: active.contentIndex, delta: args, partial: state.partial)) }
             state.activeTools[key] = active
@@ -347,6 +362,8 @@ public enum OpenAICompletionsProvider {
     }
 
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
+    private static func jsonString(_ value: JSONValue) -> String { guard let data = try? JSONEncoder().encode(value) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+    private static func reasoningDetailID(_ value: JSONValue) -> String? { if case .object(let object) = value, object["type"] == .string("reasoning.encrypted") { return object["id"]?.stringValue }; return nil }
 
     private static func stopReason(from finish: String?) -> StopReason {
         switch finish {
@@ -365,6 +382,7 @@ private struct StreamState {
     var doneSeen = false
     var finishReason: String?
     var activeTools: [Int: ActiveTool] = [:]
+    var pendingReasoningDetails: [String: JSONValue] = [:]
     init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg }
     mutating func applyUsage(_ raw: SSEUsage) { var u = partial.usage ?? Usage(); u.input = raw.promptTokens ?? 0; u.output = raw.completionTokens ?? 0; u.totalTokens = raw.totalTokens ?? (u.input + u.output); if let cached = raw.promptTokensDetails?.cachedTokens ?? raw.promptCacheHitTokens { u.cacheRead = cached; u.input = max(0, u.input - cached) }; if let written = raw.promptTokensDetails?.cacheWriteTokens { u.cacheWrite = written; u.input = max(0, u.input - written) }; AIUtilities.applyCost(model: model, usage: &u); partial.usage = u }
 }
@@ -376,7 +394,7 @@ private struct ChatUsage: Decodable { var promptTokens: Int?; var completionToke
 
 private struct SSEChunk: Decodable { var id: String?; var model: String?; var choices: [SSEChoice]; var usage: SSEUsage? }
 private struct SSEChoice: Decodable { var index: Int?; var delta: SSEDelta; var finishReason: String?; var usage: SSEUsage?; enum CodingKeys: String, CodingKey { case index, delta, usage; case finishReason = "finish_reason" } }
-private struct SSEDelta: Decodable { var role: String?; var content: String?; var toolCalls: [SSEToolCall]?; var reasoning: String?; var reasoningContent: String?; var reasoningText: String?; enum CodingKeys: String, CodingKey { case role, content, reasoning; case toolCalls = "tool_calls"; case reasoningContent = "reasoning_content"; case reasoningText = "reasoning_text" } }
+private struct SSEDelta: Decodable { var role: String?; var content: String?; var toolCalls: [SSEToolCall]?; var reasoning: String?; var reasoningContent: String?; var reasoningText: String?; var reasoningDetails: [JSONValue]?; enum CodingKeys: String, CodingKey { case role, content, reasoning; case toolCalls = "tool_calls"; case reasoningContent = "reasoning_content"; case reasoningText = "reasoning_text"; case reasoningDetails = "reasoning_details" } }
 private struct SSEToolCall: Decodable { var index: Int; var id: String?; var type: String?; var function: SSEToolFunction? }
 private struct SSEToolFunction: Decodable { var name: String?; var arguments: String? }
 private struct SSEUsage: Decodable { var promptTokens: Int?; var completionTokens: Int?; var totalTokens: Int?; var promptCacheHitTokens: Int?; var promptTokensDetails: PromptTokensDetails?; enum CodingKeys: String, CodingKey { case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens"; case promptCacheHitTokens = "prompt_cache_hit_tokens"; case promptTokensDetails = "prompt_tokens_details" }; struct PromptTokensDetails: Decodable { var cachedTokens: Int?; var cacheWriteTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens"; case cacheWriteTokens = "cache_write_tokens" } } }

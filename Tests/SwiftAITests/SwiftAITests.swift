@@ -1290,6 +1290,27 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(message.usage?.output, 2)
     }
 
+    func testOpenAIReasoningDetailsStreamingAndReplay() {
+        let detail: JSONValue = .object(["type": .string("reasoning.encrypted"), "id": .string("call_1"), "data": .string("encrypted-signature")])
+        let model = Model(id: "google/gemini-test", name: "Gemini", api: .openAICompletions, provider: .openRouter, reasoning: true)
+        let sse = """
+        data: {"id":"chatcmpl-test","model":"google/gemini-test","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.encrypted","id":"call_1","data":"encrypted-signature"}]}}]}
+
+        data: {"id":"chatcmpl-test","model":"google/gemini-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"read","arguments":"{\\\"path\\\":\\\"README.md\\\"}"}}]},"finish_reason":"tool_calls"}]}
+
+        """
+        guard case .done(_, let assistant)? = OpenAICompletionsProvider.processSSEText(sse, model: model).last else { return XCTFail("missing done") }
+        let toolCall = try! XCTUnwrap(assistant.content.first { $0.type == "toolCall" })
+        XCTAssertEqual(toolCall.id, "call_1")
+        XCTAssertEqual(toolCall.name, "read")
+        XCTAssertEqual(toolCall.arguments, ["path": .string("README.md")])
+        let signatureData = try! XCTUnwrap(toolCall.thoughtSignature?.data(using: .utf8))
+        XCTAssertEqual(try! JSONDecoder().decode(JSONValue.self, from: signatureData), detail)
+        let replay = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant], tools: [Tool(name: "read", description: "Read", parameters: .object(["type": .string("object")]))]), options: nil)
+        guard case .array(let messages)? = replay["messages"], case .object(let replayAssistant) = messages[0], case .array(let details)? = replayAssistant["reasoning_details"] else { return XCTFail("missing replay reasoning details") }
+        XCTAssertEqual(details, [detail])
+    }
+
     func testOpenAIResponseModelEchoAndEmptyIgnored() {
         let model = Model(id: "openrouter/auto", name: "Auto", api: .openAICompletions, provider: .openRouter)
         let echo = """

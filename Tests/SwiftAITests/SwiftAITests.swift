@@ -719,6 +719,37 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try OpenAIResponsesProvider.extractCodexAccountID("h.\(payloadPart).s"), "acct")
     }
 
+    func testOpenAIResponsesPartialJSONCleanup() {
+        let model = Model(id: "gpt-5-mini", name: "GPT", api: .openAIResponses, provider: .openAI)
+        let sse = """
+        event: response.output_item.added
+        data: {"item":{"type":"function_call","id":"fc_test","call_id":"call_test","name":"edit"}}
+
+        event: response.function_call_arguments.delta
+        data: {"delta":"{\\\"path\\\":\\\"README.md\\\""}
+
+        event: response.function_call_arguments.delta
+        data: {"delta":",\\\"content\\\":\\\"draft\\\"}"}
+
+        event: response.function_call_arguments.done
+        data: {"arguments":"{\\\"path\\\":\\\"README.md\\\",\\\"content\\\":\\\"updated\\\"}"}
+
+        event: response.output_item.done
+        data: {"item":{"type":"function_call","id":"fc_test","call_id":"call_test","name":"edit","arguments":"{\\\"path\\\":\\\"README.md\\\",\\\"content\\\":\\\"updated\\\"}"}}
+
+        event: response.completed
+        data: {"response":{"id":"resp_test","status":"completed"}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+        guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.content.count, 1)
+        XCTAssertEqual(message.content[0].type, "toolCall")
+        XCTAssertEqual(message.content[0].arguments, ["path": .string("README.md"), "content": .string("updated")])
+        let endEvents = events.filter { if case .toolCallEnd = $0 { return true }; return false }
+        XCTAssertEqual(endEvents.count, 1)
+    }
+
     func testOpenAIResponsesFailedEventEmitsError() {
         let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
         let failed = """

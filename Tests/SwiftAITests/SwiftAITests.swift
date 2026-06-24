@@ -213,6 +213,32 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(adjusted.thinkingBudget, 0)
     }
 
+    func testUpstreamSupportedThinkingLevels() throws {
+        let models = try BuiltinModels.all()
+        func model(_ provider: Provider, _ id: String) throws -> Model {
+            try XCTUnwrap(models.first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
+        }
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-opus-4-6")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-opus-4-8")).contains(.xhigh))
+        let fable = AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-fable-5"))
+        XCTAssertTrue(fable.contains(.xhigh))
+        XCTAssertFalse(fable.contains(.off))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-sonnet-4-5")).contains(.xhigh))
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.openAI, "gpt-5.5-pro")), [.medium, .high, .xhigh])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "openai/gpt-5.5-pro")), [.medium, .high, .xhigh])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-v4-flash")), [.off, .high, .xhigh])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "deepseek-v4-flash")), [.off, .high, .xhigh])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "kimi-k2.6")), [.off, .high])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAI, "kimi-k2.7-code")), [.minimal, .low, .medium, .high])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAICN, "kimi-k2.7-code")), [.minimal, .low, .medium, .high])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.openCode, "grok-build-0.1")), [.high])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "deepseek/deepseek-v4-flash")), [.off, .high, .xhigh])
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "anthropic/claude-opus-4.6")).contains(.xhigh))
+        let bedrockFable = AIUtilities.supportedThinkingLevels(model: try model(.amazonBedrock, "global.anthropic.claude-fable-5"))
+        XCTAssertTrue(bedrockFable.contains(.xhigh))
+        XCTAssertFalse(bedrockFable.contains(.off))
+    }
+
     func testThinkingHelpers() {
         let low = "low"
         let high = "high"

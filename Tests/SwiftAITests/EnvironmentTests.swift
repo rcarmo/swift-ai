@@ -16,6 +16,12 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertNil(missing)
     }
 
+    func testEnvAPIKeysCopilotAndZAICodingCNMappings() {
+        XCTAssertNil(ProviderEnvironment.apiKey(for: .githubCopilot, env: ["GH_TOKEN": "gh-token", "GITHUB_TOKEN": "github-token"]))
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .githubCopilot, env: ["COPILOT_GITHUB_TOKEN": "copilot-token", "GH_TOKEN": "gh-token", "GITHUB_TOKEN": "github-token"]), "copilot-token")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .zaiCodingCN, env: ["ZAI_CODING_CN_API_KEY": "zai-coding-cn-token"]), "zai-coding-cn-token")
+    }
+
     func testGetEnvAPIKeyProviderMappings() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openAI, env: ["OPENAI_API_KEY": "openai-key"]), "openai-key")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")

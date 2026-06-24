@@ -2,6 +2,33 @@ import XCTest
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
+    func testModelsRuntimeRegistryOperationsAndUnknownProvider() async throws {
+        await AIRegistry.shared.clearProviders()
+        await AIRegistry.shared.clearModels()
+        await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: { model, _, _ in
+            AsyncStream { continuation in
+                var output = Message(role: .assistant, content: [.text("ok")])
+                output.api = model.api; output.provider = model.provider; output.model = model.id; output.stopReason = .stop; output.usage = Usage()
+                continuation.yield(.start(partial: output)); continuation.yield(.done(reason: .stop, message: output)); continuation.finish()
+            }
+        }))
+        XCTAssertNotNil(await AIRegistry.shared.apiProvider(for: .openAICompletions))
+        await AIRegistry.shared.unregister(api: .openAICompletions)
+        XCTAssertNil(await AIRegistry.shared.apiProvider(for: .openAICompletions))
+        await AIRegistry.shared.register(Model(id: "m1", name: "M1", api: .openAICompletions, provider: .openAI))
+        await AIRegistry.shared.register(Model(id: "m2", name: "M2", api: .openAIResponses, provider: .openAI))
+        await AIRegistry.shared.register(Model(id: "m3", name: "M3", api: .anthropicMessages, provider: .anthropic))
+        XCTAssertEqual(await AIRegistry.shared.listModels(provider: .openAI).map(\.id), ["m1", "m2"])
+        XCTAssertEqual(await AIRegistry.shared.model(provider: .anthropic, id: "m3")?.id, "m3")
+        XCTAssertEqual(await AIRegistry.shared.listProviders(), [.anthropic, .openAI])
+        let ghost = Model(id: "ghost", name: "Ghost", api: .mistralConversations, provider: .mistral)
+        let events = await SwiftAI.stream(model: ghost, context: AIContext(), options: nil)
+        var sawError = false
+        for await event in events { if case .error(_, _, let error) = event { sawError = true; XCTAssertTrue(String(describing: error).contains("No provider registered") || String(describing: error).contains("noProvider")) } }
+        XCTAssertTrue(sawError)
+        await SwiftAI.bootstrap()
+    }
+
     func testCompatLegacyAPIRegistryDispatchPreservesRequestAPIKey() async throws {
         await AIRegistry.shared.clearProviders()
         final class Box: @unchecked Sendable { var apiKey: String? }

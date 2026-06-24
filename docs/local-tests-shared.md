@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **128**
+- Adapted in Swift semantic tests: **130**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **50**
+- Pending direct Swift adaptation: **48**
 
 ## Highest-priority pending buckets
 
@@ -201,10 +201,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestNormalizeDomain` | `oauth/oauth_test.go` | `testOAuthPKCEAndCopilotHelpers` | Normalize Domain |
 | ADAPTED | `TestGetGitHubCopilotBaseURL` | `oauth/oauth_test.go` | `testOAuthPKCEAndCopilotHelpers` | provider OAuth/provider-specific behavior: Get Git Hub Copilot Base URL |
 | ADAPTED | `TestGitHubCopilotModelFiltering` | `oauth/oauth_test.go` | `testOAuthPKCEAndCopilotHelpers` | model registry/generated metadata parity: Git Hub Copilot Model Filtering |
-| PENDING | `TestIsSelectableCopilotModel` | `oauth/oauth_test.go` | `—` | streaming/event transport behavior: Is Selectable Copilot Model |
+| ADAPTED | `TestIsSelectableCopilotModel` | `oauth/oauth_test.go` | `testGitHubCopilotOAuthModelFilteringAndVerificationURI`, `testOAuthPKCEAndCopilotHelpers` | streaming/event transport behavior: Is Selectable Copilot Model |
 | PENDING | `TestGetAPIKeyRefreshesExpiredCredential` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: Get APIKey Refreshes Expired Credential |
 | PENDING | `TestGetAPIKeyKeepsValidCredential` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: Get APIKey Keeps Valid Credential |
-| PENDING | `TestOAuthRegistryRoundTrip` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: OAuth Registry Round Trip |
+| ADAPTED | `TestOAuthRegistryRoundTrip` | `oauth/oauth_test.go` | `testOAuthRegistryRoundTrip` | auth/header/env edge case: OAuth Registry Round Trip |
 | PENDING | `TestParseSSESurfacesReaderErrors` | `transports/sse/sse_error_test.go` | `—` | streaming/event transport behavior: Parse SSESurfaces Reader Errors |
 | ADAPTED | `TestParseSSE` | `transports/sse/sse_test.go` | `testSSEParser` | streaming/event transport behavior: Parse SSE |
 | ADAPTED | `TestParseMultilineData` | `transports/sse/sse_test.go` | `testSSEParserMultilineStickyIDAndRetry` | Parse Multiline Data |

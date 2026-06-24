@@ -766,6 +766,19 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(filtered.first?.baseUrl, "https://api.business.githubcopilot.com")
     }
 
+    func testOAuthRegistryRoundTrip() async throws {
+        await OAuthRegistry.shared.clear()
+        let provider = OpenAICodexOAuthProvider()
+        await OAuthRegistry.shared.register(provider)
+        XCTAssertEqual(await OAuthRegistry.shared.provider(id: "openai-codex")?.id, "openai-codex")
+        XCTAssertEqual(await OAuthRegistry.shared.listProviders().map(\.id), ["openai-codex"])
+        let creds = OAuthCredentials(refresh: "r", access: "access-token", expires: 0)
+        let (_, key) = try await OAuthRegistry.shared.apiKey(id: "openai-codex", credentials: creds)
+        XCTAssertEqual(key, "access-token")
+        await OAuthRegistry.shared.clear()
+        await SwiftAI.bootstrap()
+    }
+
     func testRetryPolicy() throws {
         XCTAssertEqual(RetryPolicy(options: Optional<StreamOptions>.none).maxRetries, 0)
         var explicit = StreamOptions()

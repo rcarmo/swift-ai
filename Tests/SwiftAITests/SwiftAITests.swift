@@ -663,6 +663,13 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(provider.apiKey(credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)), "a")
     }
 
+    func testOpenAICodexTokenRefreshFailureDoesNotWriteToStderr() {
+        let body = #"{"error":{"message":"Could not validate your token. Please try signing in again.","type":"invalid_request_error"}}"#
+        let message = OpenAICodexOAuthProvider.refreshFailureMessage(status: 401, body: body)
+        XCTAssertTrue(message.contains("OpenAI Codex token refresh failed (401)"))
+        XCTAssertTrue(message.contains("Could not validate your token"))
+    }
+
     func testOpenAICodexOAuthDeviceCodeHelpers() throws {
         XCTAssertEqual(OpenAICodexOAuthProvider.deviceUserCodeURL, "https://auth.openai.com/api/accounts/deviceauth/usercode")
         XCTAssertEqual(OpenAICodexOAuthProvider.deviceTokenURL, "https://auth.openai.com/api/accounts/deviceauth/token")

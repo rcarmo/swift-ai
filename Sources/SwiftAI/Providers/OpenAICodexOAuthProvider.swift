@@ -34,6 +34,14 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
     public static func deviceUserCodeBody() -> [String: JSONValue] { ["client_id": .string(clientID)] }
     public static func deviceTokenBody(deviceAuthID: String, userCode: String) -> [String: JSONValue] { ["device_auth_id": .string(deviceAuthID), "user_code": .string(userCode)] }
     public static func authorizationCodeFields(code: String, verifier: String) -> [String: String] { ["grant_type": "authorization_code", "client_id": clientID, "code": code, "redirect_uri": codexRedirectURI, "code_verifier": verifier] }
+    public static func refreshFailureMessage(status: Int, body: String) -> String {
+        let data = body.data(using: .utf8) ?? Data()
+        let raw = (try? JSONDecoder().decode([String: JSONValue].self, from: data)) ?? [:]
+        let nested = raw["error"]?.objectValue
+        let message = nested?["message"]?.stringValue ?? raw["error_description"]?.stringValue ?? raw["error"]?.stringValue ?? body
+        return "OpenAI Codex token refresh failed (\(status)): \(message)"
+    }
+
     public static func extractAccountID(from accessToken: String) throws -> String {
         let parts = accessToken.split(separator: ".")
         guard parts.count >= 2 else { throw AIError.provider("no chatgpt_account_id in token") }
@@ -87,7 +95,7 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = form(["grant_type": "refresh_token", "client_id": legacyClientID, "refresh_token": refreshToken])
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { let status = (response as? HTTPURLResponse)?.statusCode ?? 0; throw AIError.provider(Self.refreshFailureMessage(status: status, body: String(data: data, encoding: .utf8) ?? "")) }
         let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
         let access = raw["access_token"]?.stringValue ?? ""
         let refresh = raw["refresh_token"]?.stringValue ?? refreshToken

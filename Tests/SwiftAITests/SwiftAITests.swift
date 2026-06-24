@@ -1251,6 +1251,25 @@ final class SwiftAITests: XCTestCase {
         XCTAssertGreaterThan(tools.count, 0)
     }
 
+    func testOpenAICompletionsEmptyToolsAndMaxTokens() {
+        let model = Model(id: "gpt-4o-mini", name: "GPT", api: .openAICompletions, provider: .openAI)
+        let emptyTools = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: []), options: nil)
+        XCTAssertNil(emptyTools["tools"])
+        let noTools = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertNil(noTools["tools"])
+        XCTAssertNil(noTools["max_tokens"])
+        XCTAssertNil(noTools["max_completion_tokens"])
+        var options = StreamOptions(); options.maxTokens = 1234
+        let explicit = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(explicit["max_tokens"])
+        XCTAssertEqual(explicit["max_completion_tokens"], .number(1234))
+        var compat = OpenAICompletionsCompat(); compat.maxTokensField = "max_tokens"
+        let maxTokensModel = Model(id: "cf", name: "CF", api: .openAICompletions, provider: .cloudflareAIGateway, completionsCompat: compat)
+        let maxTokensBody = OpenAICompletionsProvider.buildRequestBody(model: maxTokensModel, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(maxTokensBody["max_tokens"], .number(1234))
+        XCTAssertNil(maxTokensBody["max_completion_tokens"])
+    }
+
     func testOpenAICompat0802Params() {
         let nonOpenAI = Model(id: "m", name: "M", api: .openAICompletions, provider: .openRouter, baseUrl: "https://openrouter.ai/api/v1")
         var options = StreamOptions()

@@ -836,6 +836,20 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolReason, .toolUse)
     }
 
+    func testOpenAIResponsesProviderDefaultReasoningMatrix() throws {
+        let models = try BuiltinModels.all()
+        for id in ["gpt-5.1", "gpt-5.2", "gpt-5.3-codex", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.5"] {
+            let model = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == id })
+            let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)
+            XCTAssertEqual(body["reasoning"], .object(["effort": .string("none"), "summary": .string("auto")]), id)
+        }
+        for id in ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-pro", "gpt-5.2-pro", "gpt-5.4-pro", "gpt-5.5-pro"] {
+            let model = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == id })
+            let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)
+            XCTAssertNil(body["reasoning"], id)
+        }
+    }
+
     func testOpenAIResponsesDefaultReasoning() {
         let model = Model(id: "gpt-5", name: "GPT-5", api: .openAIResponses, provider: .openAI, reasoning: true)
         let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)

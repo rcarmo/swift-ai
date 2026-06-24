@@ -40,7 +40,11 @@ public enum OpenAIResponsesProvider {
         if let t = options?.temperature { body["temperature"] = .number(t) }
         if let max = options?.maxTokens { body["max_output_tokens"] = .number(Double(max)) }
         if model.reasoning {
-            let effort = options?.reasoning.map { mappedThinkingEffort(model: model, effort: $0.rawValue) } ?? (model.provider == .githubCopilot ? "" : "medium")
+            let effort: String
+            if let reasoning = options?.reasoning { effort = mappedThinkingEffort(model: model, effort: reasoning.rawValue) }
+            else if model.provider == .githubCopilot { effort = "" }
+            else if let off = model.thinkingLevelMap?[.off] { effort = off ?? "" }
+            else { effort = "medium" }
             if !effort.isEmpty { body["reasoning"] = .object(["effort": .string(effort), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")]) }
         } else if let reasoning = options?.reasoning {
             body["reasoning"] = .object(["effort": .string(mappedThinkingEffort(model: model, effort: reasoning.rawValue)), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")])

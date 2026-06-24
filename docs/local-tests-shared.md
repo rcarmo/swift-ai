@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **148**
-- Partial/pluggable transport coverage: **21**
-- Pending direct Swift adaptation: **20**
+- Adapted in Swift semantic tests: **151**
+- Partial/pluggable transport coverage: **23**
+- Pending direct Swift adaptation: **15**
 
 ## Highest-priority pending buckets
 
@@ -151,8 +151,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestStreamGoogleRetries429AndSucceeds` | `inference/provider/google/google_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Google Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | PARTIAL | `TestStreamMistralRetries429AndSucceeds` | `inference/provider/mistral/mistral_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Mistral Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | ADAPTED | `TestStreamOpenAIInvokesOnPayload` | `inference/provider/openai/openai_payload_test.go` | `testStreamAndImageOptionHooks` | provider request/payload parity: Stream Open AIInvokes On Payload |
-| PENDING | `TestStreamOpenAIUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AIUses Explicit Auth Header Without APIKey |
-| PENDING | `TestStreamOpenAICloudflareAIGatewayHeadersAndURL` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AICloudflare AIGateway Headers And URL |
+| PARTIAL | `TestStreamOpenAIUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openai/openai_payload_test.go` | `testAuthHeaderAndMergeHelpers` | streaming/event transport behavior: explicit auth-header detection covered; URLSession transport replay pending |
+| ADAPTED | `TestStreamOpenAICloudflareAIGatewayHeadersAndURL` | `inference/provider/openai/openai_payload_test.go` | `testCloudflareBaseURLHelpers`, `testAuthHeaderAndMergeHelpers` | streaming/event transport behavior: Stream Open AICloudflare AIGateway Headers And URL |
 | ADAPTED | `TestBuildRequestBodyClampsPromptCacheKey` | `inference/provider/openai/openai_payload_test.go` | `testOpenAICompletionsRequestCacheAndThinkingFormats` | provider request/payload parity: Build Request Body Clamps Prompt Cache Key |
 | ADAPTED | `TestBuildRequestBodyUsesCompatThinkingFormats` | `inference/provider/openai/openai_payload_test.go` | `testOpenAICompletionsRequestCacheAndThinkingFormats` | provider request/payload parity: Build Request Body Uses Compat Thinking Formats |
 | ADAPTED | `TestProcessSSEStreamCapturesResponseModelAndCacheUsage` | `inference/provider/openai/openai_payload_test.go` | `testOpenAISSEProcessing`, `testOpenAIResponseModelEchoAndEmptyIgnored` | streaming/event transport behavior: Process SSEStream Captures Response Model And Cache Usage |
@@ -170,13 +170,13 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestStreamViaWebSocketProtocolFlow` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: Stream Via Web Socket Protocol Flow |
 | ADAPTED | `TestResolveAzureResponsesConfigUsesEnvAndDeploymentMap` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureResponsesHelpers`, `testAzureOpenAIResponsesConfigAndPayloadDefaults` | Resolve Azure Responses Config Uses Env And Deployment Map |
 | ADAPTED | `TestResolveAzureResponsesConfigNormalizesAzureHost` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureOpenAIResponsesBaseURLNormalization` | Resolve Azure Responses Config Normalizes Azure Host |
-| PENDING | `TestResponsesUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | auth/header/env edge case: Responses Uses Explicit Auth Header Without APIKey |
-| PENDING | `TestAzureResponsesRequestAppliesCleanupAndSessionHeaders` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | provider request/payload parity: Azure Responses Request Applies Cleanup And Session Headers |
+| PARTIAL | `TestResponsesUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openairesponses/responses_azure_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: explicit auth-header detection covered; URLSession transport replay pending |
+| ADAPTED | `TestAzureResponsesRequestAppliesCleanupAndSessionHeaders` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureOpenAIResponsesConfigAndPayloadDefaults`, `testCopilotAndSessionHeaders` | provider request/payload parity: Azure Responses Request Applies Cleanup And Session Headers |
 | ADAPTED | `TestAzureResponsesNormalizesCommentaryIntoThinkingEvents` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Azure Responses Normalizes Commentary Into Thinking Events |
 | ADAPTED | `TestBuildRequestOmitsDefaultReasoningForGitHubCopilot` | `inference/provider/openairesponses/responses_request_test.go` | `testOpenAIResponsesProviderDefaultReasoningMatrix` | provider request/payload parity: Build Request Omits Default Reasoning For Git Hub Copilot |
 | ADAPTED | `TestBuildRequestClampsPromptCacheKey` | `inference/provider/openairesponses/responses_request_test.go` | `testAzureOpenAIResponsesConfigAndPayloadDefaults` | provider request/payload parity: Build Request Clamps Prompt Cache Key |
 | ADAPTED | `TestBuildRequestDefaultsReasoningForNonCopilotReasoningModels` | `inference/provider/openairesponses/responses_request_test.go` | `testOpenAIResponsesProviderDefaultReasoningMatrix` | provider request/payload parity: Build Request Defaults Reasoning For Non Copilot Reasoning Models |
-| PENDING | `TestBuildAssistantItemsAllowsEmptyThinkingSignature` | `inference/provider/openairesponses/responses_request_test.go` | `—` | reasoning/thinking wire-format behavior: Build Assistant Items Allows Empty Thinking Signature |
+| ADAPTED | `TestBuildAssistantItemsAllowsEmptyThinkingSignature` | `inference/provider/openairesponses/responses_request_test.go` | `testOpenAIResponsesAssistantItemsAllowEmptyThinkingSignature` | reasoning/thinking wire-format behavior: Build Assistant Items Allows Empty Thinking Signature |
 | PARTIAL | `TestStreamResponsesRetries429AndSucceeds` | `inference/provider/openairesponses/responses_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Responses Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | ADAPTED | `TestParseCompleteJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Complete JSON |
 | ADAPTED | `TestParsePartialJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Partial JSON |

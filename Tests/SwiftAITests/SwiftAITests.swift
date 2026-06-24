@@ -1199,6 +1199,16 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(OpenAIResponsesProvider.extractCodexEventError(.object(["event": .object(["error": .object(["message": .string("nested boom")])])])), "nested boom")
     }
 
+    func testOpenAIResponsesAssistantItemsAllowEmptyThinkingSignature() {
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        var assistant = Message(role: .assistant, content: [.thinking("private", signature: "")])
+        assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .stop
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let input)? = body["input"], case .object(let item) = input.first else { return XCTFail("missing input") }
+        XCTAssertEqual(item["type"], .string("reasoning"))
+        XCTAssertNotNil(item["id"])
+    }
+
     func testOpenAIResponsesForeignToolCallIDNormalization() {
         let rawID = "call_4VnzVawQXPB9MgYib7CiQFEY|I9b95oN1wD/cHXKTw3PpRkL6KkCtzTJhUxMouMWYwHeTo2j3htzfSk7YPx2vifiIM4g3A8XXyOj8q4Bt6SLUG7gqY1E3ELkrkVQNHglRfUmWj84lqxJY+Puieb3VKyX0FB+83TUzn91cDMF/4gzt990IzqVrc+nIb9RRscRD070Du16q1glydVjWR0SBJsE6TbY/esOjFpqplogQqrajm1eI++f3eLi73R6q7hVusY0QbeFySVxABCjhN0lXB04caBe1rzHjYzul6MAXj7uq+0r17VLq+yrtyYhN12wkmFqHeqTyEei6EFPbMy24Nc+IbJlkP0OCg02W+gOnyBFcbi2ctvJFSOhSjt1CqBdqCnnhwUqXjbWiT0wh3DmLScRgTHmGkaI+oAcQQjfic65nxj+TnEkReA=="
         var assistant = Message(role: .assistant, content: [.toolCall(id: rawID, name: "edit", arguments: ["path": .string("src/styles/app.css")])])

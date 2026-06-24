@@ -24,6 +24,24 @@ final class CoreUtilityTests: XCTestCase {
         }
     }
 
+    func testCompleteErrorEventWithoutMessage() async throws {
+        await AIRegistry.shared.clearProviders()
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { _, _, _ in
+            AsyncStream { continuation in
+                continuation.yield(.error(reason: .error, message: nil, error: AIError.provider("boom")))
+                continuation.finish()
+            }
+        }))
+        let model = Model(id: "m", name: "M", api: .faux, provider: .faux)
+        do {
+            _ = try await SwiftAI.complete(model: model)
+            XCTFail("expected error")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("boom"))
+        }
+        await SwiftAI.bootstrap()
+    }
+
     func testModelsRuntimeRegistryOperationsAndUnknownProvider() async throws {
         await AIRegistry.shared.clearProviders()
         await AIRegistry.shared.clearModels()

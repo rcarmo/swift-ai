@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **99**
+- Adapted in Swift semantic tests: **101**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **80**
+- Pending direct Swift adaptation: **78**
 
 ## Highest-priority pending buckets
 
@@ -45,9 +45,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestAppendAssistantMessage` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Append Assistant Message |
 | ADAPTED | `TestGetTextContent` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Get Text Content |
 | ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
-| PENDING | `TestCompleteViaFaux` | `coverage_boost_test.go` | `—` | Complete Via Faux |
+| ADAPTED | `TestCompleteViaFaux` | `coverage_boost_test.go` | `testFauxProviderHelpers` | Complete Via Faux |
 | PENDING | `TestStreamMissingFunction` | `coverage_boost_test.go` | `—` | streaming/event transport behavior: Stream Missing Function |
-| PENDING | `TestCompleteErrorEventWithoutMessage` | `coverage_boost_test.go` | `—` | Complete Error Event Without Message |
+| ADAPTED | `TestCompleteErrorEventWithoutMessage` | `coverage_boost_test.go` | `testCompleteErrorEventWithoutMessage` | Complete Error Event Without Message |
 | ADAPTED | `TestApplyToolCallLimitNoOp` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit No Op |
 | ADAPTED | `TestApplyToolCallLimitTrims` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit Trims |
 | ADAPTED | `TestAzureSessionHeaders` | `coverage_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Azure Session Headers |

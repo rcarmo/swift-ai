@@ -7,8 +7,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 
 - Go local tests inventoried: **189**
 - Adapted in Swift semantic tests: **145**
-- Partial/pluggable transport coverage: **13**
-- Pending direct Swift adaptation: **31**
+- Partial/pluggable transport coverage: **20**
+- Pending direct Swift adaptation: **24**
 
 ## Highest-priority pending buckets
 
@@ -122,7 +122,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PENDING | `TestBuildRequestJSONRoundTrip` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider request/payload parity: Build Request JSONRound Trip |
 | PENDING | `TestStreamAnthropicParsesOneHourCacheWriteUsage` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Parses One Hour Cache Write Usage |
 | PENDING | `TestStreamAnthropicUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Uses Explicit Auth Header Without APIKey |
-| PENDING | `TestStreamAnthropicRetries429AndSucceeds` | `inference/provider/anthropic/anthropic_retry_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Retries429 And Succeeds |
+| PARTIAL | `TestStreamAnthropicRetries429AndSucceeds` | `inference/provider/anthropic/anthropic_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Anthropic Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | PENDING | `TestProcessConverseStreamSurfacesStreamErr` | `inference/provider/bedrock/bedrock_stream_test.go` | `—` | streaming/event transport behavior: Process Converse Stream Surfaces Stream Err |
 | ADAPTED | `TestMapStopReason` | `inference/provider/bedrock/bedrock_stream_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Map Stop Reason |
 | ADAPTED | `TestExtractRegionFromURL` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Extract Region From URL |
@@ -144,12 +144,12 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestFauxError` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Error |
 | PARTIAL | `TestFauxAbort` | `inference/provider/faux/faux_test.go` | `AsyncStream cancellation not directly mirrored yet` | retry/cancellation robustness: Faux Abort |
 | ADAPTED | `TestFauxCallCount` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Call Count |
-| PENDING | `TestStreamGeminiCLIRetries429AndSucceeds` | `inference/provider/geminicli/geminicli_retry_test.go` | `—` | streaming/event transport behavior: Stream Gemini CLIRetries429 And Succeeds |
+| PARTIAL | `TestStreamGeminiCLIRetries429AndSucceeds` | `inference/provider/geminicli/geminicli_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Gemini CLIRetries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | ADAPTED | `TestBuildStreamURLEscapesPathAndQuery` | `inference/provider/google/google_audit_test.go` | `testGoogleStreamURLEscapingAndMultilineSSE` | streaming/event transport behavior: Build Stream URLEscapes Path And Query |
 | ADAPTED | `TestBuildVertexStreamURLUsesProjectAndLocationOptions` | `inference/provider/google/google_audit_test.go` | `testGoogleStreamURLEscapingAndMultilineSSE`, `testGoogleVertexAPIKeyResolutionURLSemantics` | streaming/event transport behavior: Build Vertex Stream URLUses Project And Location Options |
 | ADAPTED | `TestProcessStreamHandlesMultilineSSE` | `inference/provider/google/google_audit_test.go` | `testGoogleStreamURLEscapingAndMultilineSSE`, `testSSEParserMultilineStickyIDAndRetry` | streaming/event transport behavior: Process Stream Handles Multiline SSE |
-| PENDING | `TestStreamGoogleRetries429AndSucceeds` | `inference/provider/google/google_retry_test.go` | `—` | streaming/event transport behavior: Stream Google Retries429 And Succeeds |
-| PENDING | `TestStreamMistralRetries429AndSucceeds` | `inference/provider/mistral/mistral_retry_test.go` | `—` | streaming/event transport behavior: Stream Mistral Retries429 And Succeeds |
+| PARTIAL | `TestStreamGoogleRetries429AndSucceeds` | `inference/provider/google/google_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Google Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
+| PARTIAL | `TestStreamMistralRetries429AndSucceeds` | `inference/provider/mistral/mistral_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Mistral Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | ADAPTED | `TestStreamOpenAIInvokesOnPayload` | `inference/provider/openai/openai_payload_test.go` | `testStreamAndImageOptionHooks` | provider request/payload parity: Stream Open AIInvokes On Payload |
 | PENDING | `TestStreamOpenAIUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AIUses Explicit Auth Header Without APIKey |
 | PENDING | `TestStreamOpenAICloudflareAIGatewayHeadersAndURL` | `inference/provider/openai/openai_payload_test.go` | `—` | streaming/event transport behavior: Stream Open AICloudflare AIGateway Headers And URL |
@@ -157,12 +157,12 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestBuildRequestBodyUsesCompatThinkingFormats` | `inference/provider/openai/openai_payload_test.go` | `testOpenAICompletionsRequestCacheAndThinkingFormats` | provider request/payload parity: Build Request Body Uses Compat Thinking Formats |
 | ADAPTED | `TestProcessSSEStreamCapturesResponseModelAndCacheUsage` | `inference/provider/openai/openai_payload_test.go` | `testOpenAISSEProcessing`, `testOpenAIResponseModelEchoAndEmptyIgnored` | streaming/event transport behavior: Process SSEStream Captures Response Model And Cache Usage |
 | ADAPTED | `TestProcessSSEStreamAttachesPendingEncryptedReasoningDetails` | `inference/provider/openai/openai_payload_test.go` | `testOpenAIReasoningDetailsStreamingAndReplay` | streaming/event transport behavior: Process SSEStream Attaches Pending Encrypted Reasoning Details |
-| PENDING | `TestStreamOpenAIRetries429AndSucceeds` | `inference/provider/openai/openai_retry_test.go` | `—` | streaming/event transport behavior: Stream Open AIRetries429 And Succeeds |
+| PARTIAL | `TestStreamOpenAIRetries429AndSucceeds` | `inference/provider/openai/openai_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Open AIRetries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | ADAPTED | `TestBuildCodexRequestClampsPromptCacheKey` | `inference/provider/openaicodex/codex_request_test.go` | `testCodexResponsesRequestHeadersAndErrors` | provider request/payload parity: Build Codex Request Clamps Prompt Cache Key |
 | ADAPTED | `TestBuildCodexRequestMatchesPiaiShape` | `inference/provider/openaicodex/codex_request_test.go` | `testCodexResponsesRequestHeadersAndErrors` | provider request/payload parity: Build Codex Request Matches Piai Shape |
 | ADAPTED | `TestExtractCodexEventErrorUsesNestedPayload` | `inference/provider/openaicodex/codex_request_test.go` | `testCodexResponsesRequestHeadersAndErrors` | provider request/payload parity: Extract Codex Event Error Uses Nested Payload |
 | ADAPTED | `TestBuildCodexHeadersAddsAccountAndExperimentalHeaders` | `inference/provider/openaicodex/codex_request_test.go` | `testCodexResponsesRequestHeadersAndErrors` | auth/header/env edge case: Build Codex Headers Adds Account And Experimental Headers |
-| PENDING | `TestStreamViaSSERetries429AndSucceeds` | `inference/provider/openaicodex/codex_retry_test.go` | `—` | streaming/event transport behavior: Stream Via SSERetries429 And Succeeds |
+| PARTIAL | `TestStreamViaSSERetries429AndSucceeds` | `inference/provider/openaicodex/codex_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Via SSERetries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | PARTIAL | `TestStreamViaWebSocketAutoUsesCachedDeltaAndDebugStats` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: Stream Via Web Socket Auto Uses Cached Delta And Debug Stats |
 | PARTIAL | `TestRemoveCodexWebSocketSessionClosesConnection` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: Remove Codex Web Socket Session Closes Connection |
 | PARTIAL | `TestStreamCodexWebSocketSetupFailureFallsBackToSSEWithDiagnostic` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: Stream Codex Web Socket Setup Failure Falls Back To SSEWith Diagnostic |
@@ -177,7 +177,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestBuildRequestClampsPromptCacheKey` | `inference/provider/openairesponses/responses_request_test.go` | `testAzureOpenAIResponsesConfigAndPayloadDefaults` | provider request/payload parity: Build Request Clamps Prompt Cache Key |
 | ADAPTED | `TestBuildRequestDefaultsReasoningForNonCopilotReasoningModels` | `inference/provider/openairesponses/responses_request_test.go` | `testOpenAIResponsesProviderDefaultReasoningMatrix` | provider request/payload parity: Build Request Defaults Reasoning For Non Copilot Reasoning Models |
 | PENDING | `TestBuildAssistantItemsAllowsEmptyThinkingSignature` | `inference/provider/openairesponses/responses_request_test.go` | `—` | reasoning/thinking wire-format behavior: Build Assistant Items Allows Empty Thinking Signature |
-| PENDING | `TestStreamResponsesRetries429AndSucceeds` | `inference/provider/openairesponses/responses_retry_test.go` | `—` | streaming/event transport behavior: Stream Responses Retries429 And Succeeds |
+| PARTIAL | `TestStreamResponsesRetries429AndSucceeds` | `inference/provider/openairesponses/responses_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Responses Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
 | ADAPTED | `TestParseCompleteJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Complete JSON |
 | ADAPTED | `TestParsePartialJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Partial JSON |
 | ADAPTED | `TestParseEmpty` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Empty |

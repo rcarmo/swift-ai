@@ -60,6 +60,27 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertEqual(GoogleGenerativeAIProvider.retainThoughtSignature(existing: third, incoming: "sig-2"), "sig-2")
     }
 
+    func testGoogleStreamURLEscapingAndMultilineSSE() throws {
+        let model = Model(id: "models/gemini test", name: "Gemini", api: .googleGenerativeAI, provider: .google)
+        let url = try GoogleGenerativeAIProvider.buildStreamURL(model: model, apiKey: "key with space", options: nil)
+        XCTAssertTrue(url.contains("models/models%2Fgemini%20test:streamGenerateContent"))
+        XCTAssertTrue(url.contains("key=key%20with%20space"))
+        let vertex = Model(id: "gemini/test", name: "Gemini", api: .googleVertex, provider: .googleVertex)
+        var options = StreamOptions(); options.project = "proj ect"; options.location = "us-central1"
+        let vertexURL = try GoogleGenerativeAIProvider.buildStreamURL(model: vertex, apiKey: "<authenticated>", options: options)
+        XCTAssertTrue(vertexURL.contains("projects/proj%20ect/locations/us-central1/publishers/google/models/gemini%2Ftest"))
+        let sse = """
+        data: {"responseId":"r","candidates":[{"content":{"parts":[{"text":"hel"}]}}]}
+        data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}
+
+        """
+        let events = GoogleGenerativeAIProvider.processSSEText(sse, model: Model(id: "g", name: "G", api: .googleGenerativeAI, provider: .google))
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.content.first?.text, "hello")
+        XCTAssertEqual(message.responseId, "r")
+    }
+
     func testGoogleVertexAPIKeyResolutionURLSemantics() throws {
         let model = Model(id: "gemini-3-flash-preview", name: "Gemini", api: .googleVertex, provider: .googleVertex)
         var options = StreamOptions(); options.project = "test-project"; options.location = "us-central1"

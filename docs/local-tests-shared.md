@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **101**
+- Adapted in Swift semantic tests: **104**
 - Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **78**
+- Pending direct Swift adaptation: **75**
 
 ## Highest-priority pending buckets
 
@@ -145,9 +145,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestFauxAbort` | `inference/provider/faux/faux_test.go` | `AsyncStream cancellation not directly mirrored yet` | retry/cancellation robustness: Faux Abort |
 | ADAPTED | `TestFauxCallCount` | `inference/provider/faux/faux_test.go` | `testFauxThinkingToolFactoryMultipleAndError` | Faux Call Count |
 | PENDING | `TestStreamGeminiCLIRetries429AndSucceeds` | `inference/provider/geminicli/geminicli_retry_test.go` | `—` | streaming/event transport behavior: Stream Gemini CLIRetries429 And Succeeds |
-| PENDING | `TestBuildStreamURLEscapesPathAndQuery` | `inference/provider/google/google_audit_test.go` | `—` | streaming/event transport behavior: Build Stream URLEscapes Path And Query |
-| PENDING | `TestBuildVertexStreamURLUsesProjectAndLocationOptions` | `inference/provider/google/google_audit_test.go` | `—` | streaming/event transport behavior: Build Vertex Stream URLUses Project And Location Options |
-| PENDING | `TestProcessStreamHandlesMultilineSSE` | `inference/provider/google/google_audit_test.go` | `—` | streaming/event transport behavior: Process Stream Handles Multiline SSE |
+| ADAPTED | `TestBuildStreamURLEscapesPathAndQuery` | `inference/provider/google/google_audit_test.go` | `testGoogleStreamURLEscapingAndMultilineSSE` | streaming/event transport behavior: Build Stream URLEscapes Path And Query |
+| ADAPTED | `TestBuildVertexStreamURLUsesProjectAndLocationOptions` | `inference/provider/google/google_audit_test.go` | `testGoogleStreamURLEscapingAndMultilineSSE`, `testGoogleVertexAPIKeyResolutionURLSemantics` | streaming/event transport behavior: Build Vertex Stream URLUses Project And Location Options |
+| ADAPTED | `TestProcessStreamHandlesMultilineSSE` | `inference/provider/google/google_audit_test.go` | `testGoogleStreamURLEscapingAndMultilineSSE`, `testSSEParserMultilineStickyIDAndRetry` | streaming/event transport behavior: Process Stream Handles Multiline SSE |
 | PENDING | `TestStreamGoogleRetries429AndSucceeds` | `inference/provider/google/google_retry_test.go` | `—` | streaming/event transport behavior: Stream Google Retries429 And Succeeds |
 | PENDING | `TestStreamMistralRetries429AndSucceeds` | `inference/provider/mistral/mistral_retry_test.go` | `—` | streaming/event transport behavior: Stream Mistral Retries429 And Succeeds |
 | ADAPTED | `TestStreamOpenAIInvokesOnPayload` | `inference/provider/openai/openai_payload_test.go` | `testStreamAndImageOptionHooks` | provider request/payload parity: Stream Open AIInvokes On Payload |

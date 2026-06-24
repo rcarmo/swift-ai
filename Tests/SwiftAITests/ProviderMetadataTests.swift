@@ -6,6 +6,36 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testGoogleSharedImageToolResultRouting() {
+        func context(_ model: Model) -> AIContext {
+            var assistant = Message(role: .assistant, content: [
+                .toolCall(id: "call_a", name: "read", arguments: ["path": .string("a.txt")]),
+                .toolCall(id: "call_img", name: "read", arguments: ["path": .string("image.png")]),
+                .toolCall(id: "call_b", name: "read", arguments: ["path": .string("b.txt")])
+            ])
+            assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id; assistant.stopReason = .toolUse
+            var a = Message(role: .toolResult, content: [.text("alpha text")]); a.toolCallId = "call_a"; a.toolName = "read"
+            var img = Message(role: .toolResult, content: [.image(data: "abc", mimeType: "image/png")]); img.toolCallId = "call_img"; img.toolName = "read"
+            var b = Message(role: .toolResult, content: [.text("beta text")]); b.toolCallId = "call_b"; b.toolName = "read"
+            return AIContext(messages: [.user("read the files"), assistant, a, img, b])
+        }
+        let gemini2 = Model(id: "gemini-2.5-flash", name: "Gemini", api: .googleGenerativeAI, provider: .google, reasoning: true, input: ["text", "image"], contextWindow: 128000, maxTokens: 8192)
+        let two = GoogleGenerativeAIProvider.convertMessages(model: gemini2, messages: context(gemini2).messages)
+        XCTAssertEqual(two.count, 5)
+        guard case .object(let twoA) = two[2], case .array(let twoAParts)? = twoA["parts"], case .object(let twoImage) = two[3], case .array(let twoImageParts)? = twoImage["parts"], case .object(let twoB) = two[4], case .array(let twoBParts)? = twoB["parts"] else { return XCTFail("bad Gemini 2 routing") }
+        XCTAssertTrue(twoAParts.allSatisfy { if case .object(let obj) = $0 { return obj["functionResponse"] != nil }; return false })
+        XCTAssertEqual(twoImageParts.first, .object(["text": .string("Tool result image:")]))
+        XCTAssertNotNil(twoImageParts.dropFirst().first)
+        XCTAssertTrue(twoBParts.first.flatMap { if case .object(let obj) = $0 { return obj["functionResponse"] }; return nil } != nil)
+
+        let gemini3 = Model(id: "gemini-3-pro-preview", name: "Gemini", api: .googleGenerativeAI, provider: .google, reasoning: true, input: ["text", "image"], contextWindow: 128000, maxTokens: 8192)
+        let three = GoogleGenerativeAIProvider.convertMessages(model: gemini3, messages: context(gemini3).messages)
+        XCTAssertEqual(three.count, 3)
+        guard case .object(let toolTurn) = three[2], case .array(let parts)? = toolTurn["parts"], case .object(let imagePart) = parts[1], case .object(let imageResponse)? = imagePart["functionResponse"], case .array(let nestedParts)? = imageResponse["parts"] else { return XCTFail("bad Gemini 3 routing") }
+        XCTAssertEqual(parts.count, 3)
+        XCTAssertNotNil(nestedParts.first)
+    }
+
     func testGoogleSharedConvertToolsSchemaMetaHandling() {
         let parameters: JSONValue = .object([
             "$schema": .string("http://json-schema.org/draft-07/schema#"),

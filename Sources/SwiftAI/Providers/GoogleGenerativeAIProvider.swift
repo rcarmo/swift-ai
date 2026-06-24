@@ -106,8 +106,15 @@ public enum GoogleGenerativeAIProvider {
     private static func closeCurrent(state: inout GoogleStreamState, yield: (AIEvent) -> Void) { guard let current = state.current else { return }; let block = state.partial.content[current.index]; if current.type == "text" { yield(.textEnd(contentIndex: current.index, content: block.text ?? "", partial: state.partial)) } else { yield(.thinkingEnd(contentIndex: current.index, content: block.thinking ?? "", partial: state.partial)) }; state.current = nil }
     private static func finish(state: inout GoogleStreamState, yield: (AIEvent) -> Void) { if !state.started { state.started = true; yield(.start(partial: state.partial)) }; closeCurrent(state: &state, yield: yield); state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000); if state.partial.stopReason == nil { state.partial.stopReason = .stop }; yield(.done(reason: state.partial.stopReason ?? .stop, message: state.partial)) }
 
-    private static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] {
-        messages.compactMap { msg in
+    public static func convertMessages(model: Model, messages: [Message]) -> [JSONValue] {
+        var out: [JSONValue] = []
+        var pendingFunctionResponses: [JSONValue] = []
+        func flushFunctionResponses() {
+            if pendingFunctionResponses.isEmpty { return }
+            out.append(.object(["role": .string("user"), "parts": .array(pendingFunctionResponses)]))
+            pendingFunctionResponses.removeAll()
+        }
+        for msg in messages {
             let sameModel = msg.provider == model.provider && msg.api == model.api && msg.model == model.id
             if msg.role == .toolResult {
                 let text = AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n"))
@@ -115,15 +122,22 @@ public enum GoogleGenerativeAIProvider {
                     guard block.type == "image", let data = block.data, let mime = block.mimeType else { return nil }
                     return .object(["inlineData": .object(["mimeType": .string(mime), "data": .string(data)])])
                 }
+                if !imageParts.isEmpty && !supportsMultimodalFunctionResponse(model.id) {
+                    flushFunctionResponses()
+                    out.append(.object(["role": .string("user"), "parts": .array([.object(["text": .string("Tool result image:")])] + imageParts)]))
+                    continue
+                }
                 let response: [String: JSONValue]
                 if msg.isError == true { response = ["error": .string(text)] }
                 else if !text.isEmpty { response = ["output": .string(text)] }
                 else if !imageParts.isEmpty { response = ["output": .string("(see attached image)")] }
                 else { response = [:] }
                 var functionResponse: [String: JSONValue] = ["name": .string(msg.toolName ?? ""), "response": .object(response), "id": .string(normalizeToolCallID(msg.toolCallId ?? ""))]
-                if !imageParts.isEmpty && supportsMultimodalFunctionResponse(model.id) { functionResponse["parts"] = .array(imageParts) }
-                return .object(["role": .string("user"), "parts": .array([.object(["functionResponse": .object(functionResponse)])])])
+                if !imageParts.isEmpty { functionResponse["parts"] = .array(imageParts) }
+                pendingFunctionResponses.append(.object(["functionResponse": .object(functionResponse)]))
+                continue
             }
+            flushFunctionResponses()
             var parts: [JSONValue] = []
             for block in msg.content {
                 if block.type == "text" {
@@ -137,15 +151,16 @@ public enum GoogleGenerativeAIProvider {
                 } else if block.type == "image" {
                     parts.append(.object(["inlineData": .object(["mimeType": .string(block.mimeType ?? "application/octet-stream"), "data": .string(block.data ?? "")])]))
                 } else if block.type == "toolCall" {
-                    var fc: [String: JSONValue] = ["name": .string(block.name ?? ""), "args": .object(block.arguments ?? [:]), "id": .string(normalizeToolCallID(block.id ?? ""))]
+                    let fc: [String: JSONValue] = ["name": .string(block.name ?? ""), "args": .object(block.arguments ?? [:]), "id": .string(normalizeToolCallID(block.id ?? ""))]
                     var part: [String: JSONValue] = ["functionCall": .object(fc)]
                     if sameModel, let sig = block.thoughtSignature, isValidBase64Signature(sig) { part["thoughtSignature"] = .string(sig) }
                     parts.append(.object(part))
                 }
             }
-            if parts.isEmpty { return nil }
-            return .object(["role": .string(msg.role == .assistant ? "model" : "user"), "parts": .array(parts)])
+            if !parts.isEmpty { out.append(.object(["role": .string(msg.role == .assistant ? "model" : "user"), "parts": .array(parts)])) }
         }
+        flushFunctionResponses()
+        return out
     }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func usesThinkingLevel(_ model: Model) -> Bool { model.id.lowercased().contains("gemini-3") || model.id.lowercased().contains("gemma-4") || model.id == "gemini-flash-latest" || model.id == "gemini-flash-lite-latest" }

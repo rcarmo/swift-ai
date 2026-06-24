@@ -293,6 +293,13 @@ final class ProviderMetadataTests: XCTestCase {
         XCTAssertNotNil(request["toolConfig"])
         XCTAssertEqual(request["inferenceConfig"]?.objectValue?["maxTokens"], .number(256))
         XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["thinking"], .object(["type": .string("enabled"), "effort": .string("xhigh")]))
+
+        var r1 = Message(role: .toolResult, content: [.text("one")]); r1.toolCallId = "t1"; r1.toolName = "lookup"
+        var r2 = Message(role: .toolResult, content: [.text("two")]); r2.toolCallId = "t2"; r2.toolName = "lookup"
+        let coalesced = BedrockProvider.buildConverseRequest(model: model, context: AIContext(messages: [r1, r2]), options: nil)
+        guard case .array(let messages)? = coalesced["messages"], case .object(let first) = messages.first, case .array(let content)? = first["content"] else { return XCTFail("missing coalesced tool results") }
+        XCTAssertEqual(messages.count, 1)
+        XCTAssertEqual(content.count, 2)
     }
 
     func testBedrockRegionStopReasonAndImageBlockHelpers() {

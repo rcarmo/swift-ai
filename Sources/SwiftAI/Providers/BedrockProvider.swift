@@ -78,12 +78,21 @@ public enum BedrockProvider {
     }
 
     private static func convertMessages(_ messages: [Message]) -> [JSONValue] {
-        messages.compactMap { msg in
+        var out: [JSONValue] = []
+        var pendingToolResults: [JSONValue] = []
+        func flushToolResults() {
+            guard !pendingToolResults.isEmpty else { return }
+            out.append(.object(["role": .string("user"), "content": .array(pendingToolResults)]))
+            pendingToolResults.removeAll()
+        }
+        for msg in messages {
             switch msg.role {
             case .user:
-                return .object(["role": .string("user"), "content": .array(msg.content.compactMap(contentBlock))])
+                flushToolResults()
+                out.append(.object(["role": .string("user"), "content": .array(msg.content.compactMap(contentBlock))]))
             case .assistant:
-                return .object(["role": .string("assistant"), "content": .array(msg.content.compactMap(contentBlock))])
+                flushToolResults()
+                out.append(.object(["role": .string("assistant"), "content": .array(msg.content.compactMap(contentBlock))]))
             case .toolResult:
                 let text = AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n"))
                 let result: [String: JSONValue] = [
@@ -91,9 +100,11 @@ public enum BedrockProvider {
                     "content": .array([.object(["text": .string(text)])]),
                     "status": .string(msg.isError == true ? "error" : "success")
                 ]
-                return .object(["role": .string("user"), "content": .array([.object(["toolResult": .object(result)])])])
+                pendingToolResults.append(.object(["toolResult": .object(result)]))
             }
         }
+        flushToolResults()
+        return out
     }
 
     private static func contentBlock(_ block: ContentBlock) -> JSONValue? {

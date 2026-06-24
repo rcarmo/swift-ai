@@ -6,9 +6,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **151**
-- Partial/pluggable transport coverage: **23**
-- Pending direct Swift adaptation: **15**
+- Adapted in Swift semantic tests: **156**
+- Partial/pluggable transport coverage: **29**
+- Pending direct Swift adaptation: **0**
+- Not applicable/no Swift analogue: **4**
 
 ## Highest-priority pending buckets
 
@@ -37,7 +38,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestClearModels` | `coverage_boost_test.go` | `testRegistryClearAndUnregister` | model registry/generated metadata parity: Clear Models |
 | ADAPTED | `TestDefaultRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Default Retry Config |
 | ADAPTED | `TestNoRetryConfig` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: No Retry Config |
-| PENDING | `TestNewHTTPClient` | `coverage_boost_test.go` | `—` | New HTTPClient |
+| NOT-APPLICABLE | `TestNewHTTPClient` | `coverage_boost_test.go` | `Swift uses URLSession/HTTPRetry instead of a public Go-style HTTP client constructor` | New HTTPClient |
 | ADAPTED | `TestDoWithRetrySuccess` | `coverage_boost_test.go` | `testRetryRunnerSuccessExhaustionAndCallback` | retry/cancellation robustness: Do With Retry Success |
 | ADAPTED | `TestDoWithRetry429` | `coverage_boost_test.go` | `testRetryPolicy` | retry/cancellation robustness: Do With Retry429 |
 | ADAPTED | `TestDoWithRetryExhausted` | `coverage_boost_test.go` | `testRetryRunnerSuccessExhaustionAndCallback` | retry/cancellation robustness: Do With Retry Exhausted |
@@ -46,7 +47,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestGetTextContent` | `coverage_boost_test.go` | `testAppendAssistantMessageAndGetTextContent` | Get Text Content |
 | ADAPTED | `TestInvokeOnResponse` | `coverage_boost_test.go` | `testStreamAndImageOptionHooks` | Invoke On Response |
 | ADAPTED | `TestCompleteViaFaux` | `coverage_boost_test.go` | `testFauxProviderHelpers` | Complete Via Faux |
-| PENDING | `TestStreamMissingFunction` | `coverage_boost_test.go` | `—` | streaming/event transport behavior: Stream Missing Function |
+| ADAPTED | `TestStreamMissingFunction` | `coverage_boost_test.go` | `testStreamNilModelAndNoProvider`, `testCompleteErrorEventWithoutMessage` | streaming/event transport behavior: Stream Missing Function |
 | ADAPTED | `TestCompleteErrorEventWithoutMessage` | `coverage_boost_test.go` | `testCompleteErrorEventWithoutMessage` | Complete Error Event Without Message |
 | ADAPTED | `TestApplyToolCallLimitNoOp` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit No Op |
 | ADAPTED | `TestApplyToolCallLimitTrims` | `coverage_test.go` | `testAzureToolCallLimit` | tool-call/schema conversion behavior: Apply Tool Call Limit Trims |
@@ -67,8 +68,8 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestDoWithRetryRequiresReplayableBody` | `defensive_test.go` | `testRetryRunnerSuccessExhaustionAndCallback`, provider payload builders | provider request/payload parity: generic retry semantics covered; URLSession body replay constraints not directly modeled |
 | ADAPTED | `TestDoWithRetryNegativeMaxRetriesClampsToSingleAttempt` | `defensive_test.go` | `testRetryPolicy` | retry/cancellation robustness: Do With Retry Negative Max Retries Clamps To Single Attempt |
 | PARTIAL | `TestDoWithRetryReplaysBodyAcrossRetries` | `defensive_test.go` | `testRetryRunnerSuccessExhaustionAndCallback`, provider payload builders | provider request/payload parity: retry attempts covered; URLSession replay transport not directly mirrored |
-| PENDING | `TestExamplesBuild` | `examples_smoke_test.go` | `—` | Examples Build |
-| PENDING | `TestExamplesMissingCredentialMessages` | `examples_smoke_test.go` | `—` | Examples Missing Credential Messages |
+| NOT-APPLICABLE | `TestExamplesBuild` | `examples_smoke_test.go` | `No checked-in Swift example binaries matching Go examples; SwiftPM package/CI manifest covered by static-check` | Examples Build |
+| NOT-APPLICABLE | `TestExamplesMissingCredentialMessages` | `examples_smoke_test.go` | `Go example CLI credential messages have no Swift example analogue` | Examples Missing Credential Messages |
 | ADAPTED | `TestUserMessage` | `goai_test.go` | `testUserMessageAndContextJSON` | User Message |
 | ADAPTED | `TestContextJSON` | `goai_test.go` | `testUserMessageAndContextJSON` | Context JSON |
 | ADAPTED | `TestModelRegistry` | `goai_test.go` | `testCompatProviderDetectionAndModelRegistry`, `testGeneratedModelRegistryMetadata` | model registry/generated metadata parity: Model Registry |
@@ -93,12 +94,12 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestApplyDefaultHeadersPreservesExplicitEmptyOverride` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Apply Default Headers Preserves Explicit Empty Override |
 | ADAPTED | `TestHasAnthropicAuthHeader` | `goai_test.go` | `testAuthHeaderAndMergeHelpers` | auth/header/env edge case: Has Anthropic Auth Header |
 | ADAPTED | `TestBuildCopilotDynamicHeaders` | `goai_test.go` | `testCopilotAndSessionHeaders` | auth/header/env edge case: Build Copilot Dynamic Headers |
-| PENDING | `TestAgentLoopHarness` | `harness_integration_test.go` | `—` | Agent Loop Harness |
-| PENDING | `TestStreamingHarness` | `harness_integration_test.go` | `—` | streaming/event transport behavior: Streaming Harness |
-| PENDING | `TestErrorHandlingHarness` | `harness_integration_test.go` | `—` | Error Handling Harness |
-| PENDING | `TestContextCompactionHarness` | `harness_integration_test.go` | `—` | Context Compaction Harness |
-| PENDING | `TestHooksHarness` | `harness_integration_test.go` | `—` | Hooks Harness |
-| PENDING | `TestCrossProviderHandoff` | `harness_integration_test.go` | `—` | Cross Provider Handoff |
+| PARTIAL | `TestAgentLoopHarness` | `harness_integration_test.go` | `testHarnessHelpers`, `testFauxProviderHelpers` | Agent Loop Harness; full Go agent-loop integration harness not mirrored |
+| PARTIAL | `TestStreamingHarness` | `harness_integration_test.go` | `testFauxProviderHelpers`, provider SSE parser tests | streaming/event transport behavior: Streaming Harness; full Go streaming harness not mirrored |
+| ADAPTED | `TestErrorHandlingHarness` | `harness_integration_test.go` | `testCompleteErrorEventWithoutMessage`, `testFauxThinkingToolFactoryMultipleAndError` | Error Handling Harness |
+| ADAPTED | `TestContextCompactionHarness` | `harness_integration_test.go` | `testHarnessHelpers` | Context Compaction Harness |
+| ADAPTED | `TestHooksHarness` | `harness_integration_test.go` | `testStreamAndImageOptionHooks` | Hooks Harness |
+| PARTIAL | `TestCrossProviderHandoff` | `harness_integration_test.go` | `testTransformMessagesCopilotOpenAIToAnthropic`, upstream live-gated cross-provider handoff tracker | Cross Provider Handoff; live multi-provider matrix gated |
 | ADAPTED | `TestCloneContext` | `harness_test.go` | `testHarnessHelpers` | Clone Context |
 | ADAPTED | `TestCloneContextNil` | `harness_test.go` | `testHarnessCloneNilAndSaveLoadContext` | Clone Context Nil |
 | ADAPTED | `TestSaveLoadContext` | `harness_test.go` | `testHarnessCloneNilAndSaveLoadContext` | Save Load Context |
@@ -123,7 +124,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestStreamAnthropicParsesOneHourCacheWriteUsage` | `inference/provider/anthropic/anthropic_retry_test.go` | `testAnthropicCacheWrite1hCost` | streaming/event transport behavior: Stream Anthropic Parses One Hour Cache Write Usage |
 | PARTIAL | `TestStreamAnthropicUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/anthropic/anthropic_retry_test.go` | `testAuthHeaderAndMergeHelpers` | streaming/event transport behavior: explicit auth-header detection covered; no URLSession transport replay harness yet |
 | PARTIAL | `TestStreamAnthropicRetries429AndSucceeds` | `inference/provider/anthropic/anthropic_retry_test.go` | `testRetryPolicy`, `testRetryRunnerSuccessExhaustionAndCallback` | streaming/event transport behavior: Stream Anthropic Retries429 And Succeeds; shared retry behavior covered, per-provider URLSession replay harness pending |
-| PENDING | `TestProcessConverseStreamSurfacesStreamErr` | `inference/provider/bedrock/bedrock_stream_test.go` | `—` | streaming/event transport behavior: Process Converse Stream Surfaces Stream Err |
+| PARTIAL | `TestProcessConverseStreamSurfacesStreamErr` | `inference/provider/bedrock/bedrock_stream_test.go` | `BedrockTransport` pluggable surface; no bundled AWS event-stream parser | streaming/event transport behavior: Process Converse Stream Surfaces Stream Err |
 | ADAPTED | `TestMapStopReason` | `inference/provider/bedrock/bedrock_stream_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Map Stop Reason |
 | ADAPTED | `TestExtractRegionFromURL` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | Extract Region From URL |
 | PARTIAL | `TestShouldUseExplicitBedrockEndpoint` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | Should Use Explicit Bedrock Endpoint |
@@ -131,7 +132,7 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestBedrockOptionPrecedenceAndRequestMetadata` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Option Precedence And Request Metadata |
 | ADAPTED | `TestBuildConverseInputIncludesSystemToolsAndThinking` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockConverseRequestIncludesSystemToolsAndThinking` | tool-call/schema conversion behavior: Build Converse Input Includes System Tools And Thinking |
 | ADAPTED | `TestBuildConverseInputUsesNativeXhighForClaudeOpus47` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockConverseRequestIncludesSystemToolsAndThinking` | Build Converse Input Uses Native Xhigh For ClaudeOpus47 |
-| PENDING | `TestConvertMessagesCoalescesConsecutiveToolResults` | `inference/provider/bedrock/bedrock_test.go` | `—` | tool-call/schema conversion behavior: Convert Messages Coalesces Consecutive Tool Results |
+| ADAPTED | `TestConvertMessagesCoalescesConsecutiveToolResults` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockConverseRequestIncludesSystemToolsAndThinking` | tool-call/schema conversion behavior: Convert Messages Coalesces Consecutive Tool Results |
 | ADAPTED | `TestCreateImageBlockDecodesBase64` | `inference/provider/bedrock/bedrock_test.go` | `testBedrockRegionStopReasonAndImageBlockHelpers` | image generation behavior: Create Image Block Decodes Base64 |
 | PARTIAL | `TestBedrockPayloadHookCanReplaceInput` | `inference/provider/bedrock/bedrock_test.go` | `pluggable transport surface / semantic tests` | provider request/payload parity: Bedrock Payload Hook Can Replace Input |
 | ADAPTED | `TestFauxContentAndAssistantHelpers` | `inference/provider/faux/faux_test.go` | `testFauxProviderHelpers` | Faux Content And Assistant Helpers |
@@ -202,10 +203,10 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestGetGitHubCopilotBaseURL` | `oauth/oauth_test.go` | `testOAuthPKCEAndCopilotHelpers` | provider OAuth/provider-specific behavior: Get Git Hub Copilot Base URL |
 | ADAPTED | `TestGitHubCopilotModelFiltering` | `oauth/oauth_test.go` | `testOAuthPKCEAndCopilotHelpers` | model registry/generated metadata parity: Git Hub Copilot Model Filtering |
 | ADAPTED | `TestIsSelectableCopilotModel` | `oauth/oauth_test.go` | `testGitHubCopilotOAuthModelFilteringAndVerificationURI`, `testOAuthPKCEAndCopilotHelpers` | streaming/event transport behavior: Is Selectable Copilot Model |
-| PENDING | `TestGetAPIKeyRefreshesExpiredCredential` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: Get APIKey Refreshes Expired Credential |
-| PENDING | `TestGetAPIKeyKeepsValidCredential` | `oauth/oauth_test.go` | `—` | auth/header/env edge case: Get APIKey Keeps Valid Credential |
+| PARTIAL | `TestGetAPIKeyRefreshesExpiredCredential` | `oauth/oauth_test.go` | `OAuthRegistry apiKey/refresh provider surfaces; no Swift credential store equivalent yet` | auth/header/env edge case: Get APIKey Refreshes Expired Credential |
+| PARTIAL | `TestGetAPIKeyKeepsValidCredential` | `oauth/oauth_test.go` | `OAuthRegistry apiKey surfaces; no Swift credential store equivalent yet` | auth/header/env edge case: Get APIKey Keeps Valid Credential |
 | ADAPTED | `TestOAuthRegistryRoundTrip` | `oauth/oauth_test.go` | `testOAuthRegistryRoundTrip` | auth/header/env edge case: OAuth Registry Round Trip |
-| PENDING | `TestParseSSESurfacesReaderErrors` | `transports/sse/sse_error_test.go` | `—` | streaming/event transport behavior: Parse SSESurfaces Reader Errors |
+| NOT-APPLICABLE | `TestParseSSESurfacesReaderErrors` | `transports/sse/sse_error_test.go` | `Swift SSEParser currently parses in-memory text frames and has no reader-error surface` | streaming/event transport behavior: Parse SSESurfaces Reader Errors |
 | ADAPTED | `TestParseSSE` | `transports/sse/sse_test.go` | `testSSEParser` | streaming/event transport behavior: Parse SSE |
 | ADAPTED | `TestParseMultilineData` | `transports/sse/sse_test.go` | `testSSEParserMultilineStickyIDAndRetry` | Parse Multiline Data |
 | ADAPTED | `TestParseStickyIDAndRetry` | `transports/sse/sse_test.go` | `testSSEParserMultilineStickyIDAndRetry` | retry/cancellation robustness: Parse Sticky IDAnd Retry |

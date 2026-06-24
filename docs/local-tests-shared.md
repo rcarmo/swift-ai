@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **114**
+- Adapted in Swift semantic tests: **120**
 - Partial/pluggable transport coverage: **11**
-- Pending direct Swift adaptation: **64**
+- Pending direct Swift adaptation: **58**
 
 ## Highest-priority pending buckets
 
@@ -168,14 +168,14 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | PARTIAL | `TestStreamCodexWebSocketSetupFailureFallsBackToSSEWithDiagnostic` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: Stream Codex Web Socket Setup Failure Falls Back To SSEWith Diagnostic |
 | PARTIAL | `TestStreamCodexRetriesWebSocketConnectionLimitOnceBeforeSSE` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: rs-ai-origin Codex connection-limit retry: real WebSocket connection receives nested `websocket_connection_limit_reached`, retries one fresh WS handshake, then falls back to SSE |
 | PARTIAL | `TestStreamViaWebSocketProtocolFlow` | `inference/provider/openaicodex/codex_ws_test.go` | `pluggable transport surface / semantic tests` | streaming/event transport behavior: Stream Via Web Socket Protocol Flow |
-| PENDING | `TestResolveAzureResponsesConfigUsesEnvAndDeploymentMap` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | Resolve Azure Responses Config Uses Env And Deployment Map |
-| PENDING | `TestResolveAzureResponsesConfigNormalizesAzureHost` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | Resolve Azure Responses Config Normalizes Azure Host |
+| ADAPTED | `TestResolveAzureResponsesConfigUsesEnvAndDeploymentMap` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureResponsesHelpers`, `testAzureOpenAIResponsesConfigAndPayloadDefaults` | Resolve Azure Responses Config Uses Env And Deployment Map |
+| ADAPTED | `TestResolveAzureResponsesConfigNormalizesAzureHost` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureOpenAIResponsesBaseURLNormalization` | Resolve Azure Responses Config Normalizes Azure Host |
 | PENDING | `TestResponsesUsesExplicitAuthHeaderWithoutAPIKey` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | auth/header/env edge case: Responses Uses Explicit Auth Header Without APIKey |
 | PENDING | `TestAzureResponsesRequestAppliesCleanupAndSessionHeaders` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | provider request/payload parity: Azure Responses Request Applies Cleanup And Session Headers |
-| PENDING | `TestAzureResponsesNormalizesCommentaryIntoThinkingEvents` | `inference/provider/openairesponses/responses_azure_test.go` | `—` | reasoning/thinking wire-format behavior: Azure Responses Normalizes Commentary Into Thinking Events |
-| PENDING | `TestBuildRequestOmitsDefaultReasoningForGitHubCopilot` | `inference/provider/openairesponses/responses_request_test.go` | `—` | provider request/payload parity: Build Request Omits Default Reasoning For Git Hub Copilot |
-| PENDING | `TestBuildRequestClampsPromptCacheKey` | `inference/provider/openairesponses/responses_request_test.go` | `—` | provider request/payload parity: Build Request Clamps Prompt Cache Key |
-| PENDING | `TestBuildRequestDefaultsReasoningForNonCopilotReasoningModels` | `inference/provider/openairesponses/responses_request_test.go` | `—` | provider request/payload parity: Build Request Defaults Reasoning For Non Copilot Reasoning Models |
+| ADAPTED | `TestAzureResponsesNormalizesCommentaryIntoThinkingEvents` | `inference/provider/openairesponses/responses_azure_test.go` | `testAzureReasoningEventNormalization` | reasoning/thinking wire-format behavior: Azure Responses Normalizes Commentary Into Thinking Events |
+| ADAPTED | `TestBuildRequestOmitsDefaultReasoningForGitHubCopilot` | `inference/provider/openairesponses/responses_request_test.go` | `testOpenAIResponsesProviderDefaultReasoningMatrix` | provider request/payload parity: Build Request Omits Default Reasoning For Git Hub Copilot |
+| ADAPTED | `TestBuildRequestClampsPromptCacheKey` | `inference/provider/openairesponses/responses_request_test.go` | `testAzureOpenAIResponsesConfigAndPayloadDefaults` | provider request/payload parity: Build Request Clamps Prompt Cache Key |
+| ADAPTED | `TestBuildRequestDefaultsReasoningForNonCopilotReasoningModels` | `inference/provider/openairesponses/responses_request_test.go` | `testOpenAIResponsesProviderDefaultReasoningMatrix` | provider request/payload parity: Build Request Defaults Reasoning For Non Copilot Reasoning Models |
 | PENDING | `TestBuildAssistantItemsAllowsEmptyThinkingSignature` | `inference/provider/openairesponses/responses_request_test.go` | `—` | reasoning/thinking wire-format behavior: Build Assistant Items Allows Empty Thinking Signature |
 | PENDING | `TestStreamResponsesRetries429AndSucceeds` | `inference/provider/openairesponses/responses_retry_test.go` | `—` | streaming/event transport behavior: Stream Responses Retries429 And Succeeds |
 | ADAPTED | `TestParseCompleteJSON` | `internal/jsonparse/partial_test.go` | `testPartialJSONParser` | Parse Complete JSON |

@@ -6,6 +6,25 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    func testXHighReasoningSupportAndUnsupportedError() async throws {
+        let models = try BuiltinModels.all()
+        let codexMax = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == "gpt-5.1-codex-max" })
+        XCTAssertTrue(AIUtilities.supportsXHigh(model: codexMax))
+        let mini = try XCTUnwrap(models.first { $0.provider == .openAI && $0.id == "gpt-5-mini" })
+        XCTAssertFalse(AIUtilities.supportsXHigh(model: mini))
+        var options = StreamOptions(); options.reasoning = .xhigh; options.apiKey = "fake"
+        let events = await SwiftAI.stream(model: mini, context: AIContext(messages: [.user("hi")]), options: options)
+        var sawError = false
+        for await event in events {
+            if case .error(_, let message, _) = event {
+                sawError = true
+                XCTAssertEqual(message?.stopReason, .error)
+                XCTAssertTrue(message?.errorMessage?.contains("xhigh") == true)
+            }
+        }
+        XCTAssertTrue(sawError)
+    }
+
     func testGoogleThinkingSignatureDetectionAndRetention() {
         XCTAssertTrue(GoogleGenerativeAIProvider.isThinkingPart(thought: true, thoughtSignature: nil))
         XCTAssertTrue(GoogleGenerativeAIProvider.isThinkingPart(thought: true, thoughtSignature: "opaque-signature"))

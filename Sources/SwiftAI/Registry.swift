@@ -50,6 +50,14 @@ public enum SwiftAI {
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {
         guard let model else { return AsyncStream { continuation in continuation.yield(.error(reason: .error, message: nil, error: AIError.nilModel)); continuation.finish() } }
+        if options?.reasoning == .xhigh && !AIUtilities.supportsXHigh(model: model) {
+            return AsyncStream { continuation in
+                var msg = Message(role: .assistant, content: [])
+                msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.stopReason = .error; msg.errorMessage = "xhigh reasoning is not supported by \(model.id)"
+                continuation.yield(.error(reason: .error, message: msg, error: AIError.provider(msg.errorMessage ?? "xhigh unsupported")))
+                continuation.finish()
+            }
+        }
         guard let provider = await AIRegistry.shared.apiProvider(for: model.api) else {
             return AsyncStream { continuation in continuation.yield(.error(reason: .error, message: nil, error: AIError.noProvider(model.api))); continuation.finish() }
         }

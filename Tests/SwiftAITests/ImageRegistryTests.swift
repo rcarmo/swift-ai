@@ -32,12 +32,25 @@ final class ImageRegistryTests: XCTestCase {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "or-key"]), "or-key")
     }
 
-    func testGenerateImagesUnknownProviderError() async {
+    func testGenerateImagesErrorPathsAndHookError() async {
+        let nilResult = await SwiftAI.generateImages(model: nil, context: ImagesContext(input: [.text("x")]))
+        XCTAssertEqual(nilResult.stopReason, .error)
+        XCTAssertEqual(nilResult.errorMessage, "nil model")
         await ImagesRegistry.shared.clearProviders()
         let model = ImagesModel(id: "m", name: "m", api: .openRouterImages, provider: .openRouter)
         let result = await SwiftAI.generateImages(model: model, context: ImagesContext(input: [.text("x")]))
         XCTAssertEqual(result.stopReason, .error)
         XCTAssertTrue(result.errorMessage?.contains("no image provider registered") == true)
+        await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages) { model, _, options in
+            var out = AssistantImages(api: model.api, provider: model.provider, model: model.id, stopReason: .stop)
+            do { _ = try await options?.onPayload?([:], model) } catch { out.stopReason = .error; out.errorMessage = error.localizedDescription }
+            return out
+        })
+        var options = ImagesOptions()
+        options.onPayload = { _, _ in throw AIError.provider("hook boom") }
+        let hookResult = await SwiftAI.generateImages(model: model, context: ImagesContext(input: [.text("x")]), options: options)
+        XCTAssertEqual(hookResult.stopReason, .error)
+        XCTAssertTrue(hookResult.errorMessage?.contains("hook boom") == true)
         await SwiftAI.bootstrap()
     }
 }

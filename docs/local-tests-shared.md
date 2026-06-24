@@ -6,9 +6,9 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 ## Summary
 
 - Go local tests inventoried: **189**
-- Adapted in Swift semantic tests: **106**
-- Partial/pluggable transport coverage: **10**
-- Pending direct Swift adaptation: **73**
+- Adapted in Swift semantic tests: **108**
+- Partial/pluggable transport coverage: **11**
+- Pending direct Swift adaptation: **70**
 
 ## Highest-priority pending buckets
 
@@ -110,13 +110,13 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 | ADAPTED | `TestAppendHelpers` | `harness_test.go` | `testHarnessHelpers` | Append Helpers |
 | ADAPTED | `TestHooksOnStreamOptions` | `harness_test.go` | `testStreamAndImageOptionHooks` | streaming/event transport behavior: Hooks On Stream Options |
 | ADAPTED | `TestInvokeOnPayloadNil` | `harness_test.go` | `testStreamAndImageOptionHooks` | provider request/payload parity: Invoke On Payload Nil |
-| PENDING | `TestImageAPIProviderRegistered` | `images_test.go` | `—` | image generation behavior: Image APIProvider Registered |
+| ADAPTED | `TestImageAPIProviderRegistered` | `images_test.go` | `testImageRegistryRegistersProvidersAndModels` | image generation behavior: Image APIProvider Registered |
 | ADAPTED | `TestBuiltinImageModels` | `images_test.go` | `testGeneratedImageModelRegistryMetadata` | model registry/generated metadata parity: Builtin Image Models |
-| PENDING | `TestGenerateImagesErrorPaths` | `images_test.go` | `—` | image generation behavior: Generate Images Error Paths |
+| ADAPTED | `TestGenerateImagesErrorPaths` | `images_test.go` | `testGenerateImagesErrorPathsAndHookError` | image generation behavior: Generate Images Error Paths |
 | ADAPTED | `TestGenerateImagesOpenRouterHooksAndResponse` | `images_test.go` | `testOpenRouterImageResponseParser` | image generation behavior: Generate Images Open Router Hooks And Response |
 | ADAPTED | `TestGenerateImagesOpenRouterUsesProviderEnvAPIKey` | `images_test.go` | `testOpenRouterImageAPIKeyResolution` | auth/header/env edge case: Generate Images Open Router Uses Provider Env APIKey |
 | ADAPTED | `TestGenerateImagesOpenRouterPayloadParityAndAbort` | `images_test.go` | `testOpenRouterImagePayloadBuilder` | provider request/payload parity: Generate Images Open Router Payload Parity And Abort |
-| PENDING | `TestGenerateImagesOpenRouterRetriesAndHookError` | `images_test.go` | `—` | image generation behavior: Generate Images Open Router Retries And Hook Error |
+| PARTIAL | `TestGenerateImagesOpenRouterRetriesAndHookError` | `images_test.go` | `testGenerateImagesErrorPathsAndHookError`, `testRetryPolicy` | image generation behavior: hook error covered; HTTP retry integration is policy-covered, not fully transport-replayed |
 | PENDING | `TestNormalizeAnthropicBaseURLAddsV1` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider OAuth/provider-specific behavior: Normalize Anthropic Base URLAdds V1 |
 | PENDING | `TestStreamAnthropicUsesBearerForCopilot` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | streaming/event transport behavior: Stream Anthropic Uses Bearer For Copilot |
 | PENDING | `TestBuildRequestJSONRoundTrip` | `inference/provider/anthropic/anthropic_copilot_test.go` | `—` | provider request/payload parity: Build Request JSONRound Trip |

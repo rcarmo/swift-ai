@@ -1005,7 +1005,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(body["reasoning_effort"], .string("low"))
 
         let sse = """
-        data: {"choices":[{"delta":{"reasoning_content":"think"}}]}
+        data: {"id":"resp_1","model":"actual-model","choices":[{"delta":{"reasoning_content":"think"}}]}
 
         data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}
 
@@ -1015,6 +1015,8 @@ final class SwiftAITests: XCTestCase {
         let events = MistralConversationsProvider.processSSEText(sse, model: model)
         guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
         XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.responseId, "resp_1")
+        XCTAssertEqual(message.responseModel, "actual-model")
         XCTAssertEqual(message.content.first?.type, "thinking")
         XCTAssertEqual(message.content.first?.thinking, "think")
         XCTAssertTrue(message.content.contains { $0.type == "text" && $0.text == "ok" })

@@ -85,14 +85,14 @@ public enum OpenAIResponsesProvider {
     public static func normalizeAzureBaseURL(_ baseURL: String) throws -> String {
         var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         while trimmed.hasSuffix("/") { trimmed.removeLast() }
-        guard var components = URLComponents(string: trimmed), let host = components.host, components.scheme != nil else { throw AIError.provider("invalid Azure OpenAI base URL: \(baseURL)") }
+        guard var components = URLComponents(string: trimmed), let host = components.host, components.scheme != nil else { throw AIError.provider("Invalid Azure OpenAI base URL: \(baseURL)") }
         let isAzureHost = host.hasSuffix(".openai.azure.com") || host.hasSuffix(".cognitiveservices.azure.com")
         let path = (components.path as NSString).standardizingPath
         if isAzureHost && (path.isEmpty || path == "/" || path == "/openai") {
             components.path = "/openai/v1"
             components.query = nil
         }
-        guard let url = components.url?.absoluteString else { throw AIError.provider("invalid Azure OpenAI base URL: \(baseURL)") }
+        guard let url = components.url?.absoluteString else { throw AIError.provider("Invalid Azure OpenAI base URL: \(baseURL)") }
         return url.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 

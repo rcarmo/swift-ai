@@ -836,6 +836,41 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(toolReason, .toolUse)
     }
 
+    func testAzureOpenAIResponsesBaseURLNormalization() throws {
+        let cases = [
+            ("https://marc-quicktests-resource.cognitiveservices.azure.com", "https://marc-quicktests-resource.cognitiveservices.azure.com/openai/v1"),
+            ("https://my-resource.openai.azure.com", "https://my-resource.openai.azure.com/openai/v1"),
+            ("https://my-resource.cognitiveservices.azure.com/openai", "https://my-resource.cognitiveservices.azure.com/openai/v1"),
+            ("https://my-resource.cognitiveservices.azure.com/openai/v1", "https://my-resource.cognitiveservices.azure.com/openai/v1"),
+            ("https://my-proxy.example.com/v1", "https://my-proxy.example.com/v1"),
+            ("https://my-resource.openai.azure.com/openai?api-version=2024-12-01", "https://my-resource.openai.azure.com/openai/v1"),
+            ("https://my-proxy.example.com/v1?custom=true", "https://my-proxy.example.com/v1?custom=true"),
+        ]
+        for (input, expected) in cases { XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL(input), expected, input) }
+        XCTAssertThrowsError(try OpenAIResponsesProvider.normalizeAzureBaseURL("not-a-url")) { error in
+            XCTAssertTrue(String(describing: error).contains("Invalid Azure OpenAI base URL"))
+        }
+    }
+
+    func testAzureOpenAIResponsesConfigAndPayloadDefaults() throws {
+        let model = Model(id: "gpt-4o-mini", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAIResponses)
+        var options = StreamOptions()
+        options.azureBaseUrl = "https://my-resource.openai.azure.com"
+        options.azureApiVersion = "2024-12-01"
+        options.sessionId = String(repeating: "x", count: 67)
+        let cfg = try OpenAIResponsesProvider.resolveAzureConfig(model: model, options: options)
+        XCTAssertEqual(cfg.baseURL, "https://my-resource.openai.azure.com/openai/v1/deployments/gpt-4o-mini")
+        XCTAssertEqual(cfg.apiVersion, "2024-12-01")
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hello")]), options: options)
+        XCTAssertEqual(body["store"], .bool(false))
+        XCTAssertEqual(body["prompt_cache_key"], .string(String(repeating: "x", count: 64)))
+
+        var envOptions = StreamOptions()
+        envOptions.env = ["AZURE_OPENAI_RESOURCE_NAME": "my-resource"]
+        let envCfg = try OpenAIResponsesProvider.resolveAzureConfig(model: model, options: envOptions)
+        XCTAssertEqual(envCfg.baseURL, "https://my-resource.openai.azure.com/openai/v1/deployments/gpt-4o-mini")
+    }
+
     func testOpenAIResponsesProviderDefaultReasoningMatrix() throws {
         let models = try BuiltinModels.all()
         for id in ["gpt-5.1", "gpt-5.2", "gpt-5.3-codex", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.5"] {

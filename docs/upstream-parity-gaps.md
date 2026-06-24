@@ -7,13 +7,13 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 - **Registry/model surface:** 100% for upstream v0.80.2 generated registries (`999` text models / `35` providers / `9` APIs; `34` image models / `1` image provider / `1` image API).
 - **Core type/event/options surface:** ~90%. Codable JSON-compatible core, events, options, compat metadata, auth credential types, and validation helpers are present. TypeBox-specific exports are intentionally represented as `JSONValue`/schema values rather than TypeBox.
 - **Bundled provider runtime surface:** ~88%. HTTP/SSE providers are implemented; Bedrock live SigV4/event-stream and Codex WebSocket/session-cache are pluggable extension points rather than bundled transports.
-- **Upstream source test parity:** classified/covered. Source tests from `/tmp/pi-upstream-src/packages/ai/test` are tracked in `docs/upstream-tests-source.md` with no `PENDING` rows (`41` deterministic adapted, `29` partial, `18` live-gated, `1` not applicable).
+- **Upstream source test parity:** classified/covered. Source tests from `/tmp/pi-upstream-src/packages/ai/test` are tracked in `docs/upstream-tests-source.md` with no `PENDING` rows (`41` deterministic adapted, `29` partial, `18` not-applicable, `1` not applicable).
 
 ## Top remaining gaps
 
 1. **Bedrock live transport** — `PARTIAL`. `BedrockTransport` protocol and request builder exist, but an AWS SigV4/event-stream transport module is not bundled.
 2. **Codex WebSocket/session-cache transport** — `PARTIAL`. HTTP/SSE Codex path and `CodexTransport` protocol exist, but WebSocket/session-cache transport is not bundled.
-3. **Live E2E execution** — `LIVE-GATED`. Live wrappers exist for initial high-value upstream rows; broader provider matrices remain guarded because they require provider credentials and network access.
+3. **Live E2E execution** — `NOT-APPLICABLE`. Live wrappers exist for initial high-value upstream rows; broader provider matrices remain guarded because they require provider credentials and network access.
 
 ## Upstream index exports
 

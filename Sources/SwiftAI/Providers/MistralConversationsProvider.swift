@@ -17,7 +17,7 @@ public enum MistralConversationsProvider {
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
         var body: [String: JSONValue] = ["model": .string(model.id), "stream": .bool(true), "messages": .array(convertMessages(context, model: model))]
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
-        if let maxTokens = options?.maxTokens { body["max_tokens"] = .number(Double(maxTokens)) }
+        if let maxTokens = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_tokens"] = .number(Double(maxTokens)) }
         if let reasoning = options?.reasoning, model.reasoning {
             let mapped = mappedThinkingEffort(model: model, effort: reasoning.rawValue)
             if usesReasoningEffort(model) { body["reasoning_effort"] = .string(mapped) } else { body["prompt_mode"] = .string("reasoning") }

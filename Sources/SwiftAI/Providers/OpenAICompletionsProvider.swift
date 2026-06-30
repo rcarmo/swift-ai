@@ -32,7 +32,7 @@ public enum OpenAICompletionsProvider {
         if compat.supportsStore != false { body["store"] = .bool(false) }
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
-        if let maxTokens = options?.maxTokens { body[maxTokensField] = .number(Double(maxTokens)) }
+        if let maxTokens = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body[maxTokensField] = .number(Double(maxTokens)) }
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(applyAnthropicCacheControlToTools(tools.map { toolJSON($0, compat: compat) }, compat: compat, cacheRetention: ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env))) }
         else if hasToolHistory(context.messages) { body["tools"] = .array([]) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
@@ -125,8 +125,13 @@ public enum OpenAICompletionsProvider {
                     return try? JSONDecoder().decode(JSONValue.self, from: data)
                 }
                 if !reasoningDetails.isEmpty { obj["reasoning_details"] = .array(reasoningDetails) }
-                if compat.requiresReasoningContentOnAssistantMessages == true {
-                    let reasoning = message.content.filter { $0.type == "thinking" }.compactMap(\.thinking).joined()
+                let thinkingBlocks = message.content.filter { $0.type == "thinking" && !($0.thinking ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                if let signature = thinkingBlocks.first?.thinkingSignature, !signature.isEmpty {
+                    let key = model.provider == .openCodeGo && signature == "reasoning" ? "reasoning_content" : signature
+                    obj[key] = .string(AIUtilities.sanitizeSurrogates(thinkingBlocks.compactMap(\.thinking).joined(separator: "\n")))
+                }
+                if compat.requiresReasoningContentOnAssistantMessages == true, obj["reasoning_content"] == nil {
+                    let reasoning = thinkingBlocks.compactMap(\.thinking).joined()
                     obj["reasoning_content"] = .string(AIUtilities.sanitizeSurrogates(reasoning))
                 }
                 let calls = message.content.filter { $0.type == "toolCall" }.map { block in

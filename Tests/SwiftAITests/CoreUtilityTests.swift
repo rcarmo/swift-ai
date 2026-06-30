@@ -42,11 +42,22 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(bedrockBody["inferenceConfig"], .object(["maxTokens": .number(902)]))
         var explicitOptions = StreamOptions(); explicitOptions.maxTokens = 2000
         let completionsBody = OpenAICompletionsProvider.buildRequestBody(model: model, context: boundary, options: explicitOptions)
-        XCTAssertEqual(completionsBody["max_completion_tokens"], .number(2000))
-        XCTAssertEqual(OpenAIResponsesProvider.buildRequestBody(model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, contextWindow: 5000), context: boundary, options: explicitOptions)["max_output_tokens"], .number(2000))
-        guard case .object(let googleGen)? = GoogleGenerativeAIProvider.buildRequestBody(model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google, contextWindow: 5000), context: boundary, options: explicitOptions)["generationConfig"] else { return XCTFail("missing google generation config") }
-        XCTAssertEqual(googleGen["maxOutputTokens"], .number(2000))
-        XCTAssertEqual(MistralConversationsProvider.buildRequestBody(model: Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral, contextWindow: 5000), context: boundary, options: explicitOptions)["max_tokens"], .number(2000))
+        XCTAssertEqual(completionsBody["max_completion_tokens"], .number(902))
+        XCTAssertEqual(OpenAIResponsesProvider.buildRequestBody(model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, contextWindow: 5000, maxTokens: 2000), context: boundary, options: explicitOptions)["max_output_tokens"], .number(902))
+        guard case .object(let googleGen)? = GoogleGenerativeAIProvider.buildRequestBody(model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google, contextWindow: 5000, maxTokens: 2000), context: boundary, options: explicitOptions)["generationConfig"] else { return XCTFail("missing google generation config") }
+        XCTAssertEqual(googleGen["maxOutputTokens"], .number(902))
+        XCTAssertEqual(MistralConversationsProvider.buildRequestBody(model: Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral, contextWindow: 5000, maxTokens: 2000), context: boundary, options: explicitOptions)["max_tokens"], .number(902))
+        let defaultClampModel = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, contextWindow: 10000, maxTokens: 8000)
+        let longContext = AIContext(messages: [.user(String(repeating: "x", count: 8000))])
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: defaultClampModel, context: longContext, options: nil)["max_completion_tokens"], .number(3904))
+        XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://foundry.ai.azure.com"), "https://foundry.ai.azure.com/openai/v1")
+        XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://foundry.services.ai.azure.com/openai/v1/responses"), "https://foundry.services.ai.azure.com/openai/v1")
+        let sonnet5 = Model(id: "anthropic.claude-sonnet-5", name: "Claude Sonnet 5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        var reasoningOptions = StreamOptions(); reasoningOptions.reasoning = .high
+        guard let sonnetFields = BedrockProvider.additionalModelRequestFields(model: sonnet5, options: reasoningOptions), case .object(let sonnetThinking)? = sonnetFields["thinking"] else { return XCTFail("missing sonnet 5 thinking") }
+        XCTAssertEqual(sonnetThinking["type"], .string("adaptive"))
+        XCTAssertEqual(sonnetThinking["display"], .string("summarized"))
+        XCTAssertEqual(sonnetFields["output_config"], .object(["effort": .string("high")]))
 
         let sse = """
         event: message_start

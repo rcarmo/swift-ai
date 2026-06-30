@@ -21,7 +21,7 @@ public enum GoogleGeminiCLIProvider {
         inner["contents"] = .array(convertMessages(model: model, messages: AIUtilities.transformMessages(context.messages, for: model)))
         var gen: [String: JSONValue] = [:]
         if let temp = options?.temperature { gen["temperature"] = .number(temp) }
-        if let max = options?.maxTokens { gen["maxOutputTokens"] = .number(Double(max)) }
+        if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { gen["maxOutputTokens"] = .number(Double(max)) }
         if let reasoning = options?.reasoning, model.reasoning { gen["thinkingConfig"] = .object(["includeThoughts": .bool(true), "thinkingLevel": .string((AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: reasoning.rawValue) ?? .high) ?? "high").uppercased())]) }
         if !gen.isEmpty { inner["generationConfig"] = .object(gen) }
         if let tools = context.tools, !tools.isEmpty { inner["tools"] = .array([.object(["functionDeclarations": .array(tools.map(toolJSON))])]) }

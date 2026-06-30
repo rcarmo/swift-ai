@@ -38,7 +38,7 @@ public enum OpenAIResponsesProvider {
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
         if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
         if let t = options?.temperature { body["temperature"] = .number(t) }
-        if let max = options?.maxTokens { body["max_output_tokens"] = .number(Double(max)) }
+        if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(max)) }
         if model.reasoning {
             let effort: String
             if let reasoning = options?.reasoning { effort = mappedThinkingEffort(model: model, effort: reasoning.rawValue) }
@@ -98,9 +98,9 @@ public enum OpenAIResponsesProvider {
         var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         while trimmed.hasSuffix("/") { trimmed.removeLast() }
         guard var components = URLComponents(string: trimmed), let host = components.host, components.scheme != nil else { throw AIError.provider("Invalid Azure OpenAI base URL: \(baseURL)") }
-        let isAzureHost = host.hasSuffix(".openai.azure.com") || host.hasSuffix(".cognitiveservices.azure.com")
+        let isAzureHost = host.hasSuffix(".openai.azure.com") || host.hasSuffix(".cognitiveservices.azure.com") || host.hasSuffix(".ai.azure.com") || host.hasSuffix(".services.ai.azure.com")
         let path = (components.path as NSString).standardizingPath
-        if isAzureHost && (path.isEmpty || path == "/" || path == "/openai") {
+        if isAzureHost && (path.isEmpty || path == "/" || path == "/openai" || path == "/openai/v1/responses") {
             components.path = "/openai/v1"
             components.query = nil
         }

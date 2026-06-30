@@ -159,7 +159,7 @@ public enum BedrockProvider {
 
     private static func supportsAdaptiveThinking(_ model: Model) -> Bool {
         modelMatchCandidates(model).contains { value in
-            value.contains("opus-4-6") || value.contains("opus-4-7") || value.contains("opus-4-8") || value.contains("sonnet-4-6") || value.contains("fable-5")
+            value.contains("opus-4-6") || value.contains("opus-4-7") || value.contains("opus-4-8") || value.contains("sonnet-4-6") || value.contains("sonnet-5") || value.contains("fable-5")
         }
     }
 

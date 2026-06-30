@@ -20,7 +20,7 @@ public enum GoogleGenerativeAIProvider {
         body["contents"] = .array(convertMessages(model: model, messages: AIUtilities.transformMessages(context.messages, for: model)))
         var gen: [String: JSONValue] = [:]
         if let t = options?.temperature { gen["temperature"] = .number(t) }
-        if let max = options?.maxTokens { gen["maxOutputTokens"] = .number(Double(max)) }
+        if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { gen["maxOutputTokens"] = .number(Double(max)) }
         if model.reasoning {
             if let reasoning = options?.reasoning {
                 let mapped = mappedThinkingEffort(model: model, effort: reasoning.rawValue)

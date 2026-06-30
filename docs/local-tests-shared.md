@@ -35,7 +35,7 @@ Constants: `CONTEXT_SAFETY_TOKENS = 4096`, `MIN_MAX_TOKENS = 1`.
 Formula: if `contextWindow <= 0`, return `max(1, maxTokens)`; otherwise `min(maxTokens, max(1, contextWindow - estimateContextTokens(context).tokens - 4096))`.
 
 Canonical boundary fixture: `contextWindow=5000`, user `"hello"` (`ceil(5/4)=2`), `maxTokens=2000` → `902`.
-Swift wires this clamp only into **Anthropic Messages** and **Bedrock Converse Stream** request builders. OpenAI completions/responses/Azure, Google/Vertex/Gemini CLI, and Mistral request builders intentionally pass raw `options.maxTokens`; Swift has negative assertions for raw `2000` on those paths.
+Swift mirrors upstream `buildBaseOptions`: every text provider request builder uses `options.maxTokens ?? model.maxTokens`, clamps it to remaining context, and sends the provider-specific max-token field. Additional fixture: `contextWindow=10000`, `model.maxTokens=8000`, user text length `8000` (`2000` estimated tokens) → OpenAI completions `max_completion_tokens=3904`.
 
 ### C. `Usage.reasoning`
 

@@ -2037,7 +2037,7 @@ final class SwiftAITests: XCTestCase {
         let noTools = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)
         XCTAssertNil(noTools["tools"])
         XCTAssertNil(noTools["max_tokens"])
-        XCTAssertNil(noTools["max_completion_tokens"])
+        XCTAssertEqual(noTools["max_completion_tokens"], .number(1))
         var options = StreamOptions(); options.maxTokens = 1234
         let explicit = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
         XCTAssertNil(explicit["max_tokens"])
@@ -2084,12 +2084,19 @@ final class SwiftAITests: XCTestCase {
     func testOpenAIReasoningContentReplay() {
         var compat = OpenAICompletionsCompat()
         compat.requiresReasoningContentOnAssistantMessages = true
-        let model = Model(id: "deep", name: "Deep", api: .openAICompletions, provider: .deepSeek, completionsCompat: compat)
+        let model = Model(id: "deep", name: "Deep", api: .openAICompletions, provider: .deepSeek, reasoning: true, completionsCompat: compat)
         var assistant = Message(role: .assistant, content: [ContentBlock.thinking("why"), .text("answer")])
         assistant.api = model.api; assistant.provider = model.provider; assistant.model = model.id
         let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: nil)
         guard case .array(let messages)? = body["messages"], case .object(let first) = messages[0] else { return XCTFail("missing assistant") }
         XCTAssertEqual(first["reasoning_content"], .string("why"))
+        var zaiCompat = OpenAICompletionsCompat(); zaiCompat.thinkingFormat = "zai"
+        let zai = Model(id: "glm", name: "GLM", api: .openAICompletions, provider: .zai, reasoning: true, completionsCompat: zaiCompat)
+        assistant.content = [ContentBlock.thinking("dynamic why", signature: "reasoning_content"), .text("answer")]
+        assistant.api = zai.api; assistant.provider = zai.provider; assistant.model = zai.id
+        let zaiBody = OpenAICompletionsProvider.buildRequestBody(model: zai, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let zaiMessages)? = zaiBody["messages"], case .object(let zaiFirst) = zaiMessages[0] else { return XCTFail("missing zai assistant") }
+        XCTAssertEqual(zaiFirst["reasoning_content"], .string("dynamic why"))
     }
 
     func testOpenAICompletionsRequestCacheAndThinkingFormats() {

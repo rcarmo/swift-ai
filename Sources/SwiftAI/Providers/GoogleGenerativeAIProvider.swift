@@ -91,7 +91,7 @@ public enum GoogleGenerativeAIProvider {
         if data == "[DONE]" { return }
         guard let raw = data.data(using: .utf8), let chunk = try? JSONDecoder().decode(GeminiChunk.self, from: raw) else { return }
         if let id = chunk.responseId { state.partial.responseId = id }
-        if let usage = chunk.usageMetadata { var u = Usage(); u.input = max(0, (usage.promptTokenCount ?? 0) - (usage.cachedContentTokenCount ?? 0)); u.output = (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0); u.cacheRead = usage.cachedContentTokenCount ?? 0; u.totalTokens = usage.totalTokenCount ?? (u.input + u.output + u.cacheRead); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
+        if let usage = chunk.usageMetadata { var u = Usage(); u.input = max(0, (usage.promptTokenCount ?? 0) - (usage.cachedContentTokenCount ?? 0)); u.output = (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0); u.reasoning = usage.thoughtsTokenCount ?? 0; u.cacheRead = usage.cachedContentTokenCount ?? 0; u.totalTokens = usage.totalTokenCount ?? (u.input + u.output + u.cacheRead); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
         guard let candidate = chunk.candidates?.first else { return }
         for part in candidate.content?.parts ?? [] {
             if let text = part.text, !text.isEmpty {

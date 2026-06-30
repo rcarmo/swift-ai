@@ -56,6 +56,17 @@ public struct RetryPolicy: Equatable, Sendable {
     public func delayNanoseconds(attempt: Int, retryAfterMs: Int? = nil) throws -> UInt64 { UInt64(try delayMilliseconds(attempt: attempt, retryAfterMs: retryAfterMs)) * 1_000_000 }
 }
 
+public enum AssistantErrorRetryClassifier {
+    private static let nonRetryablePattern = try! NSRegularExpression(pattern: "GoUsageLimitError|FreeUsageLimitError|Monthly usage limit reached|available balance|insufficient_quota|out of budget|quota exceeded|billing", options: [.caseInsensitive])
+    private static let retryablePattern = try! NSRegularExpression(pattern: "overloaded|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|provider.?returned.?error|network.?error|connection.?error|connection.?refused|connection.?lost|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|websocket.?closed|websocket.?error|ended without|stream ended before message_stop|http2 request did not get a response|retry delay|you can retry your request|try your request again|please retry your request", options: [.caseInsensitive])
+    public static func isRetryableAssistantError(_ message: Message) -> Bool {
+        guard message.stopReason == .error, let errorMessage = message.errorMessage, !errorMessage.isEmpty else { return false }
+        let range = NSRange(errorMessage.startIndex..<errorMessage.endIndex, in: errorMessage)
+        if nonRetryablePattern.firstMatch(in: errorMessage, range: range) != nil { return false }
+        return retryablePattern.firstMatch(in: errorMessage, range: range) != nil
+    }
+}
+
 public enum RetryRunner {
     public static func run<T>(policy: RetryPolicy, sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, onRetry: (@Sendable (Int, Error) async -> Void)? = nil, operation: @Sendable (Int) async throws -> T) async throws -> T {
         var lastError: Error?

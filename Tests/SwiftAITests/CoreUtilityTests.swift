@@ -2,6 +2,98 @@ import XCTest
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
+    func testV0803EstimateClampErrorAndRetryUtilities() {
+        XCTAssertEqual(AIUtilities.estimateTextTokens("12345678"), 2)
+        XCTAssertEqual(AIUtilities.estimateTextTokens("123456789"), 3)
+        XCTAssertEqual(AIUtilities.estimateTextTokens(""), 0)
+        XCTAssertEqual(AIUtilities.estimateTextTokens("hello"), 2)
+        XCTAssertEqual(AIUtilities.estimateTextAndImageContentTokens([.text("abcd"), .image(data: "x", mimeType: "image/png")]), 1201)
+        var assistant = Message(role: .assistant, content: [.text("answer")])
+        var usage = Usage(); usage.input = 100; usage.output = 20; usage.cacheRead = 3; usage.cacheWrite = 2; usage.totalTokens = 125
+        assistant.usage = usage; assistant.stopReason = .stop
+        let context = AIContext(systemPrompt: "sys", messages: [.user("hello"), assistant, .user("tail")], tools: [Tool(name: "lookup", description: "Lookup", parameters: .object(["type": .string("object")]))])
+        let estimate = AIUtilities.estimateContextTokens(context)
+        XCTAssertEqual(estimate.usageTokens, 125)
+        XCTAssertEqual(estimate.trailingTokens, 1)
+        XCTAssertEqual(estimate.tokens, 126)
+        let boundary = AIContext(messages: [.user("hello")])
+        let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, contextWindow: 5000, maxTokens: 2000)
+        XCTAssertEqual(AIUtilities.clampMaxTokensToContext(model: model, context: boundary, maxTokens: 2000), 902)
+        XCTAssertEqual(AIUtilities.clampMaxTokensToContext(model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, contextWindow: 0), context: boundary, maxTokens: -4), 1)
+
+        let long = String(repeating: "x", count: 4005)
+        XCTAssertEqual(AIUtilities.truncateErrorText(long).count, 4023)
+        let normalized = AIUtilities.normalizeProviderError(["status": 403, "error": ["message": "denied"], "message": "403 status code (no body)"] as [String: Any])
+        XCTAssertEqual(normalized.status, 403)
+        XCTAssertEqual(normalized.body, #"{"message":"denied"}"#)
+        XCTAssertEqual(AIUtilities.formatProviderError(normalized, prefix: "OpenAI API error"), #"OpenAI API error (403): {"message":"denied"}"#)
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 403, body: #"{"error":"forbidden"}"#), #"403: {"error":"forbidden"}"#)
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 429, body: "rate limited", prefix: "OpenAI API error"), "OpenAI API error (429): rate limited")
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 500, body: "boom", prefix: "Azure OpenAI API error"), "Azure OpenAI API error (500): boom")
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 503, body: "   spaced   "), "503: spaced")
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 503, body: "   "), "503")
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 503, body: "", prefix: "OpenAI API error"), "OpenAI API error (503)")
+        XCTAssertEqual(AIUtilities.formatProviderError(status: 400, body: String(repeating: "x", count: 4025)), "400: \(String(repeating: "x", count: 4000))... [truncated 25 chars]")
+        XCTAssertEqual(AIUtilities.safeJsonStringify(["b": 2, "a": 1]), #"{"a":1,"b":2}"#)
+
+        let anthropicBody = AnthropicMessagesProvider.buildRequestBody(model: Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, contextWindow: 5000, maxTokens: 2000), context: boundary, options: nil)
+        XCTAssertEqual(anthropicBody["max_tokens"], .number(902))
+        let bedrockBody = BedrockProvider.buildConverseRequest(model: Model(id: "claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock, contextWindow: 5000, maxTokens: 2000), context: boundary, options: nil)
+        XCTAssertEqual(bedrockBody["inferenceConfig"], .object(["maxTokens": .number(902)]))
+        var explicitOptions = StreamOptions(); explicitOptions.maxTokens = 2000
+        let completionsBody = OpenAICompletionsProvider.buildRequestBody(model: model, context: boundary, options: explicitOptions)
+        XCTAssertEqual(completionsBody["max_completion_tokens"], .number(2000))
+        XCTAssertEqual(OpenAIResponsesProvider.buildRequestBody(model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, contextWindow: 5000), context: boundary, options: explicitOptions)["max_output_tokens"], .number(2000))
+        guard case .object(let googleGen)? = GoogleGenerativeAIProvider.buildRequestBody(model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google, contextWindow: 5000), context: boundary, options: explicitOptions)["generationConfig"] else { return XCTFail("missing google generation config") }
+        XCTAssertEqual(googleGen["maxOutputTokens"], .number(2000))
+        XCTAssertEqual(MistralConversationsProvider.buildRequestBody(model: Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral, contextWindow: 5000), context: boundary, options: explicitOptions)["max_tokens"], .number(2000))
+
+        let sse = """
+        event: message_start
+        data: {"message":{"id":"m","usage":{"input_tokens":10,"cache_read_input_tokens":3,"cache_creation_input_tokens":2}}}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5,"output_tokens_details":{"thinking_tokens":4}}}
+
+        event: message_stop
+        data: {}
+
+        """
+        guard case .done(_, let anthropicMessage)? = AnthropicMessagesProvider.processSSEText(sse, model: Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)).last else { return XCTFail("missing anthropic done") }
+        XCTAssertEqual(anthropicMessage.usage?.reasoning, 4)
+        XCTAssertEqual(anthropicMessage.usage?.totalTokens, 20)
+
+        let openAIUsageSSE = """
+        data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":30}}}
+
+        data: [DONE]
+
+        """
+        guard case .done(_, let openAIMessage)? = OpenAICompletionsProvider.processSSEText(openAIUsageSSE, model: model).last else { return XCTFail("missing openai done") }
+        XCTAssertEqual(openAIMessage.usage?.reasoning, 30)
+        let responsesUsageSSE = """
+        event: response.completed
+        data: {"response":{"id":"r","status":"completed","usage":{"input_tokens":10,"output_tokens":20,"output_tokens_details":{"reasoning_tokens":12}}}}
+
+        """
+        guard case .done(_, let responsesMessage)? = OpenAIResponsesProvider.processSSEText(responsesUsageSSE, model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)).last else { return XCTFail("missing responses done") }
+        XCTAssertEqual(responsesMessage.usage?.reasoning, 12)
+        let googleUsageSSE = """
+        data: {"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20,"thoughtsTokenCount":7,"totalTokenCount":37}}
+
+        """
+        guard case .done(_, let googleMessage)? = GoogleGenerativeAIProvider.processSSEText(googleUsageSSE, model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google)).last else { return XCTFail("missing google done") }
+        XCTAssertEqual(googleMessage.usage?.reasoning, 7)
+
+        var retryable = Message(role: .assistant, content: [])
+        retryable.stopReason = .error; retryable.errorMessage = "Provider returned error: 503 service unavailable, please retry your request"
+        XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
+        retryable.errorMessage = "insufficient_quota billing limit reached after 429"
+        XCTAssertFalse(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
+        retryable.stopReason = .stop
+        XCTAssertFalse(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
+    }
+
     func testUsageTotalTokensComponentInvariant() {
         var usage = Usage()
         usage.input = 10

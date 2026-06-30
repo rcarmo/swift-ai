@@ -11,6 +11,80 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 - Pending direct Swift adaptation: **0**
 - Not applicable/no Swift analogue: **4**
 
+## v0.80.3 conformance fixtures
+
+Upstream **0.80.3** feature release. Authoritative constants + truth-tables are adopted from rs-ai's `docs/local-tests-shared.md` and upstream `utils/{estimate,retry,error-body}.ts` plus `api/simple-options.ts`.
+
+### A. `estimateContextTokens` / text-token estimation
+
+Constants: `CHARS_PER_TOKEN = 4`, `ESTIMATED_IMAGE_CHARS = 4800`.
+`estimateTextTokens(s) = ceil(s.length / 4)`; an image block counts as 4800 chars (`1200` tokens).
+
+| case | input | expected |
+|---|---|---|
+| text ceil-div-4 | `"12345678"` / `"123456789"` / `""` | `2` / `3` / `0` |
+| text+image content | `[text "abcd", image]` = 4804 chars | `1201` tokens |
+| `calculateContextTokens` prefers total | usage `{in:10,out:20,total:99}` | `99` |
+| else sums cache fields | `{in:10,out:20,total:0,cR:5,cW:3}` | `38` |
+| context anchors on last non-aborted assistant usage | sys `"sys"`, `[user, assistant total=100, user "abcd"]` | `tokens=101`, `lastUsageIndex=1` |
+| no usage anchor adds system prefix | sys `"12345678"`, `[assistant total=500 aborted, user "abcd"]` | `tokens=4`, `lastUsageIndex=nil` |
+
+### B. `clampMaxTokensToContext` boundary values
+
+Constants: `CONTEXT_SAFETY_TOKENS = 4096`, `MIN_MAX_TOKENS = 1`.
+Formula: if `contextWindow <= 0`, return `max(1, maxTokens)`; otherwise `min(maxTokens, max(1, contextWindow - estimateContextTokens(context).tokens - 4096))`.
+
+Canonical boundary fixture: `contextWindow=5000`, user `"hello"` (`ceil(5/4)=2`), `maxTokens=2000` → `902`.
+Swift wires this clamp only into **Anthropic Messages** and **Bedrock Converse Stream** request builders. OpenAI completions/responses/Azure, Google/Vertex/Gemini CLI, and Mistral request builders intentionally pass raw `options.maxTokens`; Swift has negative assertions for raw `2000` on those paths.
+
+### C. `Usage.reasoning`
+
+`Usage.reasoning` records provider reasoning/thinking token breakdowns as a subset of output tokens, not added to output.
+
+| provider / api | source field | absent |
+|---|---|---|
+| anthropic-messages | `usage.output_tokens_details.thinking_tokens` | `0` in Swift's non-optional `Int` field |
+| openai-completions | `usage.completion_tokens_details.reasoning_tokens` | `0` |
+| openai-responses / azure | `usage.output_tokens_details.reasoning_tokens` | `0` |
+| google-generative-ai / google-vertex | `usageMetadata.thoughtsTokenCount` | `0` |
+| bedrock / mistral / codex | no upstream breakdown | `0` |
+
+### D. `isRetryableAssistantError`
+
+Returns `false` unless `stopReason == .error` and `errorMessage` is non-empty. Non-retryable quota/billing patterns win over retryable patterns, case-insensitively.
+
+Retryable examples: `overloaded`, `429 Too Many Requests`, `rate limit`, `503 Service Unavailable`, `internal server error`, `Provider returned error`, `fetch failed`, `upstream connect error`, `socket hang up`, `connection refused`, `Request timed out`, `WebSocket closed`, `stream ended before message_stop`, `ended without a stop reason`, `http2 request did not get a response`, and explicit `you can/try/please retry` provider guidance.
+
+Non-retryable examples: `GoUsageLimitError`, `FreeUsageLimitError`, `Monthly usage limit reached`, `available balance`, `insufficient_quota`, `out of budget`, `quota exceeded`, `billing issue`; `429 insufficient_quota: out of credits` is non-retryable because quota/billing wins.
+
+### E. error-body normalization + truncation
+
+`MAX_PROVIDER_ERROR_BODY_CHARS = 4000`. Body is trimmed; over-cap bodies become `"<first 4000 chars>... [truncated N chars]"`. Formatting is `"{status}: {body}"`, or branded `"{prefix} ({status}): {body}"` for OpenAI Responses (`"OpenAI API error"`) / Azure (`"Azure OpenAI API error"`). Empty body formats as `"{status}"` or `"{prefix} ({status})"`.
+
+| case | expected |
+|---|---|
+| `403`, `{\"error\":\"forbidden\"}` | `403: {\"error\":\"forbidden\"}` |
+| OpenAI prefix `429`, `rate limited` | `OpenAI API error (429): rate limited` |
+| Azure prefix `500`, `boom` | `Azure OpenAI API error (500): boom` |
+| trims body | `503: spaced` |
+| empty body | `503` |
+| empty body + prefix | `OpenAI API error (503)` |
+| `400`, `"x"*4025` | `400: "x"*4000 + ... [truncated 25 chars]` |
+
+Swift note: the URLSession HTTP paths read HTTP response bodies directly where the transport exposes `Data`; SDK-object-shape extraction is still kept and tested via `normalizeProviderError` because pluggable transports and future SDK-backed integrations can surface the same OpenAI/Google/Bedrock object shapes upstream covers. Bedrock remains transport-pluggable, so SDK body folding is represented by utility-level normalization tests rather than a bundled AWS SDK catch path.
+
+## Shareable conformance corpus adoption (from rs-ai)
+
+rs-ai's `docs/local-tests-shared.md` shareable corpus has been reviewed and folded into the Swift tracker:
+
+- **Caching-gate divergence fixes:** covered for Anthropic/Fireworks (`x-session-affinity`), OpenAI completions (`prompt_cache_key`), and OpenAI responses/Azure responses (`session_id` / `x-client-request-id` / `x-ms-client-request-id`) by suppressing affinity/cache headers and prompt-cache keys when `cacheRetention == .none`.
+- **WS connection-limit retry + real-handshake tests:** tracked as PARTIAL under Codex WebSocket rows; Swift exposes the pluggable Codex surface but does not yet ship a native WebSocket transport/pool, so this remains a transport-seam item rather than a semantic gap.
+- **Device-code RFC8628 semantics:** `OAuthDeviceCodePoller` now applies RFC8628 `slow_down` as `interval += 5`, keeps the minimum interval clamp, and preserves distinct timeout messaging after `slow_down`.
+- **HTTP proxy:** covered by `HTTPProxyResolver` and local proxy precedence/NO_PROXY tests; SOCKS/PAC are rejected.
+- **Vertex provider path:** covered by `testGoogleVertexAPIKeyResolutionURLSemantics` and stream URL escaping tests (project/location REST URL, ADC markers, real API-key query behavior).
+- **Simulated-fixture ports:** covered in semantic fixture tests for response/model IDs, token/cost accounting, context overflow, unicode sanitisation, Google thinking-disable, and cache-retention request shape.
+- **Live-gated pattern:** tracked as a parity pattern; Swift has semantic/local provider tests and can add live wrappers when credentials and transport-specific clients are enabled.
+
 ## Highest-priority pending buckets
 
 1. Bedrock live event-stream/SigV4 behavior tests — blocked until a `BedrockTransport` implementation is supplied; request-surface tests exist.

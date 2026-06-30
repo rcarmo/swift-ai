@@ -124,7 +124,7 @@ public struct ContentBlock: Codable, Equatable, Sendable {
 }
 
 public struct CostBreakdown: Codable, Equatable, Sendable { public var input = 0.0; public var output = 0.0; public var cacheRead = 0.0; public var cacheWrite = 0.0; public var total = 0.0; public init() {} }
-public struct Usage: Codable, Equatable, Sendable { public var input = 0; public var output = 0; public var cacheRead = 0; public var cacheWrite = 0; public var cacheWrite1h: Int?; public var totalTokens = 0; public var cost = CostBreakdown(); public init() {} }
+public struct Usage: Codable, Equatable, Sendable { public var input = 0; public var output = 0; public var cacheRead = 0; public var cacheWrite = 0; public var cacheWrite1h: Int?; public var reasoning = 0; public var totalTokens = 0; public var cost = CostBreakdown(); public init() {} }
 
 public struct DiagnosticError: Codable, Equatable, Sendable { public var name: String?; public var message: String; public var stack: String?; public var code: JSONValue?; public init(message: String, name: String? = nil, stack: String? = nil, code: JSONValue? = nil) { self.message = message; self.name = name; self.stack = stack; self.code = code } }
 public struct AssistantMessageDiagnostic: Codable, Equatable, Sendable { public var type: String; public var timestamp: Int64; public var error: DiagnosticError; public var details: [String: JSONValue]?; public init(type: String, timestamp: Int64, error: DiagnosticError, details: [String: JSONValue]? = nil) { self.type = type; self.timestamp = timestamp; self.error = error; self.details = details } }

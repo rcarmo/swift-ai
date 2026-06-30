@@ -120,19 +120,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.2")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 999)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 34)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.3")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1029)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.2")
-        XCTAssertEqual(BuiltinModels.modelCount, 999)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.3")
+        XCTAssertEqual(BuiltinModels.modelCount, 1029)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 999)
+        XCTAssertEqual(models.count, 1029)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
@@ -146,11 +146,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.2")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 34)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.3")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 35)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 34)
+        XCTAssertEqual(models.count, 35)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
     }
 

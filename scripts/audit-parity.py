@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Static parity audit for the SwiftPM registry/runtime surface.
 
-Checks that generated upstream model registries match the expected pi-ai/go-ai
-v0.80.2 counts, that every generated API/provider raw value is represented in
+Checks that generated upstream model registries match the expected pi-ai
+v0.80.3 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,8 +15,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.80.2.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.80.2.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.80.3.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.80.3.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -25,9 +25,9 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 999
+EXPECTED_TEXT_MODELS = 1029
 EXPECTED_TEXT_PROVIDERS = 35
-EXPECTED_IMAGE_MODELS = 34
+EXPECTED_IMAGE_MODELS = 35
 EXPECTED_IMAGE_PROVIDERS = 1
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",

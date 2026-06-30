@@ -71,7 +71,7 @@ public enum BedrockProvider {
         var request: [String: JSONValue] = ["modelId": .string(model.id), "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model)))]
         if let system = context.systemPrompt, !system.isEmpty { request["system"] = .array([.object(["text": .string(AIUtilities.sanitizeSurrogates(system))])]) }
         var inference: [String: JSONValue] = [:]
-        if let max = options?.maxTokens { inference["maxTokens"] = .number(Double(max)) }
+        if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { inference["maxTokens"] = .number(Double(max)) }
         if let temp = options?.temperature { inference["temperature"] = .number(temp) }
         if !inference.isEmpty { request["inferenceConfig"] = .object(inference) }
         if let tools = context.tools, !tools.isEmpty { request["toolConfig"] = .object(["tools": .array(tools.map(toolJSON))]) }

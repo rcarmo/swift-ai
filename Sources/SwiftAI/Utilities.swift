@@ -1,7 +1,16 @@
 import Foundation
 import Crypto
 
+public struct ContextTokenEstimate: Codable, Equatable, Sendable { public var tokens: Int; public var usageTokens: Int; public var trailingTokens: Int; public var lastUsageIndex: Int?; public init(tokens: Int, usageTokens: Int, trailingTokens: Int, lastUsageIndex: Int?) { self.tokens = tokens; self.usageTokens = usageTokens; self.trailingTokens = trailingTokens; self.lastUsageIndex = lastUsageIndex } }
+
+public struct NormalizedProviderError: Equatable, Sendable { public var status: Int?; public var body: String?; public var message: String; public var messageCarriesBody: Bool; public init(status: Int? = nil, body: String? = nil, message: String, messageCarriesBody: Bool = false) { self.status = status; self.body = body; self.message = message; self.messageCarriesBody = messageCarriesBody } }
+
 public enum AIUtilities {
+    public static let charsPerToken = 4
+    public static let estimatedImageChars = 4800
+    public static let contextSafetyTokens = 4096
+    public static let minMaxTokens = 1
+    public static let maxProviderErrorBodyChars = 4000
     private static let extendedThinkingLevels: [ModelThinkingLevel] = [.off, .minimal, .low, .medium, .high, .xhigh]
 
     public static func clampReasoning(_ level: ThinkingLevel) -> ThinkingLevel { level == .xhigh ? .high : level }
@@ -36,6 +45,117 @@ public enum AIUtilities {
     }
 
     public static func defaultThinkingBudgets() -> ThinkingBudgets { ThinkingBudgets(minimal: 1024, low: 2048, medium: 8192, high: 16_384) }
+
+    public static func calculateContextTokens(_ usage: Usage) -> Int { usage.totalTokens != 0 ? usage.totalTokens : usage.input + usage.output + usage.cacheRead + usage.cacheWrite }
+
+    public static func estimateTextTokens(_ text: String) -> Int { Int(ceil(Double(text.count) / Double(charsPerToken))) }
+
+    public static func estimateTextAndImageContentTokens(_ content: [ContentBlock]) -> Int {
+        var chars = 0
+        for block in content { chars += block.type == "text" ? (block.text ?? "").count : estimatedImageChars }
+        return Int(ceil(Double(chars) / Double(charsPerToken)))
+    }
+
+    public static func estimateMessageTokens(_ message: Message) -> Int {
+        if message.role == .user || message.role == .toolResult { return estimateTextAndImageContentTokens(message.content) }
+        var chars = 0
+        for block in message.content {
+            switch block.type {
+            case "text": chars += (block.text ?? "").count
+            case "thinking": chars += (block.thinking ?? "").count
+            default: chars += (block.name ?? "").count + safeJsonStringify(block.arguments ?? [:]).count
+            }
+        }
+        return Int(ceil(Double(chars) / Double(charsPerToken)))
+    }
+
+    public static func estimateContextTokens(_ context: AIContext) -> ContextTokenEstimate {
+        var usageInfo: (usage: Usage, index: Int)?
+        for index in context.messages.indices.reversed() {
+            let message = context.messages[index]
+            guard message.role == .assistant, message.stopReason != .aborted, message.stopReason != .error, let usage = message.usage, calculateContextTokens(usage) > 0 else { continue }
+            usageInfo = (usage, index)
+            break
+        }
+        if let usageInfo {
+            let usageTokens = calculateContextTokens(usageInfo.usage)
+            let trailing = context.messages.dropFirst(usageInfo.index + 1).reduce(0) { $0 + estimateMessageTokens($1) }
+            return ContextTokenEstimate(tokens: usageTokens + trailing, usageTokens: usageTokens, trailingTokens: trailing, lastUsageIndex: usageInfo.index)
+        }
+        let messageTokens = context.messages.reduce(0) { $0 + estimateMessageTokens($1) }
+        var prefixTokens = context.systemPrompt.map(estimateTextTokens) ?? 0
+        if let tools = context.tools, !tools.isEmpty { prefixTokens += estimateTextTokens(safeJsonStringify(tools)) }
+        return ContextTokenEstimate(tokens: messageTokens + prefixTokens, usageTokens: 0, trailingTokens: messageTokens + prefixTokens, lastUsageIndex: nil)
+    }
+
+    public static func clampMaxTokensToContext(model: Model, context: AIContext, maxTokens: Int) -> Int {
+        if model.contextWindow <= 0 { return max(minMaxTokens, maxTokens) }
+        let available = model.contextWindow - estimateContextTokens(context).tokens - contextSafetyTokens
+        return min(maxTokens, max(minMaxTokens, available))
+    }
+
+    public static func effectiveMaxTokens(model: Model, context: AIContext, options: StreamOptions?, defaultToModel: Bool) -> Int? {
+        guard let requested = options?.maxTokens ?? (defaultToModel ? model.maxTokens : nil) else { return nil }
+        return clampMaxTokensToContext(model: model, context: context, maxTokens: requested)
+    }
+
+    public static func normalizeProviderError(_ error: Any) -> NormalizedProviderError {
+        if let error = error as? Error {
+            let message = String(describing: error)
+            return NormalizedProviderError(status: nil, body: nil, message: message, messageCarriesBody: false)
+        }
+        if let object = error as? [String: Any] {
+            let status = firstInt(object, keys: ["statusCode", "status"])
+                ?? ((object["$metadata"] as? [String: Any]).flatMap { firstInt($0, keys: ["httpStatusCode"]) })
+                ?? ((object["$response"] as? [String: Any]).flatMap { firstInt($0, keys: ["statusCode"]) })
+            let body = extractProviderErrorBody(object)
+            let message = object["message"].map { String(describing: $0) } ?? safeJsonStringify(error)
+            return NormalizedProviderError(status: status, body: body, message: message, messageCarriesBody: body.map { message.contains($0) } ?? true)
+        }
+        return NormalizedProviderError(message: safeJsonStringify(error), messageCarriesBody: false)
+    }
+
+    public static func formatProviderError(_ normalized: NormalizedProviderError, prefix: String? = nil) -> String {
+        guard let status = normalized.status else { return normalized.message }
+        if let body = normalized.body { return formatProviderError(status: status, body: body, prefix: prefix) }
+        if normalized.messageCarriesBody, !normalized.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if let prefix { return "\(prefix) (\(status)): \(normalized.message)" }
+            return "\(status): \(normalized.message)"
+        }
+        if let prefix { return "\(prefix) (\(status))" }
+        return "\(status)"
+    }
+
+    public static func formatProviderError(status: Int, body: String?, prefix: String? = nil) -> String {
+        let trimmed = (body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = prefix.map { "\($0) (\(status))" } ?? "\(status)"
+        guard !trimmed.isEmpty else { return head }
+        return "\(head): \(truncateErrorText(trimmed, maxChars: maxProviderErrorBodyChars))"
+    }
+
+    public static func truncateErrorText(_ text: String, maxChars: Int = maxProviderErrorBodyChars) -> String {
+        text.count <= maxChars ? text : String(text.prefix(maxChars)) + "... [truncated \(text.count - maxChars) chars]"
+    }
+
+    public static func safeJsonStringify(_ value: Any) -> String {
+        if let value = value as? JSONValue, let data = try? JSONEncoder().encode(value), let text = String(data: data, encoding: .utf8) { return text }
+        if let encodable = value as? [Tool], let data = try? JSONEncoder().encode(encodable), let text = String(data: data, encoding: .utf8) { return text }
+        if JSONSerialization.isValidJSONObject(value), let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]), let text = String(data: data, encoding: .utf8) { return text }
+        return String(describing: value)
+    }
+
+    private static func firstInt(_ object: [String: Any], keys: [String]) -> Int? { for key in keys { if let value = object[key] as? Int { return value } }; return nil }
+    private static func extractProviderErrorBody(_ object: [String: Any]) -> String? {
+        let body: Any?
+        if let text = object["body"] as? String { body = text }
+        else if let error = object["error"] as? [String: Any], !error.isEmpty { body = error }
+        else if let response = object["$response"] as? [String: Any], let responseBody = response["body"] { body = responseBody }
+        else { body = nil }
+        guard let body else { return nil }
+        let text = (body as? String) ?? safeJsonStringify(body)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed == "{}" ? nil : truncateErrorText(trimmed, maxChars: maxProviderErrorBodyChars)
+    }
 
     public static func adjustMaxTokensForThinking(baseMaxTokens: Int, modelMaxTokens: Int, level: ThinkingLevel, custom: ThinkingBudgets? = nil) -> (maxTokens: Int, thinkingBudget: Int) {
         let defaults = defaultThinkingBudgets()

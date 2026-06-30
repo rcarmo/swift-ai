@@ -29,7 +29,7 @@ final class ImageRegistryTests: XCTestCase {
     func testBuiltinImageRegistryOpenRouterCatalog() throws {
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 34)
+        XCTAssertEqual(models.count, 35)
         XCTAssertTrue(models.allSatisfy { $0.api == .openRouterImages && $0.provider == .openRouter })
         XCTAssertNotNil(models.first { $0.id == "black-forest-labs/flux.2-flex" })
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "or-key"]), "or-key")

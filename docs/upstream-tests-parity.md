@@ -13,9 +13,9 @@ Status legend:
 
 ## Summary
 
-- Upstream test files inventoried: **86**
-- Ported/covered/classified files: **86/86**
-- Deterministic ported: **50/86**
+- Upstream test files inventoried: **90**
+- Ported/covered/classified files: **90/90**
+- Deterministic ported: **54/90**
 - Partial deterministic/pluggable coverage: **22**
 - Live-gated: **13**
 - Not applicable: **1**
@@ -48,6 +48,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/context-overflow.test.ts` | 29 | provider context-overflow wire/error fixtures across Anthropic/OpenAI/Google/Copilot/etc. | ADAPTED (SIMULATED-FIXTURE-PORTED via `testSimulatedProviderContextOverflowFixtures` and `OverflowTests`; live API-key matrix remains optional) |
 | LIVE-GATED | `test/cross-provider-handoff.test.ts` | 0 | live cross-provider fixture generation and handoff compatibility matrix across many providers/models | LIVE-GATED (requires many provider API keys; deterministic transform/handoff coverage in `testTransformMessagesCopilotOpenAIToAnthropic`, tool ID normalization, and synthetic tool-result tests) |
 | PARTIAL | `test/empty.test.ts` | 88 | live provider matrix for empty content arrays/strings/whitespace and empty assistant history | PARTIAL (`testEmptyAndWhitespaceMessagesSerializeGracefully`; live provider matrix N/A without credentials) |
+| DETERMINISTIC-PORTED | `test/error-body.test.ts` | 12 | provider error normalization/formatting: status/body extraction, body-carrying messages, non-Error values, empty parsed body, truncation cap | ADAPTED (`testProviderErrorNormalizationAndFormatting`) |
 | DETERMINISTIC-PORTED | `test/env-api-keys.test.ts` | 3 | Copilot ignores generic GitHub tokens; resolves COPILOT_GITHUB_TOKEN; resolves ZAI_CODING_CN_API_KEY | ADAPTED (`testEnvAPIKeysCopilotAndZAICodingCNMappings`) |
 | DETERMINISTIC-PORTED | `test/faux-provider.test.ts` | 22 | custom faux provider helpers, multiple models, queued responses/factories, exhaustion errors, streaming/cache/session behavior | ADAPTED (`testFauxProviderHelpers`, `testFauxThinkingToolFactoryMultipleAndError`, `testFauxProviderMultipleModelsAndQueueExhaustion`, `testFauxProviderTokenCacheAndToolDeltas`; abort-signal timing is not modeled in Swift options) |
 | PARTIAL | `test/fireworks-models.test.ts` | 9 | Fireworks Kimi/router metadata, env key, session-affinity and tool compat | PARTIAL (`testFireworksKimiK26ModelMetadataAndCompat`, `testFireworksAnthropicToolCompatRequestShape`; local HTTP header capture pending) |
@@ -93,8 +94,11 @@ Status legend:
 | LIVE-GATED | `test/openrouter-cache-write-repro.test.ts` | 1 | preserves cache_write_tokens on openai-completions stream path | LIVE-GATED (`testOpenRouterCacheWriteReproLive`) |
 | DETERMINISTIC-PORTED | `test/openrouter-images.test.ts` | 3 | returns text plus images in output; payload stream=false/modalities/message content; final assistant images result | ADAPTED (`testOpenRouterImageResponseParser`, `testOpenRouterImagePayloadBuilder`; abort signal not applicable to Swift ImagesOptions) |
 | DETERMINISTIC-PORTED | `test/overflow.test.ts` | 13 | detects explicit Ollama prompt-too-long errors; detects Together AI context length errors; detects LiteLLM-wrapped OpenAI maximum context length errors; detects OpenAI-compatible parenthesized maximum context length errors; detects OpenRouter Poolside maximum allowed input length errors | ADAPTED (`OverflowTests`) |
+| DETERMINISTIC-PORTED | `test/provider-error-body-passthrough.test.ts` | 1 | OpenRouter image provider surfaces HTTP body reason instead of opaque SDK/provider message | ADAPTED (`testOpenRouterImageErrorBodyPassthrough`) |
+| DETERMINISTIC-PORTED | `test/provider-error-body-regression.test.ts` | 4 | per-tier provider error body passthrough/regression, including OpenRouter `metadata.raw` double-print guard | ADAPTED (`testProviderErrorBodyRegressionAndOpenRouterRawSinglePrint`) |
 | PARTIAL | `test/providers.test.ts` | 9 | builtin provider/model registry and auth helper behavior | PARTIAL (`testEnvApiKeyAuthHelper`, registry/env tests; full Models runtime API pending) |
 | LIVE-GATED | `test/responseid.test.ts` | 11 | live responseId E2E across providers | LIVE-GATED (`testMistralRequestAndSSEProcessing` covers deterministic Mistral id/model parsing; live API-key cases pending) |
+| DETERMINISTIC-PORTED | `test/retry.test.ts` | 3 | provider retry classification: explicit retry guidance, non-retryable limit/billing errors, assistant error message classifier | ADAPTED (`testRetryClassifierFixtures`) |
 | LIVE-GATED | `test/stream.test.ts` | 164 | full live provider stream matrix: text, tools, streaming, thinking, images, multi-turn across providers | LIVE-GATED (`testOpenAICompletionsBasicStreamLive` plus future provider wrappers; requires provider API keys; deterministic parser/request coverage split across provider tests including OpenAI/Responses/Anthropic/Google/Mistral/Faux tests) |
 | DETERMINISTIC-PORTED | `test/supports-xhigh.test.ts` | 16 | includes xhigh for Anthropic Opus 4.6 on anthropic-messages API; includes xhigh for Anthropic Opus 4.8 on anthropic-messages API; includes xhigh for Anthropic Opus 4.8 on anthropic-messages API; includes xhigh but not off for Anthropic Claude Fable 5 on anthropic-messages API; does not include xhigh for Claude Sonnet 4.5 | ADAPTED (`testUpstreamSupportedThinkingLevels`) |
 | DETERMINISTIC-PORTED | `test/together-models.test.ts` | 3 | default Kimi K2.6 metadata; Together reasoning controls; TOGETHER_API_KEY env resolution | ADAPTED (`ProviderMetadataTests`) |

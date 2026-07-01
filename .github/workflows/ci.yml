@@ -25,4 +25,4 @@ jobs:
         with:
           swift-version: '5.9'
       - run: swift --version
-      - run: make test
+      - run: make check

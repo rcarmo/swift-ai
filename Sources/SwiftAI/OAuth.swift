@@ -86,7 +86,7 @@ public enum OAuthDeviceCodePoller {
             switch try await poll() {
             case .complete(let value): return value
             case .pending: break
-            case .slowDown: interval += max(1, intervalSeconds); sawSlowDown = true
+            case .slowDown: interval += 5; sawSlowDown = true
             }
             let now = Date()
             if now.addingTimeInterval(TimeInterval(interval)) >= deadline {

@@ -1283,6 +1283,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(headers["originator"], "pi")
         XCTAssertEqual(headers["OpenAI-Beta"], "responses=experimental")
         XCTAssertEqual(OpenAIResponsesProvider.extractCodexEventError(.object(["event": .object(["error": .object(["message": .string("nested boom")])])])), "nested boom")
+        XCTAssertEqual(OpenAIResponsesProvider.codexHeaderTimeoutMessage(timeoutMs: 2500), "Codex SSE response headers timed out after 2500ms")
     }
 
     func testOpenAIResponsesAssistantItemsAllowEmptyThinkingSignature() {

@@ -75,6 +75,10 @@ public enum OpenAIResponsesProvider {
         return nil
     }
 
+    public static func codexHeaderTimeoutMessage(timeoutMs: Int) -> String {
+        "Codex SSE response headers timed out after \(timeoutMs)ms"
+    }
+
     public static func extractCodexAccountID(_ token: String) throws -> String {
         let parts = token.split(separator: ".")
         guard parts.count == 3 else { throw AIError.provider("invalid token") }
@@ -131,6 +135,7 @@ public enum OpenAIResponsesProvider {
         var body = buildRequestBody(model: requestModel, context: context, options: options)
         if let hook = options?.onPayload { body = try await hook(body, model) }
         var request = URLRequest(url: URL(string: base + suffix)!)
+        if let timeoutMs = options?.timeoutMs, timeoutMs > 0 { request.timeoutInterval = Double(timeoutMs) / 1000.0 }
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
@@ -145,20 +150,24 @@ public enum OpenAIResponsesProvider {
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         request.httpBody = try JSONEncoder().encode(body)
-        let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
-        guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
-        if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
-        guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
-        var state = ResponsesStreamState(model: model)
-        var buffer = ""
-        for try await byte in bytes {
-            buffer += String(decoding: [byte], as: UTF8.self)
-            while let range = buffer.range(of: "\n\n") ?? buffer.range(of: "\r\n\r\n") {
-                let frame = String(buffer[..<range.lowerBound]); buffer.removeSubrange(..<range.upperBound)
-                for event in SSEParser().parse(frame + "\n\n") { process(event: event, state: &state) { continuation.yield($0) } }
+        do {
+            let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
+            guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
+            if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
+            guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
+            var state = ResponsesStreamState(model: model)
+            var buffer = ""
+            for try await byte in bytes {
+                buffer += String(decoding: [byte], as: UTF8.self)
+                while let range = buffer.range(of: "\n\n") ?? buffer.range(of: "\r\n\r\n") {
+                    let frame = String(buffer[..<range.lowerBound]); buffer.removeSubrange(..<range.upperBound)
+                    for event in SSEParser().parse(frame + "\n\n") { process(event: event, state: &state) { continuation.yield($0) } }
+                }
             }
+            finish(state: &state) { continuation.yield($0) }
+        } catch let error as URLError where model.api == .openAICodexResponses && error.code == .timedOut {
+            throw AIError.provider(codexHeaderTimeoutMessage(timeoutMs: options?.timeoutMs ?? Int(request.timeoutInterval * 1000)))
         }
-        finish(state: &state) { continuation.yield($0) }
     }
 
     public static func processSSEText(_ text: String, model: Model) -> [AIEvent] {

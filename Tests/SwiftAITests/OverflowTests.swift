@@ -48,6 +48,7 @@ final class OverflowTests: XCTestCase {
         XCTAssertTrue(ContextUtilities.isContextOverflow(errorMessage("Requested token count exceeds the model's maximum context length of 131072 tokens."), contextWindow: 131072))
         XCTAssertTrue(ContextUtilities.isContextOverflow(errorMessage("Error: 400 Input length (265330) exceeds model's maximum context length (262144)."), contextWindow: 262144))
         XCTAssertTrue(ContextUtilities.isContextOverflow(errorMessage("Provider returned error: Input length 131393 exceeds the maximum allowed input length of 131040 tokens."), contextWindow: 131072))
+        XCTAssertTrue(ContextUtilities.isContextOverflow(errorMessage("Prompt has 12,345 tokens, but the configured context size is 8,192 tokens."), contextWindow: 8192))
     }
 
     func testUpstreamNonOverflowPatterns() {

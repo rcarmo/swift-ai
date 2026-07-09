@@ -81,6 +81,11 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         return url.absoluteString
     }
 
+    public static func nextDevicePollIntervalAfterSlowDown(current: Int, serverInterval: Double?) -> Int {
+        if let serverInterval, serverInterval > 0 { return max(1, Int(serverInterval.rounded(.down))) }
+        return max(1, current) + 5
+    }
+
     private func pollForAccessToken(domain: String, device: DeviceFlowResponse) async throws -> String {
         let deadline = Date().addingTimeInterval(TimeInterval(device.expiresIn))
         var interval = max(1, device.interval)
@@ -97,7 +102,9 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
             if let token = raw["access_token"]?.stringValue { return token }
             switch raw["error"]?.stringValue {
             case "authorization_pending": continue
-            case "slow_down": interval = Int(Double(interval) * 1.4); continue
+            case "slow_down":
+                interval = Self.nextDevicePollIntervalAfterSlowDown(current: interval, serverInterval: raw["interval"]?.doubleValue)
+                continue
             default: throw AIError.provider("device flow failed: \(raw["error_description"]?.stringValue ?? raw["error"]?.stringValue ?? "unknown")")
             }
         }

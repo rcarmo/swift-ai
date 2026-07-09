@@ -2,6 +2,21 @@ import XCTest
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
+    func testLaxMessageContentDecodingAndTransform() throws {
+        let data = #"""
+        [
+          {"role":"user","content":null,"timestamp":1},
+          {"role":"assistant","content":null,"api":"openai-completions","provider":"openai","model":"test-model","stopReason":"stop","timestamp":2},
+          {"role":"toolResult","toolCallId":"call_1","toolName":"web_search","timestamp":3}
+        ]
+        """#.data(using: .utf8)!
+        let messages = try JSONDecoder().decode([Message].self, from: data)
+        let model = Model(id: "test-model", name: "Test Model", api: .openAICompletions, provider: .openAI, input: ["text"])
+        let transformed = AIUtilities.transformMessages(messages, for: model)
+        XCTAssertEqual(transformed.count, 3)
+        XCTAssertTrue(transformed.allSatisfy { $0.content.isEmpty })
+    }
+
     func testV0803EstimateClampErrorAndRetryUtilities() {
         XCTAssertEqual(AIUtilities.estimateTextTokens("12345678"), 2)
         XCTAssertEqual(AIUtilities.estimateTextTokens("123456789"), 3)
@@ -99,6 +114,10 @@ final class CoreUtilityTests: XCTestCase {
         var retryable = Message(role: .assistant, content: [])
         retryable.stopReason = .error; retryable.errorMessage = "Provider returned error: 503 service unavailable, please retry your request"
         XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
+        for text in ["524", "socket connection was closed", "ResourceExhausted"] {
+            retryable.errorMessage = text
+            XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable), text)
+        }
         retryable.errorMessage = "insufficient_quota billing limit reached after 429"
         XCTAssertFalse(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
         retryable.stopReason = .stop

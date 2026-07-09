@@ -223,6 +223,8 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
 
     func testGitHubCopilotOAuthModelFilteringAndVerificationURI() throws {
         XCTAssertEqual(try GitHubCopilotOAuthProvider.normalizeVerificationURI("https://github.com/login/device"), "https://github.com/login/device")
+        XCTAssertEqual(GitHubCopilotOAuthProvider.nextDevicePollIntervalAfterSlowDown(current: 5, serverInterval: nil), 10)
+        XCTAssertEqual(GitHubCopilotOAuthProvider.nextDevicePollIntervalAfterSlowDown(current: 5, serverInterval: 12), 12)
         XCTAssertThrowsError(try GitHubCopilotOAuthProvider.normalizeVerificationURI("$(id>/tmp/pwned)")) { error in
             XCTAssertTrue(String(describing: error).contains("Untrusted verification_uri"))
         }

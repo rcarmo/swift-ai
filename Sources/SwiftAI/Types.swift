@@ -147,7 +147,50 @@ public struct Message: Codable, Equatable, Sendable {
     public var isError: Bool?
     public var details: JSONValue?
 
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, toolCallId, toolName, isError, details }
+
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        role = try c.decode(Role.self, forKey: .role)
+        content = try c.decodeIfPresent([ContentBlock].self, forKey: .content) ?? []
+        timestamp = try c.decodeIfPresent(Int64.self, forKey: .timestamp) ?? 0
+        api = try c.decodeIfPresent(API.self, forKey: .api)
+        provider = try c.decodeIfPresent(Provider.self, forKey: .provider)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        responseId = try c.decodeIfPresent(String.self, forKey: .responseId)
+        responseModel = try c.decodeIfPresent(String.self, forKey: .responseModel)
+        diagnostics = try c.decodeIfPresent([AssistantMessageDiagnostic].self, forKey: .diagnostics)
+        usage = try c.decodeIfPresent(Usage.self, forKey: .usage)
+        stopReason = try c.decodeIfPresent(StopReason.self, forKey: .stopReason)
+        errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
+        toolCallId = try c.decodeIfPresent(String.self, forKey: .toolCallId)
+        toolName = try c.decodeIfPresent(String.self, forKey: .toolName)
+        isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
+        details = try c.decodeIfPresent(JSONValue.self, forKey: .details)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(role, forKey: .role)
+        try c.encode(content, forKey: .content)
+        try c.encode(timestamp, forKey: .timestamp)
+        try c.encodeIfPresent(api, forKey: .api)
+        try c.encodeIfPresent(provider, forKey: .provider)
+        try c.encodeIfPresent(model, forKey: .model)
+        try c.encodeIfPresent(responseId, forKey: .responseId)
+        try c.encodeIfPresent(responseModel, forKey: .responseModel)
+        try c.encodeIfPresent(diagnostics, forKey: .diagnostics)
+        try c.encodeIfPresent(usage, forKey: .usage)
+        try c.encodeIfPresent(stopReason, forKey: .stopReason)
+        try c.encodeIfPresent(errorMessage, forKey: .errorMessage)
+        try c.encodeIfPresent(toolCallId, forKey: .toolCallId)
+        try c.encodeIfPresent(toolName, forKey: .toolName)
+        try c.encodeIfPresent(isError, forKey: .isError)
+        try c.encodeIfPresent(details, forKey: .details)
+    }
+
     public static func user(_ text: String) -> Message { Message(role: .user, content: [.text(text)]) }
 }
 

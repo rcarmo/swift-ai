@@ -1,6 +1,6 @@
 # Upstream test parity tracker
 
-Canonical upstream source: `github.com/earendil-works/pi` at `ec6311beb5b24fc918e5031173608447582d7262`, package `packages/ai`.
+Canonical upstream source: `github.com/earendil-works/pi` package `packages/ai`, synced through `@earendil-works/pi-ai` **0.80.5**.
 
 This file is reconciled from `docs/upstream-tests-source.md`, which is the source-of-truth row inventory for upstream `packages/ai/test/*.test.ts`.
 
@@ -13,9 +13,9 @@ Status legend:
 
 ## Summary
 
-- Upstream test files inventoried: **90**
-- Ported/covered/classified files: **90/90**
-- Deterministic ported: **54/90**
+- Upstream test files inventoried: **92**
+- Ported/covered/classified files: **92/92**
+- Deterministic ported: **56/92**
 - Partial deterministic/pluggable coverage: **22**
 - Live-gated: **13**
 - Not applicable: **1**
@@ -64,6 +64,7 @@ Status legend:
 | PARTIAL | `test/images-models.test.ts` | 6 | image registry/provider/auth model behavior | PARTIAL (`ImageRegistryTests`; full createImagesModels auth manager not ported) |
 | LIVE-GATED | `test/images.test.ts` | 3 | OpenRouter image generation E2E: basic image, text+image output, image input | LIVE-GATED (`testOpenRouterImagesBasicLive`; requires `OPENROUTER_API_KEY`; deterministic payload/parser coverage in `testOpenRouterImagePayloadBuilder`, `testOpenRouterImageResponseParser`) |
 | LIVE-GATED | `test/interleaved-thinking.test.ts` | 4 | live Anthropic/Bedrock interleaved-thinking second-tool-call behavior on Claude Opus 4.5/4.6 | LIVE-GATED (requires `ANTHROPIC_API_KEY`/Bedrock credentials; deterministic beta/request coverage in `testGitHubCopilotAnthropicHeadersAndAdaptiveThinking` and Anthropic request-shape tests) |
+| DETERMINISTIC-PORTED | `test/lax-message-content.test.ts` | 1 | transformMessages normalizes null/missing content from untyped callers or old sessions to empty arrays instead of crashing | ADAPTED (`testLaxMessageContentDecodingAndTransform`) |
 | NOT-APPLICABLE | `test/lazy-module-load.test.ts` | 5 | Node/TypeScript lazy SDK module loading/import-hook behavior | NOT-APPLICABLE (SwiftPM static linking/import model; no Node provider SDK lazy import surface) |
 | DETERMINISTIC-PORTED | `test/mistral-reasoning-mode.test.ts` | 7 | Mistral reasoning_effort vs prompt_mode selection; omit controls when off; session id prompt cache key; omit when cache disabled | ADAPTED (`testMistralReasoningModeAndPromptCacheKey`) |
 | DETERMINISTIC-PORTED | `test/mistral-tool-schema.test.ts` | 1 | TypeBox symbol keys stripped before SDK validation; Swift JSONValue schemas are pure JSON and cannot carry JS Symbol keys | ADAPTED (`testMistralToolSchemaSerializesAsJSON`) |
@@ -86,6 +87,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/openai-responses-cache-affinity-e2e.test.ts` | 1 | OpenAI Responses cache-affinity identifiers and prompt_cache_key/header shape | ADAPTED (SIMULATED-FIXTURE-PORTED via `testOpenAIResponsesCacheAffinityLive` wrapper plus deterministic request-shape coverage in `testAzureOpenAIResponsesConfigAndPayloadDefaults` and Responses provider defaults tests) |
 | DETERMINISTIC-PORTED | `test/openai-responses-copilot-provider.test.ts` | 10 | Responses provider defaults: Copilot omits reasoning; OpenAI off mapping/headers/cache/service-tier cases | ADAPTED (`testOpenAIResponsesProviderDefaultReasoningMatrix`, `testOpenAIResponsesServiceTierCostMultipliers`, cache-affinity request tests) |
 | DETERMINISTIC-PORTED | `test/openai-responses-foreign-toolcall-id.test.ts` | 1 | hashes foreign Copilot tool item IDs into bounded Codex-safe fc_<hash> shape | ADAPTED (`testOpenAIResponsesForeignToolCallIDNormalization`) |
+| DETERMINISTIC-PORTED | `test/openai-responses-empty-tool-result.test.ts` | 1 | empty text-only tool results serialize as `"(no tool output)"` and never as an image placeholder | ADAPTED (`testOpenAIResponsesToolResultImagesStayInFunctionCallOutput`) |
 | DETERMINISTIC-PORTED | `test/openai-responses-message-id.test.ts` | 1 | generates unique fallback message IDs for multiple text blocks in one assistant turn | ADAPTED (`testOpenAIResponsesFallbackMessageIDs`) |
 | DETERMINISTIC-PORTED | `test/openai-responses-partial-json-cleanup.test.ts` | 1 | removes partialJson from persisted tool-call blocks at output_item.done | ADAPTED (`testOpenAIResponsesPartialJSONCleanup`) |
 | LIVE-GATED | `test/openai-responses-reasoning-replay-e2e.test.ts` | 3 | live OpenAI Responses reasoning replay/handoff E2E: aborted reasoning-only history, same-provider model switch, Anthropic→Codex handoff | LIVE-GATED (requires `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; deterministic transform coverage in `testTransformMessagesCopilotOpenAIToAnthropic`, `testOpenAIResponsesForeignToolCallIDNormalization`, synthetic tool-result tests) |

@@ -120,19 +120,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.3")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1029)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.5")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1059)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.3")
-        XCTAssertEqual(BuiltinModels.modelCount, 1029)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.5")
+        XCTAssertEqual(BuiltinModels.modelCount, 1059)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1029)
+        XCTAssertEqual(models.count, 1059)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
@@ -146,7 +146,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.3")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.5")
         XCTAssertEqual(BuiltinImageModels.modelCount, 35)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -1266,6 +1266,12 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(output.contains { if case .object(let obj) = $0 { return obj["type"] == .string("input_text") && obj["text"]?.stringValue?.contains("red circle") == true }; return false })
         XCTAssertTrue(output.contains { if case .object(let obj) = $0 { return obj["type"] == .string("input_image") && obj["image_url"]?.stringValue?.hasPrefix("data:image/png;base64,") == true }; return false })
         XCTAssertFalse(input.dropFirst().contains { if case .object(let obj) = $0 { return obj["role"] == .string("user") }; return false })
+
+        var emptyToolResult = Message(role: .toolResult, content: [])
+        emptyToolResult.toolCallId = "call_2"
+        let emptyBody = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [emptyToolResult]), options: nil)
+        guard case .array(let emptyInput)? = emptyBody["input"], case .object(let emptyOutput) = emptyInput[0] else { return XCTFail("missing empty function_call_output") }
+        XCTAssertEqual(emptyOutput["output"], .string("(no tool output)"))
     }
 
     func testCodexResponsesRequestHeadersAndErrors() throws {
@@ -1284,6 +1290,15 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(headers["OpenAI-Beta"], "responses=experimental")
         XCTAssertEqual(OpenAIResponsesProvider.extractCodexEventError(.object(["event": .object(["error": .object(["message": .string("nested boom")])])])), "nested boom")
         XCTAssertEqual(OpenAIResponsesProvider.codexHeaderTimeoutMessage(timeoutMs: 2500), "Codex SSE response headers timed out after 2500ms")
+        let encoded = try OpenAIResponsesProvider.encodeCodexSSERequestBody(body)
+        XCTAssertEqual(encoded.contentEncoding, "zstd")
+        XCTAssertEqual(Array(encoded.body.prefix(4)), [0x28, 0xB5, 0x2F, 0xFD])
+        XCTAssertLessThan(0, encoded.body.count)
+        XCTAssertEqual(OpenAIResponsesProvider.codexRequestCompressionZstdLevel, 3)
+        XCTAssertEqual(OpenAIResponsesProvider.codexWebSocketSessionMaxAgeMs, 55 * 60 * 1000)
+        XCTAssertFalse(OpenAIResponsesProvider.codexUsesCachedWebSocketPool)
+        XCTAssertFalse(OpenAIResponsesProvider.shouldRecycleCodexWebSocketConnection(createdAtMs: 0, nowMs: Int64(55 * 60 * 1000 - 1)))
+        XCTAssertTrue(OpenAIResponsesProvider.shouldRecycleCodexWebSocketConnection(createdAtMs: 0, nowMs: Int64(55 * 60 * 1000)))
     }
 
     func testOpenAIResponsesAssistantItemsAllowEmptyThinkingSignature() {
@@ -2132,6 +2147,22 @@ final class SwiftAITests: XCTestCase {
         guard case .object(let imageMessage) = messages.last, case .array(let content)? = imageMessage["content"] else { return XCTFail("missing image message") }
         let imageParts = content.filter { if case .object(let obj) = $0 { return obj["type"] == .string("image_url") }; return false }
         XCTAssertEqual(imageParts.count, 2)
+    }
+
+    func testOpenAIToolResultEmptyOutputPlaceholder() {
+        let model = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI)
+        var result = Message(role: .toolResult, content: [])
+        result.toolCallId = "call"
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [result]), options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let toolMessage) = messages[0] else { return XCTFail("missing tool message") }
+        XCTAssertEqual(toolMessage["content"], .string("(no tool output)"))
+
+        let imageModel = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, input: ["text", "image"])
+        var imageOnly = Message(role: .toolResult, content: [.image(data: "abc", mimeType: "image/png")])
+        imageOnly.toolCallId = "call-image"
+        let imageBody = OpenAICompletionsProvider.buildRequestBody(model: imageModel, context: AIContext(messages: [imageOnly]), options: nil)
+        guard case .array(let imageMessages)? = imageBody["messages"], case .object(let imageToolMessage) = imageMessages[0] else { return XCTFail("missing image tool message") }
+        XCTAssertEqual(imageToolMessage["content"], .string("(see attached image)"))
     }
 
     func testOpenAIMultimodalAndToolResultReplay() {

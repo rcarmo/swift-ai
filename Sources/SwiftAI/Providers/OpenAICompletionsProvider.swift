@@ -116,7 +116,12 @@ public enum OpenAICompletionsProvider {
                     if compat.requiresThinkingAsText == true, block.type == "thinking" { return block.thinking }
                     return nil
                 }.joined()
-                contentValue = .string(AIUtilities.sanitizeSurrogates(contentText))
+                if message.role == .toolResult, contentText.isEmpty {
+                    let hasImages = message.content.contains { $0.type == "image" }
+                    contentValue = .string(hasImages ? "(see attached image)" : "(no tool output)")
+                } else {
+                    contentValue = .string(AIUtilities.sanitizeSurrogates(contentText))
+                }
             }
             var obj: [String: JSONValue] = ["role": .string(role), "content": contentValue]
             if message.role == .assistant {

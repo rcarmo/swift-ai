@@ -1,7 +1,7 @@
 {
   "upstream": {
     "package": "@earendil-works/pi-ai",
-    "version": "0.80.3",
+    "version": "0.80.5",
     "reference": "direct upstream inspection"
   },
   "swiftPM": {
@@ -16,7 +16,7 @@
     ]
   },
   "registries": {
-    "textModels": 1029,
+    "textModels": 1059,
     "textProviders": 35,
     "textAPIs": 9,
     "imageModels": 35,

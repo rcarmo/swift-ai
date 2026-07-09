@@ -11,6 +11,18 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 - Pending direct Swift adaptation: **0**
 - Not applicable/no Swift analogue: **4**
 
+## v0.80.5 conformance fixtures
+
+Upstream **0.80.5** keeps the v0.80.3 utility truth-tables and adds request-shape coverage for empty tool-result output placeholders: OpenAI-compatible and Responses/Codex tool-result messages with neither text nor images serialize `"(no tool output)"`; image-only OpenAI-compatible tool results keep `"(see attached image)"`.
+
+Additional v0.80.5 in-place content deltas covered in Swift:
+
+- DS4 overflow wording: `/prompt has [\\d,]+ tokens?, but the configured context size is [\\d,]+ tokens?/i`.
+- Retry classifier additions: `524`, `socket connection was closed`, `ResourceExhausted`.
+- GitHub Copilot OAuth device-code polling keeps wait-before-first-poll behavior and applies `slow_down` as server-provided `interval` when present, otherwise `+5s` per RFC 8628.
+- Codex SSE request bodies are zstd-compressed at level 3 using the SwiftPM `CZstd` system-library target (`libzstd`) and sent with `Content-Encoding: zstd`.
+- Codex WebSocket connection-age recycling is not applicable to the built-in Swift path: Swift does not maintain a cached Codex WebSocket pool; custom WebSocket behavior belongs behind the injectable `CodexTransport` boundary.
+
 ## v0.80.3 conformance fixtures
 
 Upstream **0.80.3** feature release. Authoritative constants + truth-tables are adopted from rs-ai's `docs/local-tests-shared.md` and upstream `utils/{estimate,retry,error-body}.ts` plus `api/simple-options.ts`.

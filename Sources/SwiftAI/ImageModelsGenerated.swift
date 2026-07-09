@@ -1,10 +1,10 @@
 import Foundation
 
-// Generated from @earendil-works/pi-ai/go-ai v0.80.3 image model registry.
-// Source JSON: scripts/image-models.v0.80.3.json
+// Generated from @earendil-works/pi-ai v0.80.5 image model registry.
+// Source JSON: scripts/image-models.v0.80.5.json
 
 public enum BuiltinImageModels {
-    public static let upstreamVersion = "0.80.3"
+    public static let upstreamVersion = "0.80.5"
     public static let modelCount = 35
     public static let providerCount = 1
 

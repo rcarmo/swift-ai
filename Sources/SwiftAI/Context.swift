@@ -19,6 +19,7 @@ public enum ContextUtilities {
             let texts = overflowCandidateTexts(message).map { $0.lowercased() }
             if texts.contains(where: { text in nonOverflowPatterns.contains(where: { text.contains($0) }) }) { return false }
             if texts.contains(where: { text in overflowPatterns.contains(where: { text.contains($0) }) }) { return true }
+            if texts.contains(where: { text in text.contains("prompt has") && text.contains("tokens") && text.contains("configured context size") }) { return true }
         }
         if contextWindow > 0, message.stopReason == .stop, let usage = message.usage, usage.input + usage.cacheRead > contextWindow { return true }
         if contextWindow > 0, message.stopReason == .length, let usage = message.usage, usage.output == 0, Double(usage.input + usage.cacheRead) >= Double(contextWindow) * 0.99 { return true }

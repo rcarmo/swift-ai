@@ -1,4 +1,5 @@
 import Foundation
+import CZstd
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -79,6 +80,36 @@ public enum OpenAIResponsesProvider {
         "Codex SSE response headers timed out after \(timeoutMs)ms"
     }
 
+    public static let codexRequestCompressionZstdLevel: Int32 = 3
+    public static let codexWebSocketSessionMaxAgeMs = 55 * 60 * 1000
+    public static let codexUsesCachedWebSocketPool = false
+
+    public static func shouldRecycleCodexWebSocketConnection(createdAtMs: Int64, nowMs: Int64) -> Bool {
+        nowMs - createdAtMs >= Int64(codexWebSocketSessionMaxAgeMs)
+    }
+
+    public static func compressCodexRequestBodyZstd(_ data: Data) throws -> Data {
+        let bound = ZSTD_compressBound(data.count)
+        guard bound > 0 else { throw AIError.provider("zstd compression bound failed") }
+        var output = Data(count: bound)
+        let written = output.withUnsafeMutableBytes { dstPtr in
+            data.withUnsafeBytes { srcPtr in
+                ZSTD_compress(dstPtr.baseAddress, bound, srcPtr.baseAddress, data.count, codexRequestCompressionZstdLevel)
+            }
+        }
+        if ZSTD_isError(written) != 0 {
+            let message = ZSTD_getErrorName(written).map { String(cString: $0) } ?? "unknown"
+            throw AIError.provider("zstd compression failed: \(message)")
+        }
+        output.removeSubrange(written..<output.count)
+        return output
+    }
+
+    public static func encodeCodexSSERequestBody(_ body: [String: JSONValue]) throws -> (body: Data, contentEncoding: String) {
+        let json = try JSONEncoder().encode(body)
+        return (try compressCodexRequestBodyZstd(json), "zstd")
+    }
+
     public static func extractCodexAccountID(_ token: String) throws -> String {
         let parts = token.split(separator: ".")
         guard parts.count == 3 else { throw AIError.provider("invalid token") }
@@ -149,7 +180,13 @@ public enum OpenAIResponsesProvider {
         if model.provider == .githubCopilot { for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) } }
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-        request.httpBody = try JSONEncoder().encode(body)
+        if model.api == .openAICodexResponses {
+            let encoded = try encodeCodexSSERequestBody(body)
+            request.setValue(encoded.contentEncoding, forHTTPHeaderField: "Content-Encoding")
+            request.httpBody = encoded.body
+        } else {
+            request.httpBody = try JSONEncoder().encode(body)
+        }
         do {
             let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
             guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
@@ -267,7 +304,8 @@ public enum OpenAIResponsesProvider {
     private static func toolResultOutput(_ msg: Message) -> JSONValue {
         let parts = msg.content.compactMap(userContent)
         if parts.contains(where: { if case .object(let obj) = $0 { return obj["type"] == .string("input_image") }; return false }) { return .array(parts) }
-        return .string(AIUtilities.sanitizeSurrogates(msg.content.compactMap(\.text).joined(separator: "\n")))
+        let text = msg.content.compactMap(\.text).joined(separator: "\n")
+        return .string(AIUtilities.sanitizeSurrogates(text.isEmpty ? "(no tool output)" : text))
     }
     private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
     private static func normalizeResponsesItemID(_ value: String) -> String { let raw = value.hasPrefix("fc_") ? String(value.dropFirst(3)) : value; let filtered = raw.filter { $0.isLetter || $0.isNumber }; if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }; return "fc_" + AIUtilities.shortHash(raw) }

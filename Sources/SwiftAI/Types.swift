@@ -146,8 +146,9 @@ public struct Message: Codable, Equatable, Sendable {
     public var toolName: String?
     public var isError: Bool?
     public var details: JSONValue?
+    public var addedToolNames: [String]?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, toolCallId, toolName, isError, details }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, toolCallId, toolName, isError, details, addedToolNames }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -169,6 +170,7 @@ public struct Message: Codable, Equatable, Sendable {
         toolName = try c.decodeIfPresent(String.self, forKey: .toolName)
         isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
         details = try c.decodeIfPresent(JSONValue.self, forKey: .details)
+        addedToolNames = try c.decodeIfPresent([String].self, forKey: .addedToolNames)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -189,6 +191,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(toolName, forKey: .toolName)
         try c.encodeIfPresent(isError, forKey: .isError)
         try c.encodeIfPresent(details, forKey: .details)
+        try c.encodeIfPresent(addedToolNames, forKey: .addedToolNames)
     }
 
     public static func user(_ text: String) -> Message { Message(role: .user, content: [.text(text)]) }

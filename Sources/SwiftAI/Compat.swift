@@ -38,7 +38,8 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
     public var promptCacheKey: Bool?
     public var sendSessionIdHeader: Bool?
     public var supportsLongCacheRetention: Bool?
-    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention }
+    public var supportsToolSearch: Bool?
+    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch }
 }
 public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?
@@ -48,7 +49,8 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var allowEmptySignature: Bool?
     public var supportsTemperature: Bool?
     public var forceAdaptiveThinking: Bool?
-    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil) {
+    public var supportsToolReferences: Bool?
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil) {
         self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
         self.supportsLongCacheRetention = supportsLongCacheRetention
         self.sendSessionAffinityHeaders = sendSessionAffinityHeaders
@@ -56,6 +58,7 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
         self.allowEmptySignature = allowEmptySignature
         self.supportsTemperature = supportsTemperature
         self.forceAdaptiveThinking = forceAdaptiveThinking
+        self.supportsToolReferences = supportsToolReferences
     }
 }
 

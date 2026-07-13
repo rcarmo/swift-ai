@@ -21,6 +21,7 @@ Upstream **0.80.6** model registry is adopted in Swift with **1057** text models
 - OpenAI/Azure Responses usage maps `input_tokens_details.cache_write_tokens` into `Usage.cacheWrite`.
 - Azure/OpenAI Responses reasoning replay preserves `encrypted_content` from `response.output_item.done`, and fills it from `response.completed` only when the done item omitted it.
 - Bedrock native `xhigh` effort support now includes Claude Sonnet 5.
+- Deferred tools are represented idiomatically as `Message.addedToolNames`; Anthropic emits deferred tool definitions with `defer_loading` and `tool_reference` markers, while OpenAI Responses/Codex emits client `tool_search_call`/`tool_search_output` entries and keeps unsupported models on the normal full tool list.
 
 ## v0.80.5 conformance fixtures
 

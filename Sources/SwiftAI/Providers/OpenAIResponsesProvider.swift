@@ -34,10 +34,11 @@ public enum OpenAIResponsesProvider {
     }
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
-        var input = convertInput(model: model, context: context)
+        let plan = deferredToolPlan(model: model, context: context)
+        var input = convertInput(model: model, context: context, deferredMarkers: plan.markers)
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.map(toolJSON)) }
+        if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0) }) }
         if let t = options?.temperature { body["temperature"] = .number(t) }
         if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(max)) }
         if model.reasoning {
@@ -252,7 +253,7 @@ public enum OpenAIResponsesProvider {
     private static func applyUsage(_ raw: ResponseUsage?, serviceTier: String?, state: inout ResponsesStreamState) { guard let raw else { return }; let cached = raw.inputTokenDetails?.cachedTokens ?? 0; let cacheWrite = raw.inputTokenDetails?.cacheWriteTokens ?? 0; var u = Usage(); u.input = max(0, (raw.inputTokens ?? 0) - cached); u.output = raw.outputTokens ?? 0; u.reasoning = raw.outputTokenDetails?.reasoningTokens ?? 0; u.cacheRead = cached; u.cacheWrite = cacheWrite; u.totalTokens = raw.totalTokens ?? (u.input + u.output + u.cacheRead + u.cacheWrite); AIUtilities.applyCost(model: state.model, usage: &u); applyServiceTierMultiplier(serviceTier, model: state.model, usage: &u); state.partial.usage = u }
     private static func applyServiceTierMultiplier(_ serviceTier: String?, model: Model, usage: inout Usage) { guard let serviceTier else { return }; let multiplier: Double?; switch serviceTier { case "priority": multiplier = model.id.hasPrefix("gpt-5.5") ? 2.5 : 2.0; case "flex": multiplier = 0.5; default: multiplier = nil }; guard let multiplier else { return }; usage.cost.input *= multiplier; usage.cost.output *= multiplier; usage.cost.cacheRead *= multiplier; usage.cost.cacheWrite *= multiplier; usage.cost.total *= multiplier }
 
-    private static func convertInput(model: Model, context: AIContext) -> [JSONValue] {
+    private static func convertInput(model: Model, context: AIContext, deferredMarkers: [Int64: [Tool]] = [:]) -> [JSONValue] {
         var out: [JSONValue] = []
         if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string(model.reasoning ? "developer" : "system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
         for (msgIndex, msg) in AIUtilities.transformMessages(context.messages, for: model).enumerated() {
@@ -262,6 +263,11 @@ public enum OpenAIResponsesProvider {
             case .assistant:
                 out.append(contentsOf: assistantItems(msg, model: model, messageIndex: msgIndex))
             case .toolResult:
+                if let tools = deferredMarkers[msg.timestamp], !tools.isEmpty {
+                    let callID = "ts_" + AIUtilities.shortHash("\(msg.timestamp):\(tools.map(\.name).joined(separator: ","))")
+                    out.append(.object(["type": .string("tool_search_call"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed")]))
+                    out.append(.object(["type": .string("tool_search_output"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed"), "tools": .array(tools.map { toolJSON($0, deferred: true) })]))
+                }
                 let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
                 out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": toolResultOutput(msg)]))
             }
@@ -313,7 +319,27 @@ public enum OpenAIResponsesProvider {
     private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
     private static func normalizeResponsesItemID(_ value: String) -> String { let raw = value.hasPrefix("fc_") ? String(value.dropFirst(3)) : value; let filtered = raw.filter { $0.isLetter || $0.isNumber }; if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }; return "fc_" + AIUtilities.shortHash(raw) }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
-    private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]) }
+    private static func toolJSON(_ tool: Tool, deferred: Bool = false) -> JSONValue { var obj: [String: JSONValue] = ["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]; if deferred { obj["defer_loading"] = .bool(true) }; return .object(obj) }
+    private static func deferredToolPlan(model: Model, context: AIContext) -> (immediateTools: [Tool], markers: [Int64: [Tool]]) {
+        let tools = context.tools ?? []
+        guard supportsToolSearch(model), !tools.isEmpty else { return (tools, [:]) }
+        let byName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name.lowercased(), $0) })
+        var used = Set<String>()
+        var deferred = Set<String>()
+        var markers: [Int64: [Tool]] = [:]
+        for message in context.messages.sorted(by: { $0.timestamp < $1.timestamp }) {
+            for block in message.content where block.type == "toolCall" { used.insert((block.name ?? "").lowercased()) }
+            if message.role == .toolResult {
+                let marked = (message.addedToolNames ?? []).compactMap { raw -> Tool? in
+                    let key = raw.lowercased(); guard let tool = byName[key], !used.contains(key) else { return nil }; deferred.insert(key); return tool
+                }
+                if !marked.isEmpty { markers[message.timestamp] = marked }
+            }
+        }
+        if deferred.count == tools.count { deferred.remove(deferred.sorted().first ?? "") }
+        return (tools.filter { !deferred.contains($0.name.lowercased()) }, markers)
+    }
+    private static func supportsToolSearch(_ model: Model) -> Bool { if let forced = model.responsesCompat?.supportsToolSearch { return forced }; guard model.api == .openAIResponses || model.api == .openAICodexResponses else { return false }; return model.id == "gpt-5.4" || model.id.hasPrefix("gpt-5.4-") == false && model.id == "gpt-5.4" }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func mapStatus(_ status: String?) -> StopReason { switch status { case "incomplete": return .length; case "failed", "cancelled": return .error; default: return .stop } }

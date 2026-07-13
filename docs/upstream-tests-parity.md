@@ -1,6 +1,6 @@
 # Upstream test parity tracker
 
-Canonical upstream source: `github.com/earendil-works/pi` package `packages/ai`, synced through `@earendil-works/pi-ai` **0.80.6**.
+Canonical package baseline: npm tarball `@earendil-works/pi-ai` **0.80.6**, auditor-provided package commit/tag mapping `2b3fda...`. Repository HEAD `0e6909f050eeb15e8f6c05185511f3788357ddb3` was inspected as a newer main-branch tree and is not the package tree used for generated registries. Generated Swift registries come from `/tmp/pi-ai-0.80.6-pkg/dist/*generated.js`, not repository HEAD.
 
 This file is reconciled from `docs/upstream-tests-source.md`, which is the source-of-truth row inventory for upstream `packages/ai/test/*.test.ts`.
 
@@ -13,10 +13,11 @@ Status legend:
 
 ## Summary
 
-- Upstream test files inventoried: **96**
-- Ported/covered/classified files: **96/96**
-- Deterministic ported: **59/96**
-- Partial deterministic/pluggable coverage: **23**
+- Package-baseline upstream test files inventoried: **94**
+- Ported/covered/classified files: **94/94**
+- Deterministic ported: **59/94**
+- Partial deterministic/pluggable coverage: **21**
+- Newer repository-HEAD-only files excluded from package accounting: **2** (`openai-responses-reasoning-replay-e2e.test.ts`, `openrouter-cache-write-repro.test.ts`)
 - Live-gated: **13**
 - Not applicable: **1**
 - Pending files: **0**
@@ -49,7 +50,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/context-overflow.test.ts` | 29 | provider context-overflow wire/error fixtures across Anthropic/OpenAI/Google/Copilot/etc. | ADAPTED (SIMULATED-FIXTURE-PORTED via `testSimulatedProviderContextOverflowFixtures` and `OverflowTests`; live API-key matrix remains optional) |
 | LIVE-GATED | `test/cross-provider-handoff.test.ts` | 0 | live cross-provider fixture generation and handoff compatibility matrix across many providers/models | LIVE-GATED (requires many provider API keys; deterministic transform/handoff coverage in `testTransformMessagesCopilotOpenAIToAnthropic`, tool ID normalization, and synthetic tool-result tests) |
 | DETERMINISTIC-PORTED | `test/context-estimate.test.ts` | 4 | context token estimate ignores stale assistant usage checkpoints and clamps max tokens to fresh trailing context | ADAPTED (`testV0806ContextEstimateIgnoresStaleAssistantUsage`) |
-| PARTIAL | `test/deferred-tools.test.ts` | 16 | Anthropic/OpenAI deferred tool loading via `addedToolNames` and provider-specific tool search/reference payloads | PARTIAL (Swift context passes explicit complete `tools`; no dynamic late tool-loader runtime yet. Existing request builders keep complete tool lists deterministic.) |
+| DETERMINISTIC-PORTED | `test/deferred-tools.test.ts` | 16 | Anthropic/OpenAI deferred tool loading via `addedToolNames` and provider-specific tool search/reference payloads | ADAPTED (`Message.addedToolNames`, Anthropic `defer_loading` + `tool_reference`, OpenAI/Codex `tool_search_call`/`tool_search_output`, unsupported-model fallback in `testDeferredToolsAnthropicAndResponsesPayloads`) |
 | PARTIAL | `test/empty.test.ts` | 88 | live provider matrix for empty content arrays/strings/whitespace and empty assistant history | PARTIAL (`testEmptyAndWhitespaceMessagesSerializeGracefully`; live provider matrix N/A without credentials) |
 | DETERMINISTIC-PORTED | `test/error-body.test.ts` | 12 | provider error normalization/formatting: status/body extraction, body-carrying messages, non-Error values, empty parsed body, truncation cap | ADAPTED (`testProviderErrorNormalizationAndFormatting`) |
 | DETERMINISTIC-PORTED | `test/env-api-keys.test.ts` | 3 | Copilot ignores generic GitHub tokens; resolves COPILOT_GITHUB_TOKEN; resolves ZAI_CODING_CN_API_KEY | ADAPTED (`testEnvAPIKeysCopilotAndZAICodingCNMappings`) |

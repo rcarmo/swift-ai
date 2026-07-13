@@ -20,11 +20,12 @@ public enum AnthropicMessagesProvider {
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
         let isOAuth = isOAuthToken(options?.apiKey ?? "")
+        let plan = deferredToolPlan(model: model, context: context, isOAuthToken: isOAuth)
         var body: [String: JSONValue] = [
             "model": .string(model.id),
             "max_tokens": .number(Double(AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) ?? AIUtilities.minMaxTokens)),
             "stream": .bool(true),
-            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model, isOAuthToken: isOAuth), cacheControl: cacheControl(model: model, options: options)))
+            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model, isOAuthToken: isOAuth, deferredMarkers: plan.markers), cacheControl: cacheControl(model: model, options: options)))
         ]
         let cc = cacheControl(model: model, options: options)
         if let system = context.systemPrompt, !system.isEmpty {
@@ -33,7 +34,7 @@ public enum AnthropicMessagesProvider {
             body["system"] = .array([.object(sys)])
         }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(tools.enumerated().map { idx, tool in toolJSON(tool, model: model, isOAuthToken: isOAuth, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == tools.count - 1) ? cc : nil) }) }
+        if !plan.tools.isEmpty { body["tools"] = .array(plan.tools.enumerated().map { idx, entry in toolJSON(entry.tool, model: model, isOAuthToken: isOAuth, deferred: entry.deferred, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == plan.tools.count - 1) ? cc : nil) }) }
         if model.reasoning {
             if let reasoning = options?.reasoning {
                 let effort = AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: reasoning.rawValue) ?? .high) ?? reasoning.rawValue
@@ -248,12 +249,17 @@ public enum AnthropicMessagesProvider {
     private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh, .max: return options?.thinkingBudgets?.high ?? 16384 } }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; default: return .stop } }
-    private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false) -> [JSONValue] {
+    private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false, deferredMarkers: [Int64: [String]] = [:]) -> [JSONValue] {
         messages.map { message in
             let role = message.role == .assistant ? "assistant" : "user"
             let content: [JSONValue]
             if message.role == .toolResult {
-                content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .string(AIUtilities.sanitizeSurrogates(message.content.compactMap(\.text).joined(separator: "\n"))), "is_error": .bool(message.isError == true)])]
+                if let refs = deferredMarkers[message.timestamp], !refs.isEmpty {
+                    let refBlocks = refs.map { JSONValue.object(["type": .string("tool_reference"), "tool_name": .string($0)]) }
+                    content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .array(refBlocks), "is_error": .bool(message.isError == true)])]
+                } else {
+                    content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .string(AIUtilities.sanitizeSurrogates(message.content.compactMap(\.text).joined(separator: "\n"))), "is_error": .bool(message.isError == true)])]
+                }
             } else {
                 content = message.content.compactMap { contentBlock($0, message: message, model: model, isOAuthToken: isOAuthToken) }
             }
@@ -301,7 +307,38 @@ public enum AnthropicMessagesProvider {
         return messages
     }
 
-    private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(isOAuthToken ? toClaudeCodeName(tool.name) : tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
+    private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, deferred: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(isOAuthToken ? toClaudeCodeName(tool.name) : tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if deferred { obj["defer_loading"] = .bool(true) }; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
+    private static func deferredToolPlan(model: Model, context: AIContext, isOAuthToken: Bool) -> (tools: [(tool: Tool, deferred: Bool)], markers: [Int64: [String]]) {
+        let rawTools = context.tools ?? []
+        var toolsByKey: [String: Tool] = [:]
+        var order: [String] = []
+        for tool in rawTools {
+            let key = (isOAuthToken ? toClaudeCodeName(tool.name) : tool.name).lowercased()
+            if toolsByKey[key] == nil { order.append(key) }
+            toolsByKey[key] = tool
+        }
+        let tools = order.compactMap { toolsByKey[$0] }
+        guard supportsToolReferences(model), !tools.isEmpty else { return (tools.map { ($0, false) }, [:]) }
+        let byName = toolsByKey
+        var used = Set<String>()
+        var deferred = Set<String>()
+        var markers: [Int64: [String]] = [:]
+        for message in context.messages.sorted(by: { $0.timestamp < $1.timestamp }) {
+            for block in message.content where block.type == "toolCall" { used.insert((isOAuthToken ? toClaudeCodeName(block.name ?? "") : (block.name ?? "")).lowercased()) }
+            if message.role == .toolResult {
+                let names = (message.addedToolNames ?? []).compactMap { raw -> String? in
+                    let name = isOAuthToken ? toClaudeCodeName(raw) : raw
+                    let key = name.lowercased()
+                    guard byName[key] != nil, !used.contains(key) else { return nil }
+                    deferred.insert(key); return name
+                }
+                if !names.isEmpty { markers[message.timestamp] = names }
+            }
+        }
+        if deferred.count == tools.count { deferred.remove(deferred.sorted().first ?? "") }
+        return (tools.map { tool in (tool, deferred.contains((isOAuthToken ? toClaudeCodeName(tool.name) : tool.name).lowercased())) }, markers)
+    }
+    private static func supportsToolReferences(_ model: Model) -> Bool { if let forced = model.anthropicCompat?.supportsToolReferences { return forced }; let id = (model.id + " " + model.name).lowercased(); return id.contains("opus-4-6") || id.contains("opus-4-7") || id.contains("opus-4-8") }
     private static func normalizeAnthropicToolCallID(_ id: String) -> String { String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.prefix(64)) }
     private static func isOAuthToken(_ apiKey: String) -> Bool { apiKey.contains("sk-ant-oat") }
     private static let claudeCodeToolNames = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "KillShell", "NotebookEdit", "Skill", "Task", "TaskOutput", "TodoWrite", "WebFetch", "WebSearch"]

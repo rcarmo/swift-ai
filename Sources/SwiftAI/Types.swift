@@ -55,8 +55,8 @@ public enum Provider: String, Codable, Hashable, Sendable {
     case faux = "faux"
 }
 
-public enum ThinkingLevel: String, Codable, Sendable { case minimal, low, medium, high, xhigh }
-public enum ModelThinkingLevel: String, Codable, Hashable, Sendable { case off, minimal, low, medium, high, xhigh }
+public enum ThinkingLevel: String, Codable, Sendable { case minimal, low, medium, high, xhigh, max }
+public enum ModelThinkingLevel: String, Codable, Hashable, Sendable { case off, minimal, low, medium, high, xhigh, max }
 public enum Role: String, Codable, Sendable { case user, assistant, toolResult }
 public enum StopReason: String, Codable, Sendable { case stop, length, toolUse, error, aborted }
 public enum CacheRetention: String, Codable, Sendable { case none, short, long }

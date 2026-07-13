@@ -17,6 +17,50 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertTrue(transformed.allSatisfy { $0.content.isEmpty })
     }
 
+    func testV0806ContextEstimateIgnoresStaleAssistantUsage() {
+        func assistant(timestamp: Int64, totalTokens: Int) -> Message {
+            var msg = Message(role: .assistant, content: [.text("kept")], timestamp: timestamp)
+            var usage = Usage(); usage.input = totalTokens; usage.totalTokens = totalTokens
+            msg.api = .openAIResponses; msg.provider = .openAI; msg.model = "test-model"; msg.usage = usage; msg.stopReason = .stop
+            return msg
+        }
+        let staleContext = AIContext(systemPrompt: "system", messages: [
+            Message(role: .user, content: [.text("summary")], timestamp: 200),
+            assistant(timestamp: 100, totalTokens: 9_500),
+            Message(role: .user, content: [.text(String(repeating: "x", count: 4_000))], timestamp: 300),
+        ])
+        let staleEstimate = AIUtilities.estimateContextTokens(staleContext)
+        XCTAssertEqual(staleEstimate.tokens, 1005)
+        XCTAssertEqual(staleEstimate.usageTokens, 0)
+        XCTAssertEqual(staleEstimate.trailingTokens, 1005)
+        XCTAssertNil(staleEstimate.lastUsageIndex)
+        let model = Model(id: "test-model", name: "Test Model", api: .openAIResponses, provider: .openAI, contextWindow: 10_000, maxTokens: 8_000)
+        XCTAssertEqual(AIUtilities.effectiveMaxTokens(model: model, context: staleContext, options: nil, defaultToModel: true), 4899)
+
+        let freshContext = AIContext(messages: [
+            Message(role: .user, content: [.text("summary")], timestamp: 200),
+            assistant(timestamp: 100, totalTokens: 9_500),
+            Message(role: .user, content: [.text("new prompt")], timestamp: 300),
+            assistant(timestamp: 400, totalTokens: 2_000),
+            Message(role: .user, content: [.text("tail")], timestamp: 500),
+        ])
+        let freshEstimate = AIUtilities.estimateContextTokens(freshContext)
+        XCTAssertEqual(freshEstimate.tokens, 2001)
+        XCTAssertEqual(freshEstimate.usageTokens, 2000)
+        XCTAssertEqual(freshEstimate.trailingTokens, 1)
+        XCTAssertEqual(freshEstimate.lastUsageIndex, 3)
+    }
+
+    func testV0806MaxThinkingLevelOptInAndClamp() {
+        let ordinary = Model(id: "ordinary-reasoning", name: "Ordinary", api: .openAICompletions, provider: .faux, reasoning: true)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: ordinary), [.off, .minimal, .low, .medium, .high])
+        XCTAssertEqual(AIUtilities.clampThinkingLevel(model: ordinary, level: .max), .high)
+        let highAndMax = Model(id: "high-and-max", name: "High and Max", api: .openAICompletions, provider: .faux, reasoning: true, thinkingLevelMap: [.xhigh: nil, .max: "max"])
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: highAndMax), [.off, .minimal, .low, .medium, .high, .max])
+        XCTAssertEqual(AIUtilities.clampThinkingLevel(model: highAndMax, level: .xhigh), .max)
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: highAndMax, level: .max), "max")
+    }
+
     func testV0803EstimateClampErrorAndRetryUtilities() {
         XCTAssertEqual(AIUtilities.estimateTextTokens("12345678"), 2)
         XCTAssertEqual(AIUtilities.estimateTextTokens("123456789"), 3)
@@ -99,10 +143,13 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(openAIMessage.usage?.reasoning, 30)
         let responsesUsageSSE = """
         event: response.completed
-        data: {"response":{"id":"r","status":"completed","usage":{"input_tokens":10,"output_tokens":20,"output_tokens_details":{"reasoning_tokens":12}}}}
+        data: {"response":{"id":"r","status":"completed","usage":{"input_tokens":10,"output_tokens":20,"input_tokens_details":{"cached_tokens":3,"cache_write_tokens":4},"output_tokens_details":{"reasoning_tokens":12}}}}
 
         """
         guard case .done(_, let responsesMessage)? = OpenAIResponsesProvider.processSSEText(responsesUsageSSE, model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)).last else { return XCTFail("missing responses done") }
+        XCTAssertEqual(responsesMessage.usage?.input, 7)
+        XCTAssertEqual(responsesMessage.usage?.cacheRead, 3)
+        XCTAssertEqual(responsesMessage.usage?.cacheWrite, 4)
         XCTAssertEqual(responsesMessage.usage?.reasoning, 12)
         let googleUsageSSE = """
         data: {"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20,"thoughtsTokenCount":7,"totalTokenCount":37}}

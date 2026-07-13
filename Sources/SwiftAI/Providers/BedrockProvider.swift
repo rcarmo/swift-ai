@@ -139,7 +139,7 @@ public enum BedrockProvider {
         case .minimal: budget = budgets?.minimal ?? defaults.minimal ?? 1024
         case .low: budget = budgets?.low ?? defaults.low ?? 2048
         case .medium: budget = budgets?.medium ?? defaults.medium ?? 8192
-        case .high, .xhigh: budget = budgets?.high ?? defaults.high ?? 16_384
+        case .high, .xhigh, .max: budget = budgets?.high ?? defaults.high ?? 16_384
         }
         var thinking: [String: JSONValue] = ["type": .string("enabled"), "budget_tokens": .number(Double(budget))]
         if !isGovCloudTarget(model: model, options: options) { thinking["display"] = .string("summarized") }
@@ -164,13 +164,13 @@ public enum BedrockProvider {
     }
 
     private static func supportsNativeXHighEffort(_ model: Model) -> Bool {
-        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("fable-5") }
+        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("sonnet-5") || $0.contains("fable-5") }
     }
 
     private static func mapBedrockEffort(model: Model, reasoning: ThinkingLevel) -> String {
         if reasoning == .xhigh, supportsNativeXHighEffort(model) { return "xhigh" }
         if let level = ModelThinkingLevel(rawValue: reasoning.rawValue), let mapped = model.thinkingLevelMap?[level], let mapped { return mapped }
-        switch reasoning { case .minimal, .low: return "low"; case .medium: return "medium"; case .high, .xhigh: return "high" }
+        switch reasoning { case .minimal, .low: return "low"; case .medium: return "medium"; case .high, .xhigh, .max: return "high" }
     }
 
     private static func isGovCloudTarget(model: Model, options: StreamOptions?) -> Bool {

@@ -1,7 +1,7 @@
 {
   "upstream": {
     "package": "@earendil-works/pi-ai",
-    "version": "0.80.5",
+    "version": "0.80.6",
     "reference": "direct upstream inspection"
   },
   "swiftPM": {
@@ -16,7 +16,7 @@
     ]
   },
   "registries": {
-    "textModels": 1059,
+    "textModels": 1057,
     "textProviders": 35,
     "textAPIs": 9,
     "imageModels": 35,
@@ -56,7 +56,7 @@
     "google-antigravity"
   ],
   "validation": {
-    "swiftToolchainUnavailableInContainer": true,
+    "swiftToolchainUnavailableInContainer": false,
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test"
   },

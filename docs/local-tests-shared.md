@@ -11,6 +11,17 @@ Upstream npm tarball `@earendil-works/pi-ai v0.80.2` does not include `*.test.ts
 - Pending direct Swift adaptation: **0**
 - Not applicable/no Swift analogue: **4**
 
+## v0.80.6 conformance fixtures
+
+Upstream **0.80.6** model registry is adopted in Swift with **1057** text models and **35** image models. New/changed behavioral fixtures covered by deterministic Swift tests:
+
+- `max` thinking level is part of the public thinking enums and supported only when models opt in through `thinkingLevelMap`; ordinary default reasoning remains capped at `high`.
+- Partial `thinkingLevelMap` entries override/disable individual levels without dropping default lower levels.
+- Context-token estimates ignore stale assistant-usage checkpoints when later messages already outdate them, avoiding historical total-token double counting.
+- OpenAI/Azure Responses usage maps `input_tokens_details.cache_write_tokens` into `Usage.cacheWrite`.
+- Azure/OpenAI Responses reasoning replay preserves `encrypted_content` from `response.output_item.done`, and fills it from `response.completed` only when the done item omitted it.
+- Bedrock native `xhigh` effort support now includes Claude Sonnet 5.
+
 ## v0.80.5 conformance fixtures
 
 Upstream **0.80.5** keeps the v0.80.3 utility truth-tables and adds request-shape coverage for empty tool-result output placeholders: OpenAI-compatible and Responses/Codex tool-result messages with neither text nor images serialize `"(no tool output)"`; image-only OpenAI-compatible tool results keep `"(see attached image)"`.

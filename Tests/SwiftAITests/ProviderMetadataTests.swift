@@ -266,8 +266,14 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         let sonnet46 = try model(.githubCopilot, "claude-sonnet-4.6")
         XCTAssertEqual(sonnet46.api, .anthropicMessages)
         XCTAssertEqual(sonnet46.thinkingLevelMap?[.minimal]!, "low")
-        XCTAssertEqual(sonnet46.thinkingLevelMap?[.xhigh]!, "max")
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: sonnet46).contains(.xhigh))
+        XCTAssertEqual(sonnet46.thinkingLevelMap?[.max]!, "max")
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: sonnet46).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: sonnet46).contains(.max))
+
+        let sonnet5 = try model(.githubCopilot, "claude-sonnet-5")
+        XCTAssertEqual(sonnet5.thinkingLevelMap?[.xhigh]!, "xhigh")
+        XCTAssertEqual(sonnet5.thinkingLevelMap?[.max]!, "max")
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: sonnet5).contains(.xhigh))
 
         let context = AIContext(systemPrompt: "You are a helpful assistant.", messages: [.user("Hello")])
         let headers = AnthropicMessagesProvider.buildRequestHeaders(model: sonnet46, context: context, apiKey: "tid_copilot_session_test_token", options: nil)

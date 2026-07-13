@@ -1,6 +1,6 @@
 # Upstream test parity tracker
 
-Canonical upstream source: `github.com/earendil-works/pi` package `packages/ai`, synced through `@earendil-works/pi-ai` **0.80.5**.
+Canonical upstream source: `github.com/earendil-works/pi` package `packages/ai`, synced through `@earendil-works/pi-ai` **0.80.6**.
 
 This file is reconciled from `docs/upstream-tests-source.md`, which is the source-of-truth row inventory for upstream `packages/ai/test/*.test.ts`.
 
@@ -13,10 +13,10 @@ Status legend:
 
 ## Summary
 
-- Upstream test files inventoried: **92**
-- Ported/covered/classified files: **92/92**
-- Deterministic ported: **56/92**
-- Partial deterministic/pluggable coverage: **22**
+- Upstream test files inventoried: **96**
+- Ported/covered/classified files: **96/96**
+- Deterministic ported: **59/96**
+- Partial deterministic/pluggable coverage: **23**
 - Live-gated: **13**
 - Not applicable: **1**
 - Pending files: **0**
@@ -38,6 +38,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/anthropic-thinking-disable.test.ts` | 7 | sends thinking.type=disabled for budget-based reasoning models when thinking is off; sends thinking.type=disabled for adaptive reasoning models when thinking is off; sends thinking.type=disabled for Claude Opus 4.8 when thinking is off; omits thinking.type=disabled for Claude Fable 5 when thinking is off; uses adaptive thinking for Claude Opus 4.8 when reasoning is enabled | ADAPTED (`testAnthropicThinkingDisablePayload`) |
 | DETERMINISTIC-PORTED | `test/anthropic-tool-name-normalization.test.ts` | 4 | should normalize user-defined tool matching CC name (todowrite -> TodoWrite -> todowrite); should handle pi built-in tools; should NOT map find to Glob; should handle custom tools | ADAPTED (`testAnthropicOAuthToolNameNormalization`; deterministic outbound and inbound SSE round-trip covered) |
 | DETERMINISTIC-PORTED | `test/azure-openai-base-url.test.ts` | 11 | Azure Responses base URL normalization; invalid URL error; prompt_cache_key clamp; store=false; resource-name default URL | ADAPTED (`testAzureOpenAIResponsesBaseURLNormalization`, `testAzureOpenAIResponsesConfigAndPayloadDefaults`) |
+| DETERMINISTIC-PORTED | `test/azure-openai-responses-reasoning-replay.test.ts` | 2 | preserves reasoning encrypted_content from output_item.done and fills from response.completed only when omitted | ADAPTED (`testAzureResponsesReasoningEncryptedContentReplay`) |
 | PARTIAL | `test/bedrock-convert-messages.test.ts` | 9 | skips unknown user content blocks instead of throwing; skips unknown assistant content blocks instead of throwing; replaces user messages with only unknown content blocks with a placeholder; replaces blank user string content with a placeholder; filters blank user text blocks when other content remains | PARTIAL (pluggable transport) |
 | PARTIAL | `test/bedrock-custom-headers.test.ts` | 6 | VC1: registers a build-step middleware that injects the caller header (happy path); VC2: skips reserved headers case-insensitively while applying allowed ones; VC3: registers no middleware when headers is undefined; VC3: registers no middleware when headers is empty; VC3 (structural guard): passes through unchanged when the request has no headers | PARTIAL (pluggable transport) |
 | DETERMINISTIC-PORTED | `test/bedrock-endpoint-resolution.test.ts` | 7 | assigns eu-central-1 runtime URLs to built-in EU inference profiles; does not pin standard AWS endpoints when AWS_REGION is configured; derives region from a built-in EU endpoint when no region or profile is configured; handles missing regions for explicit, scoped, and ambient profiles; still passes custom Bedrock endpoints through to the SDK client | ADAPTED (`testBedrockRequestAndRegionHelpers`; SDK-client construction remains transport-owned) |
@@ -47,6 +48,8 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/compat-env.test.ts` | 1 | dispatches unknown/custom provider model through legacy API registry and preserves request apiKey | ADAPTED (`testCompatLegacyAPIRegistryDispatchPreservesRequestAPIKey`) |
 | DETERMINISTIC-PORTED | `test/context-overflow.test.ts` | 29 | provider context-overflow wire/error fixtures across Anthropic/OpenAI/Google/Copilot/etc. | ADAPTED (SIMULATED-FIXTURE-PORTED via `testSimulatedProviderContextOverflowFixtures` and `OverflowTests`; live API-key matrix remains optional) |
 | LIVE-GATED | `test/cross-provider-handoff.test.ts` | 0 | live cross-provider fixture generation and handoff compatibility matrix across many providers/models | LIVE-GATED (requires many provider API keys; deterministic transform/handoff coverage in `testTransformMessagesCopilotOpenAIToAnthropic`, tool ID normalization, and synthetic tool-result tests) |
+| DETERMINISTIC-PORTED | `test/context-estimate.test.ts` | 4 | context token estimate ignores stale assistant usage checkpoints and clamps max tokens to fresh trailing context | ADAPTED (`testV0806ContextEstimateIgnoresStaleAssistantUsage`) |
+| PARTIAL | `test/deferred-tools.test.ts` | 16 | Anthropic/OpenAI deferred tool loading via `addedToolNames` and provider-specific tool search/reference payloads | PARTIAL (Swift context passes explicit complete `tools`; no dynamic late tool-loader runtime yet. Existing request builders keep complete tool lists deterministic.) |
 | PARTIAL | `test/empty.test.ts` | 88 | live provider matrix for empty content arrays/strings/whitespace and empty assistant history | PARTIAL (`testEmptyAndWhitespaceMessagesSerializeGracefully`; live provider matrix N/A without credentials) |
 | DETERMINISTIC-PORTED | `test/error-body.test.ts` | 12 | provider error normalization/formatting: status/body extraction, body-carrying messages, non-Error values, empty parsed body, truncation cap | ADAPTED (`testProviderErrorNormalizationAndFormatting`) |
 | DETERMINISTIC-PORTED | `test/env-api-keys.test.ts` | 3 | Copilot ignores generic GitHub tokens; resolves COPILOT_GITHUB_TOKEN; resolves ZAI_CODING_CN_API_KEY | ADAPTED (`testEnvAPIKeysCopilotAndZAICodingCNMappings`) |
@@ -66,6 +69,7 @@ Status legend:
 | LIVE-GATED | `test/interleaved-thinking.test.ts` | 4 | live Anthropic/Bedrock interleaved-thinking second-tool-call behavior on Claude Opus 4.5/4.6 | LIVE-GATED (requires `ANTHROPIC_API_KEY`/Bedrock credentials; deterministic beta/request coverage in `testGitHubCopilotAnthropicHeadersAndAdaptiveThinking` and Anthropic request-shape tests) |
 | DETERMINISTIC-PORTED | `test/lax-message-content.test.ts` | 1 | transformMessages normalizes null/missing content from untyped callers or old sessions to empty arrays instead of crashing | ADAPTED (`testLaxMessageContentDecodingAndTransform`) |
 | NOT-APPLICABLE | `test/lazy-module-load.test.ts` | 5 | Node/TypeScript lazy SDK module loading/import-hook behavior | NOT-APPLICABLE (SwiftPM static linking/import model; no Node provider SDK lazy import surface) |
+| DETERMINISTIC-PORTED | `test/max-thinking.test.ts` | 8 | `max` thinking level enum/support; default caps xhigh/max to high unless models opt in via thinkingLevelMap | ADAPTED (`testV0806MaxThinkingLevelOptInAndClamp`, `testUpstreamSupportedThinkingLevels`, `testThinkingHelpers`) |
 | DETERMINISTIC-PORTED | `test/mistral-reasoning-mode.test.ts` | 7 | Mistral reasoning_effort vs prompt_mode selection; omit controls when off; session id prompt cache key; omit when cache disabled | ADAPTED (`testMistralReasoningModeAndPromptCacheKey`) |
 | DETERMINISTIC-PORTED | `test/mistral-tool-schema.test.ts` | 1 | TypeBox symbol keys stripped before SDK validation; Swift JSONValue schemas are pure JSON and cannot carry JS Symbol keys | ADAPTED (`testMistralToolSchemaSerializesAsJSON`) |
 | PARTIAL | `test/models-runtime.test.ts` | 17 | provider/model registry operations, auth resolution, refresh/error wrapping, unknown provider error streams | PARTIAL (`testModelsRuntimeRegistryOperationsAndUnknownProvider`; TS credential-store runtime auth matrix pending/not directly modeled) |

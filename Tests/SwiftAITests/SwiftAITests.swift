@@ -120,19 +120,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.5")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1059)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.6")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1057)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.5")
-        XCTAssertEqual(BuiltinModels.modelCount, 1059)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.6")
+        XCTAssertEqual(BuiltinModels.modelCount, 1057)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1059)
+        XCTAssertEqual(models.count, 1057)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
@@ -146,7 +146,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.5")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.6")
         XCTAssertEqual(BuiltinImageModels.modelCount, 35)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -257,20 +257,24 @@ final class SwiftAITests: XCTestCase {
         func model(_ provider: Provider, _ id: String) throws -> Model {
             try XCTUnwrap(models.first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
         }
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-opus-4-6")).contains(.xhigh))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-opus-4-6")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-opus-4-6")).contains(.max))
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-opus-4-8")).contains(.xhigh))
         let fable = AIUtilities.supportedThinkingLevels(model: try model(.anthropic, "claude-fable-5"))
         XCTAssertTrue(fable.contains(.xhigh))
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openAI, "gpt-5.5-pro")).contains(.xhigh))
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "openai/gpt-5.5-pro")).contains(.xhigh))
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-v4-flash")).contains(.xhigh))
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "deepseek-v4-flash")).contains(.xhigh))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-v4-flash")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-v4-flash")).contains(.max))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "deepseek-v4-flash")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "deepseek-v4-flash")).contains(.max))
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "kimi-k2.6")).contains(.xhigh))
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAI, "kimi-k2.7-code")).isEmpty)
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAICN, "kimi-k2.7-code")).isEmpty)
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCode, "grok-build-0.1")).isEmpty)
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "deepseek/deepseek-v4-flash")).contains(.xhigh))
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "anthropic/claude-opus-4.6")).contains(.xhigh))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "anthropic/claude-opus-4.6")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "anthropic/claude-opus-4.6")).contains(.max))
         let bedrockFable = AIUtilities.supportedThinkingLevels(model: try model(.amazonBedrock, "global.anthropic.claude-fable-5"))
         XCTAssertTrue(bedrockFable.contains(.xhigh))
     }
@@ -281,7 +285,8 @@ final class SwiftAITests: XCTestCase {
         let model = Model(id: "reasoner", name: "Reasoner", api: .openAICompletions, provider: .openAI, reasoning: true, thinkingLevelMap: [.low: low, .high: high, .xhigh: nil])
         XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: nil), [.off])
         XCTAssertEqual(AIUtilities.clampReasoning(.xhigh), .high)
-        XCTAssertEqual(AIUtilities.clampThinkingLevel(model: model, level: .minimal), .low)
+        XCTAssertEqual(AIUtilities.clampReasoning(.max), .high)
+        XCTAssertEqual(AIUtilities.clampThinkingLevel(model: model, level: .minimal), .minimal)
         XCTAssertEqual(AIUtilities.mapThinkingLevel(model: model, level: .low), "low")
         XCTAssertFalse(AIUtilities.supportsXHigh(model: model))
         let adjusted = AIUtilities.adjustMaxTokensForThinking(baseMaxTokens: 1000, modelMaxTokens: 2500, level: .low)
@@ -933,6 +938,31 @@ final class SwiftAITests: XCTestCase {
         guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
         XCTAssertEqual(message.content.first?.type, "thinking")
         XCTAssertEqual(message.content.first?.thinking, "why")
+    }
+
+    func testAzureResponsesReasoningEncryptedContentReplay() throws {
+        let model = Model(id: "gpt-5-mini", name: "GPT-5 Mini", api: .azureOpenAIResponses, provider: .azureOpenAI, reasoning: true)
+        func replayedEncryptedContent(doneEncrypted: String?, completedEncrypted: String) throws -> String? {
+            let donePart = doneEncrypted.map { #", "encrypted_content":"\#($0)""# } ?? ""
+            let sse = """
+            event: response.output_item.added
+            data: {"type":"response.output_item.added","item":{"id":"rs_test","type":"reasoning","summary":[]}}
+
+            event: response.output_item.done
+            data: {"type":"response.output_item.done","item":{"id":"rs_test","type":"reasoning","summary":[]\(donePart)}}
+
+            event: response.completed
+            data: {"type":"response.completed","response":{"id":"resp_test","status":"completed","output":[{"id":"rs_test","type":"reasoning","summary":[],"encrypted_content":"\(completedEncrypted)"}]}}
+
+            """
+            guard case .done(_, let message)? = OpenAIResponsesProvider.processSSEText(sse, model: model).last else { XCTFail("missing done"); return nil }
+            let signature = try XCTUnwrap(message.content.first?.thinkingSignature)
+            let data = try XCTUnwrap(signature.data(using: .utf8))
+            let object = try JSONDecoder().decode([String: JSONValue].self, from: data)
+            return object["encrypted_content"]?.stringValue
+        }
+        XCTAssertEqual(try replayedEncryptedContent(doneEncrypted: "from-output-item-done", completedEncrypted: "from-response-completed"), "from-output-item-done")
+        XCTAssertEqual(try replayedEncryptedContent(doneEncrypted: nil, completedEncrypted: "from-response-completed"), "from-response-completed")
     }
 
     func testAzureToolCallLimit() {

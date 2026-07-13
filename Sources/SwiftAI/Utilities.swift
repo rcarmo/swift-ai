@@ -11,17 +11,21 @@ public enum AIUtilities {
     public static let contextSafetyTokens = 4096
     public static let minMaxTokens = 1
     public static let maxProviderErrorBodyChars = 4000
-    private static let extendedThinkingLevels: [ModelThinkingLevel] = [.off, .minimal, .low, .medium, .high, .xhigh]
+    private static let extendedThinkingLevels: [ModelThinkingLevel] = [.off, .minimal, .low, .medium, .high, .xhigh, .max]
 
-    public static func clampReasoning(_ level: ThinkingLevel) -> ThinkingLevel { level == .xhigh ? .high : level }
+    public static func clampReasoning(_ level: ThinkingLevel) -> ThinkingLevel { (level == .xhigh || level == .max) ? .high : level }
 
     public static func supportedThinkingLevels(model: Model?) -> [ModelThinkingLevel] {
         guard let model, model.reasoning else { return [.off] }
         var out: [ModelThinkingLevel] = []
         for level in extendedThinkingLevels {
             if let map = model.thinkingLevelMap {
-                guard map.keys.contains(level), let mapped = map[level], mapped != nil else { continue }
-            } else if level == .xhigh {
+                if map.keys.contains(level) {
+                    guard let mapped = map[level], mapped != nil else { continue }
+                } else if level == .xhigh || level == .max {
+                    continue
+                }
+            } else if level == .xhigh || level == .max {
                 continue
             }
             out.append(level)
@@ -70,12 +74,17 @@ public enum AIUtilities {
     }
 
     public static func estimateContextTokens(_ context: AIContext) -> ContextTokenEstimate {
+        var latestPrefixTimestamp = Int64.min
         var usageInfo: (usage: Usage, index: Int)?
-        for index in context.messages.indices.reversed() {
+        for index in context.messages.indices {
             let message = context.messages[index]
-            guard message.role == .assistant, message.stopReason != .aborted, message.stopReason != .error, let usage = message.usage, calculateContextTokens(usage) > 0 else { continue }
-            usageInfo = (usage, index)
-            break
+            if message.role == .assistant {
+                let usageAppliesToPrefix = message.timestamp >= latestPrefixTimestamp
+                if usageAppliesToPrefix, message.stopReason != .aborted, message.stopReason != .error, let usage = message.usage, calculateContextTokens(usage) > 0 {
+                    usageInfo = (usage, index)
+                }
+            }
+            latestPrefixTimestamp = max(latestPrefixTimestamp, message.timestamp)
         }
         if let usageInfo {
             let usageTokens = calculateContextTokens(usageInfo.usage)
@@ -165,7 +174,7 @@ public enum AIUtilities {
         case .minimal: budget = custom?.minimal ?? defaults.minimal ?? 1024
         case .low: budget = custom?.low ?? defaults.low ?? 2048
         case .medium: budget = custom?.medium ?? defaults.medium ?? 8192
-        case .high, .xhigh: budget = custom?.high ?? defaults.high ?? 16_384
+        case .high, .xhigh, .max: budget = custom?.high ?? defaults.high ?? 16_384
         }
         let minOutputTokens = 1024
         var maxTokens = baseMaxTokens + budget

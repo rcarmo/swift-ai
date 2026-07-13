@@ -256,7 +256,9 @@ public enum AnthropicMessagesProvider {
             if message.role == .toolResult {
                 if let refs = deferredMarkers[message.timestamp], !refs.isEmpty {
                     let refBlocks = refs.map { JSONValue.object(["type": .string("tool_reference"), "tool_name": .string($0)]) }
-                    content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .array(refBlocks), "is_error": .bool(message.isError == true)])]
+                    var blocks: [JSONValue] = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .array(refBlocks), "is_error": .bool(message.isError == true)])]
+                    blocks.append(contentsOf: message.content.compactMap { contentBlock($0, message: message, model: model, isOAuthToken: isOAuthToken) })
+                    content = blocks
                 } else {
                     content = [.object(["type": .string("tool_result"), "tool_use_id": .string(normalizeAnthropicToolCallID(message.toolCallId ?? "")), "content": .string(AIUtilities.sanitizeSurrogates(message.content.compactMap(\.text).joined(separator: "\n"))), "is_error": .bool(message.isError == true)])]
                 }
@@ -336,6 +338,7 @@ public enum AnthropicMessagesProvider {
             }
         }
         if deferred.count == tools.count { deferred.remove(deferred.sorted().first ?? "") }
+        if !markers.isEmpty { markers = markers.mapValues { names in names.filter { deferred.contains($0.lowercased()) } }.filter { !$0.value.isEmpty } }
         return (tools.map { tool in (tool, deferred.contains((isOAuthToken ? toClaudeCodeName(tool.name) : tool.name).lowercased())) }, markers)
     }
     private static func supportsToolReferences(_ model: Model) -> Bool { if let forced = model.anthropicCompat?.supportsToolReferences { return forced }; let id = (model.id + " " + model.name).lowercased(); return id.contains("opus-4-6") || id.contains("opus-4-7") || id.contains("opus-4-8") }

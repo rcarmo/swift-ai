@@ -1295,7 +1295,7 @@ final class SwiftAITests: XCTestCase {
             return AIContext(messages: [Message.user("Hello"), assistant, result, Message(role: .user, content: [.text("next")], timestamp: 4)], tools: tools)
         }
 
-        let anthropicModel = Model(id: "claude-opus-4-6", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        let anthropicModel = Model(id: "claude-opus-4-6", name: "Claude", api: .anthropicMessages, provider: .anthropic, input: ["text", "image"])
         let anthropicBody = AnthropicMessagesProvider.buildRequestBody(model: anthropicModel, context: context(tools: [tool("base_tool"), tool("late_tool")]), options: nil)
         guard case .array(let anthropicTools)? = anthropicBody["tools"] else { return XCTFail("missing anthropic tools") }
         XCTAssertTrue(anthropicTools.contains { if case .object(let obj) = $0 { return obj["name"] == .string("late_tool") && obj["defer_loading"] == .bool(true) }; return false })
@@ -1326,6 +1326,25 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(input.contains { item in
             guard case .object(let obj) = item, obj["type"] == .string("tool_search_output"), case .array(let tools)? = obj["tools"] else { return false }
             return tools.contains { if case .object(let tool) = $0 { return tool["name"] == .string("late_tool") && tool["defer_loading"] == .bool(true) }; return false }
+        })
+
+        var siblingContext = context(tools: [tool("base_tool"), tool("late_tool")])
+        siblingContext.messages[2].content = [.text("work completed"), .image(data: "aW1hZ2U=", mimeType: "image/png")]
+        let siblingBody = AnthropicMessagesProvider.buildRequestBody(model: anthropicModel, context: siblingContext, options: nil)
+        guard case .array(let siblingMessages)? = siblingBody["messages"], case .object(let siblingMsg) = siblingMessages[2], case .array(let siblingContent)? = siblingMsg["content"] else { return XCTFail("missing sibling content") }
+        XCTAssertTrue(siblingContent.contains { if case .object(let obj) = $0 { return obj["type"] == .string("tool_result") }; return false })
+        XCTAssertTrue(siblingContent.contains { if case .object(let obj) = $0 { return obj["type"] == .string("text") && obj["text"] == .string("work completed") }; return false })
+        XCTAssertTrue(siblingContent.contains { if case .object(let obj) = $0 { return obj["type"] == .string("image") }; return false })
+
+        let allMarkedBody = AnthropicMessagesProvider.buildRequestBody(model: anthropicModel, context: context(tools: [tool("late_tool")]), options: nil)
+        guard case .array(let allMarkedTools)? = allMarkedBody["tools"], case .array(let allMarkedMessages)? = allMarkedBody["messages"] else { return XCTFail("missing all-marked payload") }
+        XCTAssertTrue(allMarkedTools.compactMap { if case .object(let obj) = $0 { return obj["defer_loading"] }; return nil }.isEmpty)
+        XCTAssertFalse(allMarkedMessages.contains { message in
+            guard case .object(let msg) = message, case .array(let content)? = msg["content"] else { return false }
+            return content.contains { block in
+                guard case .object(let obj) = block, case .array(let refs)? = obj["content"] else { return false }
+                return refs.contains { if case .object(let ref) = $0 { return ref["type"] == .string("tool_reference") }; return false }
+            }
         })
 
         let unsupported = Model(id: "gpt-5.4-nano", name: "GPT", api: .openAIResponses, provider: .openAI)

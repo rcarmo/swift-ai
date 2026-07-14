@@ -1,8 +1,8 @@
 {
   "upstream": {
     "package": "@earendil-works/pi-ai",
-    "version": "0.80.6",
-    "reference": "npm tarball @earendil-works/pi-ai@0.80.6 for generated registries; auditor-provided package commit/tag mapping 2b3fda...; repository HEAD 0e6909f050eeb15e8f6c05185511f3788357ddb3 inspected only for post-package test inventory comparison"
+    "version": "0.80.7",
+    "reference": "npm tarball @earendil-works/pi-ai@0.80.7 for generated registries; npm registry gitHead 818d67457cdd6b60bce6b121d16b23141c252dd8; repository HEAD 9d09075c inspected for post-package upstream comparison"
   },
   "swiftPM": {
     "package": "swift-ai",
@@ -16,7 +16,7 @@
     ]
   },
   "registries": {
-    "textModels": 1057,
+    "textModels": 1065,
     "textProviders": 35,
     "textAPIs": 9,
     "imageModels": 35,
@@ -33,6 +33,7 @@
     "google-vertex",
     "google-gemini-cli",
     "mistral-conversations",
+    "pi-messages",
     "openrouter-images",
     "faux"
   ],
@@ -63,6 +64,7 @@
   "knownNonBundledCapabilities": [
     "Bedrock live AWS SigV4/event-stream transport",
     "Codex WebSocket/session-cache transport implementation",
+    "Radius OAuth browser/device-code CLI flow is Node-specific upstream; Swift currently supports Radius via PI_GATEWAY_API_KEY/API key and pi-messages wire protocol",
     "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
   ],
   "transportDocumentation": "docs/TRANSPORTS.md",

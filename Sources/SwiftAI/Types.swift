@@ -5,6 +5,7 @@ public enum API: String, Codable, Sendable {
     case openAIResponses = "openai-responses"
     case azureOpenAIResponses = "azure-openai-responses"
     case openAICodexResponses = "openai-codex-responses"
+    case piMessages = "pi-messages"
     case anthropicMessages = "anthropic-messages"
     case bedrockConverseStream = "bedrock-converse-stream"
     case googleGenerativeAI = "google-generative-ai"
@@ -23,6 +24,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
     case googleVertex = "google-vertex"
     case azureOpenAI = "azure-openai-responses"
     case openAICodex = "openai-codex"
+    case radius = "radius"
     case githubCopilot = "github-copilot"
     case amazonBedrock = "amazon-bedrock"
     case mistral = "mistral"
@@ -294,6 +296,7 @@ public struct StreamOptions: Sendable {
     public var cacheRetention: CacheRetention?
     public var sessionId: String?
     public var headers: [String: String]?
+    public var debug: Bool?
     public var maxRetryDelayMs: Int?
     public var retryConfig: RetryConfig?
     public var metadata: [String: JSONValue]?

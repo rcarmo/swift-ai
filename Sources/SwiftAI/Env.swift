@@ -7,6 +7,7 @@ public enum ProviderEnvironment {
         .google: ["GEMINI_API_KEY"],
         .googleVertex: ["GOOGLE_CLOUD_API_KEY"],
         .azureOpenAI: ["AZURE_OPENAI_API_KEY"],
+        .radius: ["PI_GATEWAY_API_KEY"],
         .githubCopilot: ["COPILOT_GITHUB_TOKEN"],
         .mistral: ["MISTRAL_API_KEY"],
         .xai: ["XAI_API_KEY"],

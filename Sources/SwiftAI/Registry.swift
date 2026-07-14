@@ -34,6 +34,7 @@ public enum SwiftAI {
         await AIRegistry.shared.register(APIProvider(api: .openAIResponses, stream: { model, context, options in OpenAIResponsesProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .azureOpenAIResponses, stream: { model, context, options in OpenAIResponsesProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .openAICodexResponses, stream: { model, context, options in OpenAIResponsesProvider.stream(model: model, context: context, options: options) }))
+        await AIRegistry.shared.register(APIProvider(api: .piMessages, stream: { model, context, options in PiMessagesProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .anthropicMessages, stream: { model, context, options in AnthropicMessagesProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .mistralConversations, stream: { model, context, options in MistralConversationsProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .googleGenerativeAI, stream: { model, context, options in GoogleGenerativeAIProvider.stream(model: model, context: context, options: options) }))

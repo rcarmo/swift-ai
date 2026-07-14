@@ -120,19 +120,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.6")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1057)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.7")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1065)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.6")
-        XCTAssertEqual(BuiltinModels.modelCount, 1057)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.7")
+        XCTAssertEqual(BuiltinModels.modelCount, 1065)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1057)
+        XCTAssertEqual(models.count, 1065)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
@@ -146,7 +146,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.6")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.7")
         XCTAssertEqual(BuiltinImageModels.modelCount, 35)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -235,6 +235,7 @@ final class SwiftAITests: XCTestCase {
     func testProviderEnvironmentResolution() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "router"]), "router")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .radius, env: ["PI_GATEWAY_API_KEY": "radius-key"]), "radius-key")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_PROFILE": "default"]), "<authenticated>")
         XCTAssertEqual(ProviderEnvironment.envFallbackName(.zaiCodingCN), "ZAI_CODING_CN_API_KEY")
         var options = StreamOptions()
@@ -1352,6 +1353,82 @@ final class SwiftAITests: XCTestCase {
         guard case .array(let unsupportedTools)? = unsupportedBody["tools"], case .array(let unsupportedInput)? = unsupportedBody["input"] else { return XCTFail("missing unsupported payload") }
         XCTAssertEqual(unsupportedTools.compactMap { if case .object(let obj) = $0 { return obj["name"]?.stringValue }; return nil }, ["base_tool", "late_tool"])
         XCTAssertFalse(unsupportedInput.contains { if case .object(let obj) = $0 { return obj["type"] == .string("tool_search_output") }; return false })
+    }
+
+    func testPiMessagesRequestAndSSEConversion() throws {
+        let model = Model(id: "radius-model", name: "Radius", api: .piMessages, provider: .radius, baseUrl: "https://radius.example")
+        var options = StreamOptions(); options.temperature = 0.25; options.maxTokens = 123; options.reasoning = .high; options.sessionId = "session"; options.toolChoice = .string("auto"); options.env = ["PI_CACHE_RETENTION": "long"]
+        let context = AIContext(systemPrompt: "sys", messages: [.user("hello")], tools: [Tool(name: "lookup", description: "Lookup", parameters: .object(["type": .string("object")]))])
+        let url = try PiMessagesProvider.buildRequestURL(model: model, options: options)
+        XCTAssertEqual(url.absoluteString, "https://radius.example/messages")
+        options.debug = true
+        let debugURL = try PiMessagesProvider.buildRequestURL(model: model, options: options)
+        XCTAssertEqual(debugURL.absoluteString, "https://radius.example/messages?debug=1")
+        let body = PiMessagesProvider.buildRequestBody(model: model, context: context, options: options)
+        XCTAssertEqual(body["model"], .string("radius-model"))
+        guard case .object(let opts)? = body["options"] else { return XCTFail("missing options") }
+        XCTAssertEqual(opts["temperature"], .number(0.25))
+        XCTAssertEqual(opts["maxTokens"], .number(123))
+        XCTAssertEqual(opts["reasoning"], .string("high"))
+        XCTAssertEqual(opts["cacheRetention"], .string("long"))
+        XCTAssertEqual(opts["sessionId"], .string("session"))
+        XCTAssertEqual(opts["toolChoice"], .string("auto"))
+        guard case .object(let encodedContext)? = body["context"] else { return XCTFail("missing context") }
+        XCTAssertNotNil(encodedContext["messages"])
+
+        let sse = """
+        data: {"type":"start"}
+
+        data: {"type":"text_start","contentIndex":0}
+
+        data: {"type":"text_delta","contentIndex":0,"delta":"he"}
+
+        data: {"type":"text_end","contentIndex":0,"content":"hello","contentSignature":"sig"}
+
+        data: {"type":"thinking_start","contentIndex":1}
+
+        data: {"type":"thinking_delta","contentIndex":1,"delta":"why"}
+
+        data: {"type":"thinking_end","contentIndex":1,"content":"why","contentSignature":"tsig","redacted":true}
+
+        data: {"type":"toolcall_start","contentIndex":2,"id":"call_1","toolName":"lookup"}
+
+        data: {"type":"toolcall_delta","contentIndex":2,"delta":"{\\\"q\\\":\\\"hel"}
+
+        data: {"type":"toolcall_delta","contentIndex":2,"delta":"lo\\\"}"}
+
+        data: {"type":"toolcall_end","contentIndex":2,"toolCall":{"type":"toolCall","id":"call_1","name":"lookup","arguments":{"q":"hello"}}}
+
+        data: {"type":"done","reason":"toolUse","usage":{"input":1,"output":2,"cacheRead":3,"cacheWrite":4,"totalTokens":10,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"responseId":"resp","rewrite":{"policyId":"p","policyVersion":1,"changed":true,"tokenCountChange":1,"messageCountChange":0,"systemPromptChanged":false}}
+
+        """
+        let events = PiMessagesProvider.processSSEText(sse, model: model)
+        guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .toolUse)
+        XCTAssertEqual(message.responseId, "resp")
+        XCTAssertEqual(message.content[0].text, "hello")
+        XCTAssertEqual(message.content[0].textSignature, "sig")
+        XCTAssertEqual(message.content[1].thinking, "why")
+        XCTAssertEqual(message.content[1].thinkingSignature, "tsig")
+        XCTAssertEqual(message.content[1].redacted, true)
+        XCTAssertEqual(message.content[2].name, "lookup")
+        XCTAssertEqual(message.content[2].arguments?["q"], .string("hello"))
+        XCTAssertEqual(message.usage?.totalTokens, 10)
+        XCTAssertEqual(message.diagnostics?.first?.type, "pi_messages_rewrite")
+
+        let errorSSE = """
+        data: {"type":"error","reason":"error","errorMessage":"boom","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}}}
+
+        """
+        guard case .error(let errorReason, let errorMessage, _)? = PiMessagesProvider.processSSEText(errorSSE, model: model).last else { return XCTFail("missing error") }
+        XCTAssertEqual(errorReason, .error)
+        XCTAssertEqual(errorMessage?.errorMessage, "boom")
+
+        guard case .error(_, let failure, _) = PiMessagesProvider.responseFailureEvent(model: model, url: "https://radius.example/messages", status: 401, statusText: "unauthorized", body: #"{"error":{"message":"Token expired","code":"unauthorized"}}"#) else { return XCTFail("missing response failure") }
+        XCTAssertEqual(failure?.errorMessage, "401 unauthorized: Token expired (unauthorized)")
+        XCTAssertEqual(failure?.diagnostics?.first?.type, "pi_messages_response_failure")
+        XCTAssertEqual(failure?.diagnostics?.first?.details?["status"], .number(401))
+        XCTAssertEqual(failure?.diagnostics?.first?.details?["provider"], .string("radius"))
     }
 
     func testOpenAIResponsesToolResultImagesStayInFunctionCallOutput() {

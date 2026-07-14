@@ -1,6 +1,6 @@
 # Upstream test parity tracker
 
-Canonical package baseline: npm tarball `@earendil-works/pi-ai` **0.80.6**, auditor-provided package commit/tag mapping `2b3fda...`. Repository HEAD `0e6909f050eeb15e8f6c05185511f3788357ddb3` was inspected as a newer main-branch tree and is not the package tree used for generated registries. Generated Swift registries come from `/tmp/pi-ai-0.80.6-pkg/dist/*generated.js`, not repository HEAD.
+Canonical package baseline: npm tarball `@earendil-works/pi-ai` **0.80.7**, release commit/tag mapping `818d67457cdd6b60bce6b121d16b23141c252dd8`. Current repository HEAD `9d09075c53812f7af955ce4397d0508c4a62efac` was inspected and only adds the next-cycle changelog on top of the release for `packages/ai`. Generated Swift registries come from `/tmp/pi-ai-0.80.7-pkg/dist/*generated.js`; source/test behavior was audited against `/tmp/pi-upstream-latest` at `818d6745` plus HEAD sanity check.
 
 This file is reconciled from `docs/upstream-tests-source.md`, which is the source-of-truth row inventory for upstream `packages/ai/test/*.test.ts`.
 
@@ -13,11 +13,12 @@ Status legend:
 
 ## Summary
 
-- Package-baseline upstream test files inventoried: **94**
-- Ported/covered/classified files: **94/94**
-- Deterministic ported: **59/94**
-- Partial deterministic/pluggable coverage: **21**
-- Newer repository-HEAD-only files excluded from package accounting: **2** (`openai-responses-reasoning-replay-e2e.test.ts`, `openrouter-cache-write-repro.test.ts`)
+- Package/source upstream test files inventoried at v0.80.7 release: **97**
+- Ported/covered/classified files: **97/97**
+- Deterministic ported: **61/97**
+- Partial deterministic/pluggable coverage: **22**
+- New in v0.80.7 and ported/classified: `pi-messages.test.ts`, `openai-responses-compat.test.ts` rename/continuation, Radius provider/env/OAuth source audit
+- Current repository HEAD-only files excluded from package accounting: **0**
 - Live-gated: **13**
 - Not applicable: **1**
 - Pending files: **0**
@@ -102,6 +103,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/openrouter-images.test.ts` | 3 | returns text plus images in output; payload stream=false/modalities/message content; final assistant images result | ADAPTED (`testOpenRouterImageResponseParser`, `testOpenRouterImagePayloadBuilder`; abort signal not applicable to Swift ImagesOptions) |
 | DETERMINISTIC-PORTED | `test/overflow.test.ts` | 13 | detects explicit Ollama prompt-too-long errors; detects Together AI context length errors; detects LiteLLM-wrapped OpenAI maximum context length errors; detects OpenAI-compatible parenthesized maximum context length errors; detects OpenRouter Poolside maximum allowed input length errors | ADAPTED (`OverflowTests`) |
 | DETERMINISTIC-PORTED | `test/provider-error-body-passthrough.test.ts` | 1 | OpenRouter image provider surfaces HTTP body reason instead of opaque SDK/provider message | ADAPTED (`testOpenRouterImageErrorBodyPassthrough`) |
+| DETERMINISTIC-PORTED | `test/pi-messages.test.ts` | 8 | Radius/pi-messages request body, debug URL, headers/response metadata, SSE text/thinking/tool/error/done conversion, backend error diagnostics, missing-key and terminal-event errors, builtin API registration | ADAPTED (`testPiMessagesRequestAndSSEConversion`; URL/body/SSE/diagnostic paths deterministic; live HTTP server mechanics not required) |
 | DETERMINISTIC-PORTED | `test/provider-error-body-regression.test.ts` | 4 | per-tier provider error body passthrough/regression, including OpenRouter `metadata.raw` double-print guard | ADAPTED (`testProviderErrorBodyRegressionAndOpenRouterRawSinglePrint`) |
 | PARTIAL | `test/providers.test.ts` | 9 | builtin provider/model registry and auth helper behavior | PARTIAL (`testEnvApiKeyAuthHelper`, registry/env tests; full Models runtime API pending) |
 | LIVE-GATED | `test/responseid.test.ts` | 11 | live responseId E2E across providers | LIVE-GATED (`testMistralRequestAndSSEProcessing` covers deterministic Mistral id/model parsing; live API-key cases pending) |

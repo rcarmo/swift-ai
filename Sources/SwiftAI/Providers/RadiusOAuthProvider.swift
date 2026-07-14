@@ -25,7 +25,8 @@ public struct RadiusOAuthProvider: OAuthProvider {
             return try await loginDeviceCode(config: config, callbacks: callbacks)
         }
         let pkce = try OAuthUtilities.generatePKCE()
-        let url = authorizationURL(config: config, challenge: pkce.challenge)
+        let state = Self.generateState()
+        let url = authorizationURL(config: config, challenge: pkce.challenge, state: state)
         if let onAuth = callbacks.onAuth { await onAuth(OAuthAuthInfo(url: url, instructions: "Complete Radius login in your browser and paste the returned code")) }
         guard let code = try await callbacks.onPrompt?(OAuthPrompt(message: "Radius OAuth code", placeholder: "code", allowEmpty: false)), !code.isEmpty else { throw RadiusOAuthError.cancelled }
         return try await exchangeCode(code, verifier: pkce.verifier, config: config)
@@ -46,20 +47,22 @@ public struct RadiusOAuthProvider: OAuthProvider {
         return models.filter { $0.provider != .radius } + injected
     }
 
-    public func authorizationURL(config: RadiusOAuthConfig, challenge: String) -> String {
+    public func authorizationURL(config: RadiusOAuthConfig, challenge: String, state: String = Self.generateState()) -> String {
         var components = URLComponents(string: config.authorizationEndpoint)!
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: config.clientId),
             URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "scope", value: config.scope),
-            URLQueryItem(name: "state", value: "handoff=url"),
+            URLQueryItem(name: "state", value: state),
             URLQueryItem(name: "handoff", value: "url"),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
         return components.url?.absoluteString ?? config.authorizationEndpoint
     }
+
+    public static func generateState() -> String { UUID().uuidString }
 
     public func exchangeCode(_ code: String, verifier: String, config: RadiusOAuthConfig) async throws -> OAuthCredentials {
         try await tokenRequest(url: config.tokenEndpoint, fields: Self.authorizationCodeFields(clientID: config.clientId, code: code, verifier: verifier), fallbackRefresh: nil, fallbackGatewayConfig: nil)

@@ -17,7 +17,7 @@ Status legend:
 - Ported/covered/classified files: **97/97**
 - Deterministic ported: **61/97**
 - Partial deterministic/pluggable coverage: **22**
-- New in v0.80.7 and ported/classified: `pi-messages.test.ts`, `openai-responses-compat.test.ts` rename/continuation, Radius provider/env/OAuth source audit
+- New in v0.80.7 and ported/classified: `pi-messages.test.ts`, `openai-responses-compat.test.ts` rename/continuation, Radius provider/env/OAuth implementation
 - Current repository HEAD-only files excluded from package accounting: **0**
 - Live-gated: **13**
 - Not applicable: **1**
@@ -78,6 +78,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/node-http-proxy.test.ts` | 4 | NO_PROXY exclusions; HTTP/HTTPS proxy env resolution; scoped env precedence; reject SOCKS/PAC protocols | ADAPTED (`testHTTPProxyResolution`) |
 | PARTIAL | `test/oauth-auth.test.ts` | 8 | OAuth toAuth/apiKey adapters, Copilot proxy/enterprise baseUrl fallback, model auth lazy chain | PARTIAL (`testAnthropicOAuthProviderShape`, `testCodexOAuthProviderShape`, `testOAuthPKCEAndCopilotHelpers`; lazy credential-store chain pending) |
 | DETERMINISTIC-PORTED | `test/oauth-device-code.test.ts` | 2 | polls immediately and completes; cancels in-flight wait with Login cancelled semantics | ADAPTED (`testOAuthDeviceCodePollingImmediateAndCancellation`) |
+| DETERMINISTIC-PORTED | `src/utils/oauth/radius.ts` | source | Radius gateway OAuth discovery, PKCE authorization URL, device-code/token refresh field shapes, `/v1/config` credential cache and model injection; browser callback server UI is platform-disposed in Swift and exposed through callbacks/prompts | ADAPTED (`RadiusOAuthProvider`, `testRadiusOAuthConfigCredentialsAndModelInjection`) |
 | PARTIAL | `test/openai-codex-cache-affinity-e2e.test.ts` | 0 |  | PARTIAL (pluggable transport) |
 | PARTIAL | `test/openai-codex-oauth.test.ts` | 8 | token refresh failure error shape is deterministic; 7 interactive device-code/login cases require live/mocked network credentials | PARTIAL (`testOpenAICodexTokenRefreshFailureDoesNotWriteToStderr`; helper constants in `testOpenAICodexOAuthDeviceCodeHelpers`; login/device-code flows LIVE-GATED) |
 | PARTIAL | `test/openai-codex-stream.test.ts` | 16 | streams SSE responses into AssistantMessageEventStream; completes after response.completed even when the SSE body stays open; maps response.incomplete to stopReason length even when the SSE body stays open; aborts SSE fetch when response headers do not arrive; aborts SSE body reads after response headers arrive | PARTIAL (pluggable transport) |
@@ -103,7 +104,7 @@ Status legend:
 | DETERMINISTIC-PORTED | `test/openrouter-images.test.ts` | 3 | returns text plus images in output; payload stream=false/modalities/message content; final assistant images result | ADAPTED (`testOpenRouterImageResponseParser`, `testOpenRouterImagePayloadBuilder`; abort signal not applicable to Swift ImagesOptions) |
 | DETERMINISTIC-PORTED | `test/overflow.test.ts` | 13 | detects explicit Ollama prompt-too-long errors; detects Together AI context length errors; detects LiteLLM-wrapped OpenAI maximum context length errors; detects OpenAI-compatible parenthesized maximum context length errors; detects OpenRouter Poolside maximum allowed input length errors | ADAPTED (`OverflowTests`) |
 | DETERMINISTIC-PORTED | `test/provider-error-body-passthrough.test.ts` | 1 | OpenRouter image provider surfaces HTTP body reason instead of opaque SDK/provider message | ADAPTED (`testOpenRouterImageErrorBodyPassthrough`) |
-| DETERMINISTIC-PORTED | `test/pi-messages.test.ts` | 8 | Radius/pi-messages request body, debug URL, headers/response metadata, SSE text/thinking/tool/error/done conversion, backend error diagnostics, missing-key and terminal-event errors, builtin API registration | ADAPTED (`testPiMessagesRequestAndSSEConversion`; URL/body/SSE/diagnostic paths deterministic; live HTTP server mechanics not required) |
+| DETERMINISTIC-PORTED | `test/pi-messages.test.ts` | 8 | Radius/pi-messages request body, debug URL, headers/response metadata, actual URLProtocol stream request/body/headers, SSE text/thinking/tool/error/done conversion, backend error diagnostics, missing-key and terminal-event cleanup errors, builtin API registration | ADAPTED (`testPiMessagesRequestAndSSEConversion`, `testPiMessagesURLProtocolStreamIntegration`) |
 | DETERMINISTIC-PORTED | `test/provider-error-body-regression.test.ts` | 4 | per-tier provider error body passthrough/regression, including OpenRouter `metadata.raw` double-print guard | ADAPTED (`testProviderErrorBodyRegressionAndOpenRouterRawSinglePrint`) |
 | PARTIAL | `test/providers.test.ts` | 9 | builtin provider/model registry and auth helper behavior | PARTIAL (`testEnvApiKeyAuthHelper`, registry/env tests; full Models runtime API pending) |
 | LIVE-GATED | `test/responseid.test.ts` | 11 | live responseId E2E across providers | LIVE-GATED (`testMistralRequestAndSSEProcessing` covers deterministic Mistral id/model parsing; live API-key cases pending) |

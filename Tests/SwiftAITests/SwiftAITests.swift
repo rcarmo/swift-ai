@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import SwiftAI
 
 final class SwiftAITests: XCTestCase {
@@ -63,7 +66,7 @@ final class SwiftAITests: XCTestCase {
 
     func testAuthCredentialStoreAndCodable() async throws {
         let store = InMemoryCredentialStore()
-        try await store.modify(providerId: "openai") { _ in .apiKey(key: "k", env: ["A": "B"]) }
+        _ = try await store.modify(providerId: "openai") { _ in .apiKey(key: "k", env: ["A": "B"]) }
         let storedCredential = try await store.read(providerId: "openai")
         XCTAssertEqual(storedCredential, .apiKey(key: "k", env: ["A": "B"]))
         try await store.delete(providerId: "openai")
@@ -218,7 +221,7 @@ final class SwiftAITests: XCTestCase {
 
     func testCopilotAndSessionHeaders() {
         XCTAssertEqual(AIUtilities.inferCopilotInitiator([.user("hi")]), "user")
-        var assistant = Message(role: .assistant, content: [.text("ok")])
+        let assistant = Message(role: .assistant, content: [.text("ok")])
         XCTAssertEqual(AIUtilities.inferCopilotInitiator([assistant]), "agent")
         XCTAssertEqual(AIUtilities.buildCopilotDynamicHeaders([Message(role: .user, content: [.image(data: "x", mimeType: "image/png")])])["Copilot-Vision-Request"], "true")
         XCTAssertEqual(AIUtilities.copilotHeaders(intent: "chat")["openai-intent"], "chat")
@@ -1431,6 +1434,107 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(failure?.diagnostics?.first?.details?["provider"], .string("radius"))
     }
 
+    func testRadiusOAuthConfigCredentialsAndModelInjection() async throws {
+        let config = RadiusOAuthConfig(issuer: "https://radius.test", authorizationEndpoint: "https://radius.test/authorize", tokenEndpoint: "https://radius.test/token", deviceAuthorizationEndpoint: "https://radius.test/device", deviceAuthorizationEventsEndpoint: "https://radius.test/events", verificationEndpoint: "https://radius.test/verify", clientId: "client", scope: "openid ai", deviceCodeGrantType: "urn:ietf:params:oauth:grant-type:device_code")
+        let provider = RadiusOAuthProvider(gateway: "radius.test/")
+        XCTAssertEqual(provider.gateway, "https://radius.test")
+        let url = provider.authorizationURL(config: config, challenge: "challenge")
+        XCTAssertTrue(url.contains("response_type=code"))
+        XCTAssertTrue(url.contains("client_id=client"))
+        XCTAssertTrue(url.contains("redirect_uri=http://127.0.0.1:1456/oauth/callback"))
+        XCTAssertTrue(url.contains("code_challenge=challenge"))
+        XCTAssertEqual(RadiusOAuthProvider.authorizationCodeFields(clientID: "client", code: "code", verifier: "verifier")["code_verifier"], "verifier")
+        XCTAssertEqual(RadiusOAuthProvider.refreshTokenFields(clientID: "client", refreshToken: "refresh")["grant_type"], "refresh_token")
+
+        let gatewayConfig = RadiusGatewayConfig(baseUrl: "https://radius.test/v1", models: [RadiusGatewayModel(id: "auto", name: "Radius Auto", reasoning: true, thinkingLevelMap: [.high: "high", .max: "max"], input: ["text", "image"], cost: ModelCost(input: 1, output: 2, cacheRead: 0.1, cacheWrite: 0.2), contextWindow: 128000, maxTokens: 16384)])
+        let creds = RadiusOAuthProvider.credentials(refresh: "refresh", access: "access", expiresIn: 3600, gatewayConfig: gatewayConfig, now: Date(timeIntervalSince1970: 1_000))
+        XCTAssertEqual(provider.apiKey(credentials: creds), "access")
+        XCTAssertEqual(RadiusOAuthProvider.gatewayConfig(from: creds), gatewayConfig)
+        let injected = provider.modifyModels([Model(id: "old", name: "Old", api: .piMessages, provider: .radius)], credentials: creds)
+        XCTAssertEqual(injected.count, 1)
+        XCTAssertEqual(injected[0].id, "auto")
+        XCTAssertEqual(injected[0].api, .piMessages)
+        XCTAssertEqual(injected[0].provider, .radius)
+        XCTAssertEqual(injected[0].baseUrl, "https://radius.test/v1")
+        XCTAssertEqual(injected[0].thinkingLevelMap?[.max] ?? nil, "max")
+
+        await OAuthRegistry.shared.clear()
+        await OAuthRegistry.shared.register(provider)
+        let registeredRadius = await OAuthRegistry.shared.provider(id: "radius")
+        XCTAssertNotNil(registeredRadius)
+        await SwiftAI.bootstrap()
+    }
+
+    func testPiMessagesURLProtocolStreamIntegration() async throws {
+        await SwiftAI.bootstrap()
+        final class Recorder: @unchecked Sendable { var requests: [(url: String, headers: [String: String], body: String)] = []; var mode = "done" }
+        let recorder = Recorder()
+        PiMessagesProvider.requestTransport = { request in
+            let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            var headers: [String: String] = [:]
+            for (key, value) in request.allHTTPHeaderFields ?? [:] { headers[key] = value }
+            recorder.requests.append((request.url?.absoluteString ?? "", headers, body))
+            switch recorder.mode {
+            case "errorStatus":
+                let data = #"{"error":{"message":"Token expired","code":"unauthorized"}}"#.data(using: .utf8)!
+                return (data, HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: ["content-type": "application/json"])!)
+            case "missingTerminal":
+                let data = "data: {\"type\":\"start\"}\n\ndata: {\"type\":\"text_start\",\"contentIndex\":0}\n\ndata: {\"type\":\"text_delta\",\"contentIndex\":0,\"delta\":\"partial\"}\n\n".data(using: .utf8)!
+                return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["x-radius": "missing"])!)
+            case "serverErrorEvent":
+                let data = "data: {\"type\":\"error\",\"reason\":\"error\",\"errorMessage\":\"Upstream failed\",\"usage\":{\"input\":1,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":1,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}}}\n\n".data(using: .utf8)!
+                return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["x-radius": "error"])!)
+            default:
+                let data = "data: {\"type\":\"start\"}\n\ndata: {\"type\":\"text_start\",\"contentIndex\":0}\n\ndata: {\"type\":\"text_delta\",\"contentIndex\":0,\"delta\":\"ok\"}\n\ndata: {\"type\":\"text_end\",\"contentIndex\":0,\"content\":\"ok\"}\n\ndata: {\"type\":\"done\",\"reason\":\"stop\",\"usage\":{\"input\":1,\"output\":2,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":3,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"responseId\":\"resp\"}\n\n".data(using: .utf8)!
+                return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["x-radius": "done"])!)
+            }
+        }
+        defer { PiMessagesProvider.requestTransport = nil }
+
+        let model = Model(id: "auto", name: "Radius Auto", api: .piMessages, provider: .radius, baseUrl: "https://radius.test/v1")
+        func lastEvent(_ options: StreamOptions?) async -> AIEvent? {
+            var last: AIEvent?
+            for await event in await SwiftAI.stream(model: model, context: AIContext(messages: [.user("Hello")]), options: options) { last = event }
+            return last
+        }
+        var options = StreamOptions(); options.apiKey = "test-key"; options.maxTokens = 100; options.sessionId = "session-1"; options.headers = ["x-custom": "1"]; options.debug = true
+        let done = await lastEvent(options)
+        guard case .done(let reason, let message)? = done else { return XCTFail("missing terminal done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.responseId, "resp")
+        XCTAssertEqual(message.content.first?.text, "ok")
+        XCTAssertEqual(message.usage?.totalTokens, 3)
+        XCTAssertEqual(recorder.requests.last?.url, "https://radius.test/v1/messages?debug=1")
+        let lastHeaders = recorder.requests.last?.headers.reduce(into: [String: String]()) { $0[$1.key.lowercased()] = $1.value } ?? [:]
+        XCTAssertEqual(lastHeaders["authorization"], "Bearer test-key")
+        XCTAssertEqual(lastHeaders["x-custom"], "1")
+        XCTAssertTrue(recorder.requests.last?.body.contains("\"model\":\"auto\"") == true)
+        XCTAssertTrue(recorder.requests.last?.body.contains("\"sessionId\":\"session-1\"") == true)
+
+        let missingKey = StreamOptions()
+        let missingKeyEvent = await lastEvent(missingKey)
+        guard case .error(let missingKeyReason, let missingKeyMessage, _)? = missingKeyEvent else { return XCTFail("missing key error") }
+        XCTAssertEqual(missingKeyReason, .error)
+        XCTAssertTrue(missingKeyMessage?.errorMessage?.contains("No API key provided") == true)
+
+        recorder.mode = "serverErrorEvent"
+        let serverError = await lastEvent(options)
+        guard case .error(let sentReason, let sentMessage, _)? = serverError else { return XCTFail("missing server-sent error") }
+        XCTAssertEqual(sentReason, .error)
+        XCTAssertEqual(sentMessage?.errorMessage, "Upstream failed")
+
+        recorder.mode = "missingTerminal"
+        let missingTerminal = await lastEvent(options)
+        guard case .error(_, let missingTerminalMessage, _)? = missingTerminal else { return XCTFail("missing terminal cleanup error") }
+        XCTAssertTrue(missingTerminalMessage?.errorMessage?.contains("stream ended without a terminal event") == true)
+
+        recorder.mode = "errorStatus"
+        let statusError = await lastEvent(options)
+        guard case .error(_, let statusMessage, _)? = statusError else { return XCTFail("missing response status error") }
+        XCTAssertEqual(statusMessage?.diagnostics?.first?.type, "pi_messages_response_failure")
+        XCTAssertEqual(statusMessage?.diagnostics?.first?.details?["status"], .number(401))
+    }
+
     func testOpenAIResponsesToolResultImagesStayInFunctionCallOutput() {
         var toolResult = Message(role: .toolResult, content: [.text("A red circle with a diameter of 100 pixels."), .image(data: "abc", mimeType: "image/png")])
         toolResult.toolCallId = "call_1"
@@ -2252,7 +2356,7 @@ final class SwiftAITests: XCTestCase {
         let longModel = Model(id: "m", name: "M", api: .openAICompletions, provider: .openRouter, baseUrl: "https://openrouter.ai/api/v1", completionsCompat: compat)
         let longBody = OpenAICompletionsProvider.buildRequestBody(model: longModel, context: AIContext(messages: [.user("hi")]), options: options)
         XCTAssertEqual(longBody["prompt_cache_key"], .string("sess"))
-        var assistant = Message(role: .assistant, content: [.toolCall(id: "c", name: "t", arguments: [:])])
+        let assistant = Message(role: .assistant, content: [.toolCall(id: "c", name: "t", arguments: [:])])
         let toolHistoryBody = OpenAICompletionsProvider.buildRequestBody(model: nonOpenAI, context: AIContext(messages: [assistant]), options: nil)
         XCTAssertEqual(toolHistoryBody["tools"], .array([]))
     }
@@ -2357,7 +2461,7 @@ final class SwiftAITests: XCTestCase {
 
     func testOpenAIToolCallIDNormalizationFromResponses() {
         let failingID = "call_pAYbIr76hXIjncD9UE4eGfnS|t5nnb2qYMFWGSsr13fhCd1CaCu3t3qONEPuOudu4HSVEtA8YJSL6FAZUxvoOoD792VIJWl91g87EdqsCWp9krVsdBysQoDaf9lMCLb8BS4EYi4gQd5kBQBYLlgD71PYwvf+TbMD9J9/5OMD42oxSRj8H+vRf78/l2Xla33LWz4nOgsddBlbvabICRs8GHt5C9PK5keFtzyi3lsyVKNlfduK3iphsZqs4MLv4zyGJnvZo/+QzShyk5xnMSQX/f98+aEoNflEApCdEOXipipgeiNWnpFSHbcwmMkZoJhURNu+JEz3xCh1mrXeYoN5o+trLL3IXJacSsLYXDrYTipZZbJFRPAucgbnjYBC+/ZzJOfkwCs+Gkw7EoZR7ZQgJ8ma+9586n4tT4cI8DEhBSZsWMjrCt8dxKg=="
-        var assistant = Message(role: .assistant, content: [.toolCall(id: failingID, name: "echo", arguments: ["message": .string("hello")])])
+        let assistant = Message(role: .assistant, content: [.toolCall(id: failingID, name: "echo", arguments: ["message": .string("hello")])])
         var result = Message(role: .toolResult, content: [.text("hello")])
         result.toolCallId = failingID
         result.toolName = "echo"
@@ -2372,7 +2476,7 @@ final class SwiftAITests: XCTestCase {
         var compat = OpenAICompletionsCompat()
         compat.requiresToolResultName = true
         let model = Model(id: "chat", name: "Chat", api: .openAICompletions, provider: .openAI, completionsCompat: compat)
-        var assistant = Message(role: .assistant, content: [.toolCall(id: "call", name: "lookup", arguments: ["q": .string("x")])])
+        let assistant = Message(role: .assistant, content: [.toolCall(id: "call", name: "lookup", arguments: ["q": .string("x")])])
         var result = Message(role: .toolResult, content: [.text("ok")])
         result.toolCallId = "call"
         result.toolName = "lookup"

@@ -47,6 +47,7 @@ public enum SwiftAI {
         await OAuthRegistry.shared.register(AnthropicOAuthProvider())
         await OAuthRegistry.shared.register(GoogleGeminiCLIOAuthProvider())
         await OAuthRegistry.shared.register(GoogleAntigravityOAuthProvider())
+        await OAuthRegistry.shared.register(RadiusOAuthProvider())
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

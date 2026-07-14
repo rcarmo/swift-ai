@@ -54,7 +54,8 @@
     "openai-codex",
     "anthropic",
     "google-gemini-cli",
-    "google-antigravity"
+    "google-antigravity",
+    "radius"
   ],
   "validation": {
     "swiftToolchainUnavailableInContainer": false,
@@ -64,7 +65,7 @@
   "knownNonBundledCapabilities": [
     "Bedrock live AWS SigV4/event-stream transport",
     "Codex WebSocket/session-cache transport implementation",
-    "Radius OAuth browser/device-code CLI flow is Node-specific upstream; Swift currently supports Radius via PI_GATEWAY_API_KEY/API key and pi-messages wire protocol",
+    "Radius browser callback server/UI automation is platform-disposed; Swift implements OAuth discovery, PKCE prompt flow, device-code/token refresh, /v1/config credential caching, model injection, PI_GATEWAY_API_KEY/API key, and pi-messages wire protocol",
     "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
   ],
   "transportDocumentation": "docs/TRANSPORTS.md",

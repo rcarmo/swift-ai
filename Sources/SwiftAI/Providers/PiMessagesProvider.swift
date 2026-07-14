@@ -4,6 +4,9 @@ import FoundationNetworking
 #endif
 
 public enum PiMessagesProvider {
+    public typealias RequestTransport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    nonisolated(unsafe) public static var requestTransport: RequestTransport?
+
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
@@ -59,7 +62,10 @@ public enum PiMessagesProvider {
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(JSONValue.object(payload))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let dataAndResponse: (Data, URLResponse)
+        if let transport = requestTransport { dataAndResponse = try await transport(request) }
+        else { dataAndResponse = try await URLSession.shared.data(for: request) }
+        let (data, response) = dataAndResponse
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("missing HTTP response") }
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         let bodyText = String(data: data, encoding: .utf8) ?? ""
@@ -83,11 +89,24 @@ public enum PiMessagesProvider {
     private static func errorEvent(model: Model, error: Error, aborted: Bool) -> AIEvent {
         var message = Message(role: .assistant, content: [])
         message.api = model.api; message.provider = model.provider; message.model = model.id
-        message.usage = Usage(); message.stopReason = aborted ? .aborted : .error; message.errorMessage = error.localizedDescription
+        message.usage = Usage(); message.stopReason = aborted ? .aborted : .error; message.errorMessage = errorMessage(error)
         if !aborted, let responseError = error as? PiMessagesResponseError {
             message.diagnostics = [AssistantMessageDiagnostic(type: "pi_messages_response_failure", timestamp: 0, error: DiagnosticError(message: responseError.localizedDescription), details: responseError.diagnosticDetails)]
         }
         return .error(reason: message.stopReason ?? .error, message: message, error: error)
+    }
+
+    private static func errorMessage(_ error: Error) -> String {
+        if let error = error as? PiMessagesResponseError { return error.localizedDescription }
+        if let error = error as? AIError {
+            switch error {
+            case .nilModel: return "Nil model"
+            case .noProvider(let api): return "No provider registered for \(api.rawValue)"
+            case .provider(let message), .invalidResponse(let message): return message
+            case .apiError(let status, let body): return "API error \(status): \(body)"
+            }
+        }
+        return error.localizedDescription
     }
 
     private static func contextJSON(_ context: AIContext) -> JSONValue {

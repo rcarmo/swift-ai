@@ -1443,6 +1443,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(url.contains("client_id=client"))
         XCTAssertTrue(url.contains("redirect_uri=http://127.0.0.1:1456/oauth/callback"))
         XCTAssertTrue(url.contains("code_challenge=challenge"))
+        XCTAssertTrue(url.contains("state=handoff=url") || url.contains("state=handoff%3Durl"))
+        XCTAssertTrue(url.contains("handoff=url"))
         XCTAssertEqual(RadiusOAuthProvider.authorizationCodeFields(clientID: "client", code: "code", verifier: "verifier")["code_verifier"], "verifier")
         XCTAssertEqual(RadiusOAuthProvider.refreshTokenFields(clientID: "client", refreshToken: "refresh")["grant_type"], "refresh_token")
 
@@ -1463,6 +1465,94 @@ final class SwiftAITests: XCTestCase {
         let registeredRadius = await OAuthRegistry.shared.provider(id: "radius")
         XCTAssertNotNil(registeredRadius)
         await SwiftAI.bootstrap()
+    }
+
+    func testRadiusOAuthHTTPPathsAndTypedErrors() async throws {
+        struct RadiusRecordedRequest: Sendable { var path: String; var method: String; var auth: String?; var body: String }
+        final class RadiusHTTPMock: @unchecked Sendable { var requests: [RadiusRecordedRequest] = []; var configFailuresRemaining = 0; var tokenMode = "ok" }
+        let mock = RadiusHTTPMock()
+        let provider = RadiusOAuthProvider(gateway: "https://radius.test")
+        let oauthJSON = #"{"issuer":"https://radius.test","authorizationEndpoint":"https://radius.test/authorize","tokenEndpoint":"https://radius.test/token","deviceAuthorizationEndpoint":"https://radius.test/device","deviceAuthorizationEventsEndpoint":"https://radius.test/events","verificationEndpoint":"https://radius.test/verify","clientId":"client","scope":"openid ai","deviceCodeGrantType":"urn:ietf:params:oauth:grant-type:device_code"}"#
+        let configJSON = #"{"baseUrl":"https://radius.test/v1","models":[{"id":"auto","name":"Radius Auto","reasoning":true,"input":["text"],"cost":{"input":1,"output":2,"cacheRead":0,"cacheWrite":0},"contextWindow":128000,"maxTokens":16384},{"id":"auto","name":"Duplicate","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1}]}"#
+        RadiusOAuthProvider.requestTransport = { request in
+            let path = request.url?.path ?? ""
+            let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            mock.requests.append(RadiusRecordedRequest(path: path, method: request.httpMethod ?? "GET", auth: request.value(forHTTPHeaderField: "Authorization"), body: body))
+            func response(_ status: Int, _ text: String) -> (Data, URLResponse) { (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["content-type": "application/json"])!) }
+            switch path {
+            case "/v1/oauth": return response(200, oauthJSON)
+            case "/token":
+                if mock.tokenMode == "denied" { return response(400, #"{"error":"access_denied"}"#) }
+                if mock.tokenMode == "expired" { return response(400, #"{"error":"expired_token"}"#) }
+                return response(200, #"{"access_token":"access-new","refresh_token":"refresh-new","expires_in":3600}"#)
+            case "/v1/config":
+                if mock.configFailuresRemaining > 0 { mock.configFailuresRemaining -= 1; return response(503, #"{"error":"temporary"}"#) }
+                return response(200, configJSON)
+            default: return response(404, #"{"error":"missing"}"#)
+            }
+        }
+        defer { RadiusOAuthProvider.requestTransport = nil }
+
+        let discovered = try await provider.loadOAuthConfig(gateway: provider.gateway)
+        XCTAssertEqual(discovered.clientId, "client")
+        let codeCreds = try await provider.exchangeCode("code", verifier: "verifier", config: discovered)
+        XCTAssertEqual(codeCreds.access, "access-new")
+        XCTAssertEqual(mock.requests.first(where: { $0.path == "/token" })?.method, "POST")
+        XCTAssertTrue(mock.requests.first(where: { $0.path == "/token" })?.body.contains("grant_type=authorization_code") == true)
+        XCTAssertTrue(mock.requests.first(where: { $0.path == "/token" })?.body.contains("code_verifier=verifier") == true)
+        let configRequest = mock.requests.first { $0.path == "/v1/config" }
+        XCTAssertEqual(configRequest?.auth, "Bearer access-new")
+        let injected = provider.modifyModels([Model(id: "old", name: "Old", api: .piMessages, provider: .radius)], credentials: codeCreds)
+        XCTAssertEqual(injected.filter { $0.id == "auto" }.count, 2)
+        XCTAssertFalse(injected.contains { $0.id == "old" && $0.provider == .radius })
+
+        let cachedConfig = RadiusOAuthProvider.gatewayConfig(from: codeCreds)
+        mock.configFailuresRemaining = 1
+        let refreshed = try await provider.refreshToken(credentials: codeCreds)
+        XCTAssertEqual(refreshed.refresh, "refresh-new")
+        XCTAssertEqual(RadiusOAuthProvider.gatewayConfig(from: refreshed), cachedConfig)
+
+        mock.tokenMode = "denied"
+        do { _ = try await provider.refreshToken(credentials: codeCreds); XCTFail("expected denied") } catch RadiusOAuthError.http(let status, let body) { XCTAssertEqual(status, 400); XCTAssertTrue(body.contains("access_denied")) }
+        mock.tokenMode = "ok"
+        mock.configFailuresRemaining = 1
+        do { _ = try await provider.exchangeCode("code", verifier: "verifier", config: discovered); XCTFail("expected typed http config error") } catch RadiusOAuthError.http(let status, _) { XCTAssertEqual(status, 503) }
+    }
+
+    func testRadiusOAuthDevicePollingTransitionsAndCancellation() async throws {
+        let config = RadiusOAuthConfig(issuer: "https://radius.test", authorizationEndpoint: "https://radius.test/authorize", tokenEndpoint: "https://radius.test/token", deviceAuthorizationEndpoint: "https://radius.test/device", deviceAuthorizationEventsEndpoint: "https://radius.test/events", verificationEndpoint: "https://radius.test/verify", clientId: "client", scope: "openid ai", deviceCodeGrantType: "urn:ietf:params:oauth:grant-type:device_code")
+        final class DeviceMock: @unchecked Sendable { var tokenResponses: [String] = []; var requests: [String] = [] }
+        let mock = DeviceMock()
+        let provider = RadiusOAuthProvider(gateway: "https://radius.test")
+        RadiusOAuthProvider.requestTransport = { request in
+            let path = request.url?.path ?? ""
+            let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            mock.requests.append(path + "?" + body)
+            func response(_ status: Int, _ text: String) -> (Data, URLResponse) { (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!) }
+            if path == "/device" { return response(200, #"{"device_code":"dev","user_code":"USER","verification_uri":"https://radius.test/verify","interval":1,"expires_in":8}"#) }
+            if path == "/v1/config" { return response(200, #"{"baseUrl":"https://radius.test/v1","models":[]}"#) }
+            if path == "/token" {
+                let next = mock.tokenResponses.isEmpty ? #"{"error":"authorization_pending"}"# : mock.tokenResponses.removeFirst()
+                let status = next.contains("access_token") ? 200 : 400
+                return response(status, next)
+            }
+            return response(404, "{}")
+        }
+        defer { RadiusOAuthProvider.requestTransport = nil }
+
+        mock.tokenResponses = [#"{"error":"authorization_pending"}"#, #"{"error":"slow_down"}"#, #"{"access_token":"access","refresh_token":"refresh","expires_in":3600}"#]
+        let creds = try await provider.loginDeviceCode(config: config, callbacks: OAuthLoginCallbacks())
+        XCTAssertEqual(creds.access, "access")
+        XCTAssertTrue(mock.requests.contains { $0.contains("grant_type=urn") && $0.contains("device_code=dev") })
+
+        mock.tokenResponses = [#"{"error":"access_denied"}"#]
+        do { _ = try await provider.loginDeviceCode(config: config, callbacks: OAuthLoginCallbacks()); XCTFail("expected denied") } catch RadiusOAuthError.denied {}
+        mock.tokenResponses = [#"{"error":"expired_token"}"#]
+        do { _ = try await provider.loginDeviceCode(config: config, callbacks: OAuthLoginCallbacks()); XCTFail("expected expired") } catch RadiusOAuthError.expired {}
+        do { _ = try await OAuthDeviceCodePoller.poll(intervalSeconds: 1, expiresInSeconds: 0) { OAuthDeviceCodePollStatus<OAuthCredentials>.pending }; XCTFail("expected timeout") } catch AIError.provider(let message) { XCTAssertTrue(message.contains("timed out")) }
+        let task = Task { try await OAuthDeviceCodePoller.poll(intervalSeconds: 1, expiresInSeconds: 10) { OAuthDeviceCodePollStatus<OAuthCredentials>.pending } }
+        task.cancel()
+        do { _ = try await task.value; XCTFail("expected cancellation") } catch {}
     }
 
     func testPiMessagesURLProtocolStreamIntegration() async throws {

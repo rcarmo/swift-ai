@@ -4,6 +4,9 @@ import FoundationNetworking
 #endif
 
 public struct RadiusOAuthProvider: OAuthProvider {
+    public typealias RequestTransport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    nonisolated(unsafe) public static var requestTransport: RequestTransport?
+
     public let id = "radius"
     public let name = "Radius"
     public static let defaultGateway = "https://radius.pi.dev"
@@ -30,7 +33,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials {
         let config = try await loadOAuthConfig(gateway: gateway)
-        return try await tokenRequest(url: config.tokenEndpoint, fields: Self.refreshTokenFields(clientID: config.clientId, refreshToken: credentials.refresh), fallbackRefresh: credentials.refresh)
+        return try await tokenRequest(url: config.tokenEndpoint, fields: Self.refreshTokenFields(clientID: config.clientId, refreshToken: credentials.refresh), fallbackRefresh: credentials.refresh, fallbackGatewayConfig: Self.gatewayConfig(from: credentials))
     }
 
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
@@ -50,6 +53,8 @@ public struct RadiusOAuthProvider: OAuthProvider {
             URLQueryItem(name: "client_id", value: config.clientId),
             URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "scope", value: config.scope),
+            URLQueryItem(name: "state", value: "handoff=url"),
+            URLQueryItem(name: "handoff", value: "url"),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
@@ -57,7 +62,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
     }
 
     public func exchangeCode(_ code: String, verifier: String, config: RadiusOAuthConfig) async throws -> OAuthCredentials {
-        try await tokenRequest(url: config.tokenEndpoint, fields: Self.authorizationCodeFields(clientID: config.clientId, code: code, verifier: verifier), fallbackRefresh: nil)
+        try await tokenRequest(url: config.tokenEndpoint, fields: Self.authorizationCodeFields(clientID: config.clientId, code: code, verifier: verifier), fallbackRefresh: nil, fallbackGatewayConfig: nil)
     }
 
     public func loginDeviceCode(config: RadiusOAuthConfig, callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials {
@@ -71,8 +76,8 @@ public struct RadiusOAuthProvider: OAuthProvider {
 
     public func loadOAuthConfig(gateway: String) async throws -> RadiusOAuthConfig {
         let url = URL(string: Self.normalizeGatewayURL(gateway) + "/v1/oauth")!
-        let (data, response) = try await HTTPRetry.data(for: URLRequest(url: url), policy: RetryPolicy(maxRetries: 1))
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
+        let (data, response) = try await Self.data(for: URLRequest(url: url))
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         return try JSONDecoder().decode(RadiusOAuthConfig.self, from: data)
     }
 
@@ -80,8 +85,8 @@ public struct RadiusOAuthProvider: OAuthProvider {
         var request = URLRequest(url: URL(string: Self.normalizeGatewayURL(gateway) + "/v1/config")!)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
-        let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         return try JSONDecoder().decode(RadiusGatewayConfig.self, from: data)
     }
 
@@ -100,18 +105,20 @@ public struct RadiusOAuthProvider: OAuthProvider {
         return try? JSONDecoder().decode(RadiusGatewayConfig.self, from: data)
     }
 
-    private func tokenRequest(url: String, fields: [String: String], fallbackRefresh: String?) async throws -> OAuthCredentials {
+    private func tokenRequest(url: String, fields: [String: String], fallbackRefresh: String?, fallbackGatewayConfig: RadiusGatewayConfig?) async throws -> OAuthCredentials {
         var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = Self.form(fields)
-        let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
         let access = raw["access_token"]?.stringValue ?? ""
         let refresh = raw["refresh_token"]?.stringValue ?? fallbackRefresh ?? ""
-        let gatewayConfig = try await loadGatewayConfig(gateway: gateway, apiKey: access)
+        let gatewayConfig: RadiusGatewayConfig
+        do { gatewayConfig = try await loadGatewayConfig(gateway: gateway, apiKey: access) }
+        catch { if let fallbackGatewayConfig { gatewayConfig = fallbackGatewayConfig } else { throw error } }
         return Self.credentials(refresh: refresh, access: access, expiresIn: raw["expires_in"]?.doubleValue ?? 3600, gatewayConfig: gatewayConfig)
     }
 
@@ -120,8 +127,8 @@ public struct RadiusOAuthProvider: OAuthProvider {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.form(["client_id": config.clientId, "scope": config.scope])
-        let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
+        let (data, response) = try await Self.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         return try JSONDecoder().decode(RadiusDeviceResponse.self, from: data).asDeviceFlowResponse
     }
 
@@ -130,7 +137,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.form(["grant_type": config.deviceCodeGrantType, "client_id": config.clientId, "device_code": deviceCode])
-        let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
+        let (data, response) = try await Self.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("missing HTTP response") }
         if http.statusCode == 200 {
             let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
@@ -143,9 +150,15 @@ public struct RadiusOAuthProvider: OAuthProvider {
         switch raw["error"]?.stringValue {
         case "authorization_pending": return .pending
         case "slow_down": return .slowDown
-        case "access_denied", "expired_token": throw RadiusOAuthError.cancelled
-        default: throw AIError.apiError(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "")
+        case "access_denied": throw RadiusOAuthError.denied
+        case "expired_token": throw RadiusOAuthError.expired
+        default: throw RadiusOAuthError.http(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "")
         }
+    }
+
+    private static func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        if let transport = requestTransport { return try await transport(request) }
+        return try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
     }
 
     private static func form(_ fields: [String: String]) -> Data? { fields.map { "\(escape($0.key))=\(escape($0.value))" }.joined(separator: "&").data(using: .utf8) }
@@ -154,8 +167,19 @@ public struct RadiusOAuthProvider: OAuthProvider {
 
 public enum RadiusOAuthError: Error, Equatable, LocalizedError, Sendable {
     case cancelled
+    case denied
+    case expired
+    case http(status: Int, body: String)
     case invalidGatewayConfig
-    public var errorDescription: String? { switch self { case .cancelled: return "Radius login cancelled"; case .invalidGatewayConfig: return "Invalid Radius gateway config" } }
+    public var errorDescription: String? {
+        switch self {
+        case .cancelled: return "Radius login cancelled"
+        case .denied: return "Radius login denied"
+        case .expired: return "Radius device code expired"
+        case .http(let status, let body): return "Radius OAuth HTTP error \(status): \(body)"
+        case .invalidGatewayConfig: return "Invalid Radius gateway config"
+        }
+    }
 }
 
 public struct RadiusOAuthConfig: Codable, Equatable, Sendable {

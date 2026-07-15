@@ -1471,6 +1471,14 @@ final class SwiftAITests: XCTestCase {
         await SwiftAI.bootstrap()
     }
 
+    func testBootstrapRegistersRadiusOAuthProvider() async throws {
+        await OAuthRegistry.shared.clear()
+        await SwiftAI.bootstrap()
+        let registeredRadius = await OAuthRegistry.shared.provider(id: "radius")
+        XCTAssertNotNil(registeredRadius)
+        XCTAssertEqual(registeredRadius?.id, "radius")
+    }
+
     func testRadiusOAuthHTTPPathsAndTypedErrors() async throws {
         struct RadiusRecordedRequest: Sendable { var path: String; var method: String; var auth: String?; var body: String }
         final class RadiusHTTPMock: @unchecked Sendable { var requests: [RadiusRecordedRequest] = []; var configFailuresRemaining = 0; var tokenMode = "ok" }

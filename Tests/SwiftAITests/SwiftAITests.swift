@@ -1683,6 +1683,39 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(OpenAIResponsesProvider.shouldRecycleCodexWebSocketConnection(createdAtMs: 0, nowMs: Int64(55 * 60 * 1000)))
     }
 
+    func testCodexResponsesActualRequestClampsUnicodeSessionHeaders() async throws {
+        final class CapturedCodexRequest: @unchecked Sendable { var headers: [String: String] = [:]; var url = "" }
+        let captured = CapturedCodexRequest()
+        await CodexTransportRegistry.shared.setTransport(nil)
+        OpenAIResponsesProvider.requestTransport = { request, _ in
+            captured.url = request.url?.absoluteString ?? ""
+            captured.headers = (request.allHTTPHeaderFields ?? [:]).reduce(into: [String: String]()) { $0[$1.key.lowercased()] = $1.value }
+            let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"resp_codex\",\"status\":\"completed\"}}\n\n"
+            let bytes = AsyncThrowingStream<UInt8, Error> { continuation in
+                for byte in sse.utf8 { continuation.yield(byte) }
+                continuation.finish()
+            }
+            return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        defer { OpenAIResponsesProvider.requestTransport = nil }
+
+        let unicodeSession = String(repeating: "🙂", count: 70)
+        let expectedClamp = String(unicodeSession.prefix(64))
+        XCTAssertEqual(expectedClamp.count, 64)
+        let payload = #"{"https://api.openai.com/auth":{"chatgpt_account_id":"account-123"}}"#.data(using: .utf8)!.base64EncodedString()
+        let token = "header.\(payload).signature"
+        let model = Model(id: "gpt-5.5", name: "Codex", api: .openAICodexResponses, provider: .openAICodex, baseUrl: "https://codex.test/v1")
+        var options = StreamOptions(); options.apiKey = token; options.sessionId = unicodeSession
+        var last: AIEvent?
+        for await event in OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) { last = event }
+        guard case .done = last else { return XCTFail("missing Codex done event") }
+        XCTAssertEqual(captured.url, "https://codex.test/v1/codex/responses")
+        XCTAssertEqual(captured.headers["session-id"], expectedClamp)
+        XCTAssertEqual(captured.headers["x-client-request-id"], expectedClamp)
+        XCTAssertNil(captured.headers["session_id"])
+        XCTAssertEqual(captured.headers["content-encoding"], "zstd")
+    }
+
     func testOpenAIResponsesAssistantItemsAllowEmptyThinkingSignature() {
         let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
         var assistant = Message(role: .assistant, content: [.thinking("private", signature: "")])

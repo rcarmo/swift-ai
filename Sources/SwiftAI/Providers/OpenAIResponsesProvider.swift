@@ -16,6 +16,9 @@ public actor CodexTransportRegistry {
 }
 
 public enum OpenAIResponsesProvider {
+    public typealias RequestTransport = @Sendable (URLRequest, RetryPolicy) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse)
+    nonisolated(unsafe) public static var requestTransport: RequestTransport?
+
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
@@ -197,7 +200,11 @@ public enum OpenAIResponsesProvider {
             request.httpBody = try JSONEncoder().encode(body)
         }
         do {
-            let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
+            let policy = RetryPolicy(options: options)
+            let bytesAndResponse: (AsyncThrowingStream<UInt8, Error>, URLResponse)
+            if let transport = requestTransport { bytesAndResponse = try await transport(request, policy) }
+            else { bytesAndResponse = try await HTTPRetry.bytes(for: request, policy: policy) }
+            let (bytes, response) = bytesAndResponse
             guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
             if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
             guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }

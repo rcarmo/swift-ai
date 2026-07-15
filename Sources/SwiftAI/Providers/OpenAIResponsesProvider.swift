@@ -175,8 +175,16 @@ public enum OpenAIResponsesProvider {
         if model.api == .openAICodexResponses { for (k, v) in try codexHeaders(apiKey: key) { request.setValue(v, forHTTPHeaderField: k) } }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none {
-            if model.api == .azureOpenAIResponses { for (k, v) in AIUtilities.azureSessionHeaders(session) { request.setValue(v, forHTTPHeaderField: k) } }
-            else { if model.responsesCompat?.sendSessionIdHeader != false { request.setValue(session, forHTTPHeaderField: "session_id") }; request.setValue(session, forHTTPHeaderField: "x-client-request-id") }
+            if model.api == .azureOpenAIResponses {
+                for (k, v) in AIUtilities.azureSessionHeaders(session) { request.setValue(v, forHTTPHeaderField: k) }
+            } else if model.api == .openAICodexResponses {
+                let clampedSession = PromptCache.clampOpenAIKey(session)
+                request.setValue(clampedSession, forHTTPHeaderField: "session-id")
+                request.setValue(clampedSession, forHTTPHeaderField: "x-client-request-id")
+            } else {
+                if model.responsesCompat?.sendSessionIdHeader != false { request.setValue(session, forHTTPHeaderField: "session_id") }
+                request.setValue(session, forHTTPHeaderField: "x-client-request-id")
+            }
         }
         if model.provider == .githubCopilot { for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) } }
         for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }

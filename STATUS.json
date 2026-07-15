@@ -2,7 +2,7 @@
   "upstream": {
     "package": "@earendil-works/pi-ai",
     "version": "0.80.7",
-    "reference": "npm tarball @earendil-works/pi-ai@0.80.7 for generated registries; npm registry gitHead 818d67457cdd6b60bce6b121d16b23141c252dd8; repository HEAD 9d09075c inspected for post-package upstream comparison"
+    "reference": "npm tarball @earendil-works/pi-ai@0.80.7 for generated registries; npm registry gitHead 818d67457cdd6b60bce6b121d16b23141c252dd8; repository main dcfe36c79702ec240b146c45f167ab75ecddd205 inspected for post-package upstream comparison"
   },
   "swiftPM": {
     "package": "swift-ai",

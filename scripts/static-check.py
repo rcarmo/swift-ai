@@ -149,7 +149,7 @@ def check_ci_workflow() -> None:
     if not workflow.exists():
         raise SystemExit("missing GitHub Actions workflow: .github/workflows/ci.yml")
     text = workflow.read_text()
-    required = ["static-check:", "swift-test:", "make check", "swift-version: '5.9'"]
+    required = ["static-check:", "swift-test:", "make check", "swift --version"]
     missing = [item for item in required if item not in text]
     if missing:
         raise SystemExit("CI workflow missing required entries: " + ", ".join(missing))

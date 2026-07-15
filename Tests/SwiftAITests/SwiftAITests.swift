@@ -1462,7 +1462,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(injected[0].api, .piMessages)
         XCTAssertEqual(injected[0].provider, .radius)
         XCTAssertEqual(injected[0].baseUrl, "https://radius.test/v1")
-        XCTAssertEqual(injected[0].thinkingLevelMap?[.max] ?? nil, "max")
+        XCTAssertEqual(injected[0].thinkingLevelMap?[.max], "max")
 
         await OAuthRegistry.shared.clear()
         await OAuthRegistry.shared.register(provider)

@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.9")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1075)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.10")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1072)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.9")
-        XCTAssertEqual(BuiltinModels.modelCount, 1075)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.10")
+        XCTAssertEqual(BuiltinModels.modelCount, 1072)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1075)
+        XCTAssertEqual(models.count, 1072)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })

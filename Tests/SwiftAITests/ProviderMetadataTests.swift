@@ -403,7 +403,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     }
 
     func testUpstream08010KimiAndMoonshotCatalogMetadata() throws {
-        let kimiK3 = try model(.kimiCoding, "kimi-k3")
+        let kimiK3 = try model(.kimiCoding, "k3")
         XCTAssertEqual(kimiK3.anthropicCompat?.forceAdaptiveThinking, true)
         XCTAssertEqual(kimiK3.anthropicCompat?.allowEmptySignature, true)
         XCTAssertEqual(kimiK3.thinkingLevelMap?[.max]!, "max")
@@ -421,14 +421,17 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     func testUpstream08010XAIAndOpenCodeCatalogDisposition() throws {
         let models = try BuiltinModels.all()
         let xaiIDs = Set(models.filter { $0.provider == .xai }.map(\.id))
-        XCTAssertEqual(xaiIDs, ["grok-4.3", "grok-4.3-fast", "grok-4-fast-reasoning"])
+        XCTAssertEqual(xaiIDs, ["grok-4.3", "grok-4.5", "grok-build-0.1"])
         XCTAssertFalse(xaiIDs.contains("grok-3"))
         XCTAssertFalse(xaiIDs.contains("grok-code-fast-1"))
+        XCTAssertFalse(xaiIDs.contains("grok-4.3-fast"))
 
         let openCodeIDs = Set(models.filter { $0.provider == .openCodeGo }.map(\.id))
-        XCTAssertTrue(openCodeIDs.contains("qwen3-coder"))
+        XCTAssertTrue(openCodeIDs.contains("qwen3.7-max"))
         XCTAssertTrue(openCodeIDs.contains("kimi-k3"))
-        XCTAssertTrue(openCodeIDs.contains("glm-4.6"))
+        XCTAssertTrue(openCodeIDs.contains("glm-5.2"))
+        XCTAssertFalse(openCodeIDs.contains("qwen3-coder"))
+        XCTAssertFalse(openCodeIDs.contains("glm-4.6"))
     }
 
     func testTogetherAPIKeyEnvironment() {

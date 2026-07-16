@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import SwiftAI
 
 final class CoreUtilityTests: XCTestCase {
@@ -248,36 +251,83 @@ final class CoreUtilityTests: XCTestCase {
         let runtime = ModelRuntime(store: store)
         final class Counter: @unchecked Sendable { var count = 0 }
         let counter = Counter()
-        let fallback = [Model(id: "fallback", name: "Fallback", api: .openAIResponses, provider: .xai)]
-        let dynamic = [Model(id: "dynamic", name: "Dynamic", api: .openAIResponses, provider: .xai)]
-        await runtime.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: fallback, refresh: { context in
+        let fallback = [Model(id: "fallback", name: "Fallback", api: .openAIResponses, provider: .faux)]
+        let dynamic = [Model(id: "dynamic", name: "Dynamic", api: .openAIResponses, provider: .faux)]
+        await AIRegistry.shared.register(fallback[0])
+        await runtime.register(RuntimeProvider(id: .faux, name: "Faux", fallbackModels: fallback, refresh: { context in
             counter.count += 1
-            XCTAssertEqual(context.providerId, "xai")
+            XCTAssertEqual(context.providerId, "faux")
             XCTAssertTrue(context.allowNetwork)
             try await Task.sleep(nanoseconds: 10_000_000)
             return dynamic
         }))
-        let fallbackIDs = await runtime.listModels(provider: .xai).map(\.id)
+        let fallbackIDs = await runtime.listModels(provider: .faux).map(\.id)
         XCTAssertEqual(fallbackIDs, ["fallback"])
-        async let first = runtime.refresh(provider: .xai, apiKey: "k")
-        async let second = runtime.refresh(provider: .xai, apiKey: "k")
+        async let first = runtime.refresh(provider: .faux, apiKey: "k")
+        async let second = runtime.refresh(provider: .faux, apiKey: "k")
         let results = await [first, second]
         XCTAssertTrue(results.allSatisfy { $0.errors.isEmpty })
         XCTAssertEqual(counter.count, 1)
-        let dynamicModel = await runtime.model(provider: .xai, id: "dynamic")
+        let dynamicModel = await runtime.model(provider: .faux, id: "dynamic")
+        let staleFallback = await AIRegistry.shared.model(provider: .faux, id: "fallback")
+        let registeredDynamic = await AIRegistry.shared.model(provider: .faux, id: "dynamic")
         XCTAssertEqual(dynamicModel?.id, "dynamic")
-        await runtime.replaceModels(provider: .xai, models: [Model(id: "replacement", name: "Replacement", api: .openAIResponses, provider: .xai)])
-        let replacementIDs = await runtime.listModels(provider: .xai).map(\.id)
+        XCTAssertNil(staleFallback)
+        XCTAssertEqual(registeredDynamic?.id, "dynamic")
+        await runtime.replaceModels(provider: .faux, models: [Model(id: "replacement", name: "Replacement", api: .openAIResponses, provider: .faux)])
+        let replacementIDs = await runtime.listModels(provider: .faux).map(\.id)
+        let staleDynamic = await AIRegistry.shared.model(provider: .faux, id: "dynamic")
+        let registeredReplacement = await AIRegistry.shared.model(provider: .faux, id: "replacement")
         XCTAssertEqual(replacementIDs, ["replacement"])
-        await runtime.removeModel(provider: .xai, id: "replacement")
-        let emptyModels = await runtime.listModels(provider: .xai)
+        XCTAssertNil(staleDynamic)
+        XCTAssertEqual(registeredReplacement?.id, "replacement")
+        await runtime.removeModel(provider: .faux, id: "replacement")
+        let emptyModels = await runtime.listModels(provider: .faux)
+        let removedReplacement = await AIRegistry.shared.model(provider: .faux, id: "replacement")
         XCTAssertEqual(emptyModels, [])
-        try await store.write(providerId: "xai", entry: StoredModelsEntry(models: [Model(id: "cached", name: "Cached", api: .openAIResponses, provider: .xai)]))
-        await runtime.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: fallback, refresh: { _ in throw AIError.provider("network down") }))
-        let failed = await runtime.refresh(provider: .xai, allowNetwork: true, force: true)
-        XCTAssertEqual(failed.errors.keys.sorted(), ["xai"])
-        let cachedIDs = await runtime.listModels(provider: .xai).map(\.id)
+        XCTAssertNil(removedReplacement)
+        try await store.write(providerId: "faux", entry: StoredModelsEntry(models: [Model(id: "cached", name: "Cached", api: .openAIResponses, provider: .faux)]))
+        await runtime.register(RuntimeProvider(id: .faux, name: "Faux", fallbackModels: fallback, refresh: { _ in throw AIError.provider("network down") }))
+        let failed = await runtime.refresh(provider: .faux, allowNetwork: true, force: true)
+        XCTAssertEqual(failed.errors.keys.sorted(), ["faux"])
+        let cachedIDs = await runtime.listModels(provider: .faux).map(\.id)
         XCTAssertEqual(cachedIDs, ["cached"])
+    }
+
+    func testRadiusRuntimeProviderRefreshUsesConfigAndCacheFallback() async throws {
+        let store = InMemoryProviderModelsStore()
+        let runtime = ModelRuntime(store: store)
+        final class RadiusMock: @unchecked Sendable { var fail = false; var auth: String? }
+        let mock = RadiusMock()
+        RadiusOAuthProvider.requestTransport = { request in
+            mock.auth = request.value(forHTTPHeaderField: "Authorization")
+            if mock.fail { return (#"{"error":"temporary"}"#.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!) }
+            let json = #"{"baseUrl":"https://radius.test/v1","models":[{"id":"radius-auto","name":"Radius Auto","reasoning":true,"input":["text"],"cost":{"input":1,"output":2,"cacheRead":0,"cacheWrite":0},"contextWindow":128000,"maxTokens":16384}]}"#
+            return (json.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        defer { RadiusOAuthProvider.requestTransport = nil }
+        let fallback = [Model(id: "radius-fallback", name: "Radius Fallback", api: .piMessages, provider: .radius)]
+        await AIRegistry.shared.register(fallback[0])
+        await runtime.register(RadiusRuntimeProviderFactory.provider(fallbackModels: fallback))
+        let refreshed = await runtime.refresh(provider: .radius, apiKey: "radius-key", force: true)
+        XCTAssertTrue(refreshed.errors.isEmpty)
+        XCTAssertEqual(mock.auth, "Bearer radius-key")
+        let refreshedIDs = await runtime.listModels(provider: .radius).map(\.id)
+        let staleRadiusFallback = await AIRegistry.shared.model(provider: .radius, id: "radius-fallback")
+        let registeredRadiusAuto = await AIRegistry.shared.model(provider: .radius, id: "radius-auto")
+        XCTAssertEqual(refreshedIDs, ["radius-auto"])
+        XCTAssertNil(staleRadiusFallback)
+        XCTAssertEqual(registeredRadiusAuto?.baseUrl, "https://radius.test/v1")
+        mock.fail = true
+        let failed = await runtime.refresh(provider: .radius, apiKey: "radius-key", force: true)
+        XCTAssertEqual(failed.errors.keys.sorted(), ["radius"])
+        let cachedAfterFailure = await runtime.listModels(provider: .radius).map(\.id)
+        XCTAssertEqual(cachedAfterFailure, ["radius-auto"])
+        await runtime.register(RadiusRuntimeProviderFactory.provider(fallbackModels: fallback))
+        let offline = await runtime.refresh(provider: .radius, allowNetwork: false)
+        XCTAssertTrue(offline.errors.isEmpty)
+        let offlineIDs = await runtime.listModels(provider: .radius).map(\.id)
+        XCTAssertEqual(offlineIDs, ["radius-auto"])
     }
 
     func testBootstrapRegistersXAIOAuthAndGrokFallback() async throws {

@@ -72,7 +72,10 @@ public actor ModelRuntime {
     public func model(provider: Provider, id: String) -> Model? { listModels(provider: provider).first { $0.id == id } }
 
     public func replaceModels(provider: Provider, models: [Model]) async {
+        let previousIDs = Set((cachedModels[provider] ?? providers[provider]?.fallbackModels ?? []).map(\.id))
+        let nextIDs = Set(models.map(\.id))
         cachedModels[provider] = models
+        for removed in previousIDs.subtracting(nextIDs) { await AIRegistry.shared.unregisterModel(provider: provider, id: removed) }
         for model in models { await AIRegistry.shared.register(model) }
     }
 
@@ -103,7 +106,7 @@ public actor ModelRuntime {
         catch is CancellationError { return ModelRefreshResult(aborted: true) }
         catch {
             if let entry = try? await store.read(providerId: providerId.rawValue) { await replaceModels(provider: providerId, models: entry.models) }
-            else { cachedModels[providerId] = provider.fallbackModels }
+            else { await replaceModels(provider: providerId, models: provider.fallbackModels) }
             return ModelRefreshResult(errors: [providerId.rawValue: String(describing: error)])
         }
     }

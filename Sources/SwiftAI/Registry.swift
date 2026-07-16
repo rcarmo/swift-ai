@@ -34,7 +34,10 @@ public enum SwiftAI {
         await ModelRuntime.shared.clear()
         if let models = try? BuiltinModels.all() {
             let grouped = Dictionary(grouping: models, by: \.provider)
-            for (provider, fallbackModels) in grouped { await ModelRuntime.shared.register(RuntimeProvider(id: provider, name: provider.rawValue, fallbackModels: fallbackModels)) }
+            for (provider, fallbackModels) in grouped {
+                if provider == .radius { await ModelRuntime.shared.register(RadiusRuntimeProviderFactory.provider(fallbackModels: fallbackModels)) }
+                else { await ModelRuntime.shared.register(RuntimeProvider(id: provider, name: provider.rawValue, fallbackModels: fallbackModels)) }
+            }
         }
         await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: { model, context, options in OpenAICompletionsProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .openAIResponses, stream: { model, context, options in OpenAIResponsesProvider.stream(model: model, context: context, options: options) }))
@@ -56,7 +59,7 @@ public enum SwiftAI {
         await OAuthRegistry.shared.register(RadiusOAuthProvider())
         await OAuthRegistry.shared.register(XAIOAuthProvider())
         await ModelRuntime.shared.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: [Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536)]))
-        if await AIRegistry.shared.model(provider: .xai, id: "grok-4.5") == nil { await AIRegistry.shared.register(Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536)) }
+        await AIRegistry.shared.register(Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536))
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

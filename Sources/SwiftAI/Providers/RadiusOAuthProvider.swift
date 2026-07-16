@@ -168,6 +168,23 @@ public struct RadiusOAuthProvider: OAuthProvider {
     private static func escape(_ value: String) -> String { value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value }
 }
 
+public enum RadiusRuntimeProviderFactory {
+    public static func provider(fallbackModels: [Model] = []) -> RuntimeProvider {
+        RuntimeProvider(id: .radius, name: "Radius", fallbackModels: fallbackModels, refresh: { context in
+            if !context.allowNetwork {
+                if let cached = try await context.store.read(providerId: context.providerId) { return cached.models }
+                return fallbackModels
+            }
+            let oauth = RadiusOAuthProvider()
+            let config = try await oauth.loadGatewayConfig(gateway: oauth.gateway, apiKey: context.apiKey)
+            let models = config.models.map { gatewayModel in
+                Model(id: gatewayModel.id, name: gatewayModel.name, api: .piMessages, provider: .radius, baseUrl: config.baseUrl, reasoning: gatewayModel.reasoning, thinkingLevelMap: gatewayModel.thinkingLevelMap, input: gatewayModel.input, cost: gatewayModel.cost, contextWindow: gatewayModel.contextWindow, maxTokens: gatewayModel.maxTokens)
+            }
+            return models
+        })
+    }
+}
+
 public enum RadiusOAuthError: Error, Equatable, LocalizedError, Sendable {
     case cancelled
     case denied

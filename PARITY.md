@@ -1,6 +1,6 @@
 # swift-ai parity status
 
-Tracks upstream `@earendil-works/pi-ai` **v0.80.9** via direct upstream inspection (release tag `2d16f92973230a7e095aa984f150ba8702784f50`). `STATUS.json` contains the same high-level status in machine-readable form.
+Tracks upstream `@earendil-works/pi-ai` **v0.80.10** via direct upstream inspection (release tag `8dc78834cde4e329284cf505f9e3f99763df5529`). `STATUS.json` contains the same high-level status in machine-readable form.
 
 ## Implemented
 
@@ -9,13 +9,13 @@ Tracks upstream `@earendil-works/pi-ai` **v0.80.9** via direct upstream inspecti
 - Core image type system: image APIs/providers, image context/input/output, image model metadata, assistant image result shape, image options.
 - Event protocol as a Swift `AIEvent` enum.
 - Actor-backed registries for text API providers, text models, image API providers, and image models.
-- Full embedded text model registry generated from exact upstream `pi-ai` v0.80.9 tag `2d16f92`: **1075 models / 35 providers**, with an upstream-source comparator gate.
-- Full embedded image model registry generated from upstream `pi-ai` v0.80.9: **35 models / 1 provider**.
+- Full embedded text model registry generated from exact upstream `pi-ai` v0.80.10 tag `8dc78834`: **1072 models / 35 providers**, with an upstream-source comparator gate.
+- Full embedded image model registry generated from upstream `pi-ai` v0.80.10: **35 models / 1 provider**.
 - Environment key lookup with per-request `StreamOptions.env` / `ImagesOptions.env` overlay.
 - OpenAI-compatible compat detection, including v0.80.2 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
 - SSE parser.
-- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported, developer-role system prompts for reasoning models when compatible, multimodal user/tool-result image replay, assistant tool-call replay, `reasoning_content` replay when required, synthetic assistant-after-tool-result separators, tool-result name replay when required, v0.80.2 custom auth header/empty-tools/prompt-cache-key behavior, v0.80.9 Kimi deferred-tools serialization, and error finish-reason events.
+- OpenAI-compatible Chat Completions provider with common `SwiftAI.stream`/`SwiftAI.complete` entry points, including strict-mode tool schema emission when supported, developer-role system prompts for reasoning models when compatible, multimodal user/tool-result image replay, assistant tool-call replay, `reasoning_content` replay when required, synthetic assistant-after-tool-result separators, tool-result name replay when required, v0.80.2 custom auth header/empty-tools/prompt-cache-key behavior, v0.80.10 Kimi deferred-tools serialization, and error finish-reason events.
 - OpenAI-compatible SSE streaming parser for text, thinking/reasoning, tool calls, finish reasons, response metadata, and usage.
 - OpenAI Responses/Azure Responses/OpenAI Codex provider: request construction, assistant reasoning/text/tool-call replay items, Azure config resolution (including deployment maps and base URL normalization), Azure tool-call history trimming, Azure reasoning event normalization, Codex URL/account headers, pluggable Codex transport, default reasoning/include behavior, prompt-cache fields, SSE parsing for text/reasoning/tool events, failed-response and generic API error events, completion usage including cached input tokens, response status mapping, tool-use completion upgrade, and stop reasons.
 - Faux provider/test double: model registration, queued/dynamic responses, text/thinking/tool/error message helpers, simulated stream events, and call-count state.
@@ -38,9 +38,9 @@ Tracks upstream `@earendil-works/pi-ai` **v0.80.9** via direct upstream inspecti
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, functionResponse tool results, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
 - Amazon Bedrock provider surface: registration, pluggable `BedrockTransport`, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
 
-## v0.80.9 release audit
+## v0.80.10 release audit
 
-See `docs/upstream-v0.80.9-audit.md` for the exact material-delta disposition matrix from prior pinned `2be9efa` to release tag `2d16f92973230a7e095aa984f150ba8702784f50`.
+See `docs/upstream-v0.80.10-audit.md` for the exact material-delta disposition matrix from v0.80.9 `2d16f92973230a7e095aa984f150ba8702784f50` to release tag `8dc78834cde4e329284cf505f9e3f99763df5529`.
 
 ## Pluggable/non-bundled runtime pieces
 

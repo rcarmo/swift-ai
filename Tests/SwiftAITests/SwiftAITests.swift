@@ -520,6 +520,24 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(noneSystem["content"], .string("System prompt"))
     }
 
+    func testOpenAICompletionsKimiDeferredTools() {
+        var compat = OpenAICompletionsCompat(); compat.deferredToolsMode = "kimi"
+        let model = Model(id: "kimi-k3", name: "Kimi K3", api: .openAICompletions, provider: .moonshotAI, baseUrl: "https://api.kimi.com/v1", completionsCompat: compat)
+        let read = Tool(name: "read", description: "Read", parameters: .object(["type": .string("object")]))
+        let write = Tool(name: "write", description: "Write", parameters: .object(["type": .string("object")]))
+        var result = Message(role: .toolResult, content: [.text("done")])
+        result.toolCallId = "call_1"
+        result.toolName = "read"
+        result.addedToolNames = ["write"]
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [result], tools: [read, write]), options: nil)
+        guard case .array(let tools)? = body["tools"], case .object(let firstTool) = tools.first, case .object(let firstFunction)? = firstTool["function"] else { return XCTFail("missing active tools") }
+        XCTAssertEqual(firstFunction["name"], .string("read"))
+        XCTAssertEqual(tools.count, 1)
+        guard case .array(let messages)? = body["messages"], case .object(let deferredSystem) = messages.last, case .array(let deferredTools)? = deferredSystem["tools"], case .object(let deferredTool) = deferredTools.first, case .object(let deferredFunction)? = deferredTool["function"] else { return XCTFail("missing deferred tool system message") }
+        XCTAssertEqual(deferredSystem["role"], .string("system"))
+        XCTAssertEqual(deferredFunction["name"], .string("write"))
+    }
+
     func testOpenAICompletionsPromptCacheParity() {
         var options = StreamOptions(); options.sessionId = "session-123"
         var openAICompat = OpenAICompletionsCompat(); openAICompat.supportsLongCacheRetention = true

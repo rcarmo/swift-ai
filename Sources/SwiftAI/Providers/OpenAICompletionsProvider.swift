@@ -33,7 +33,9 @@ public enum OpenAICompletionsProvider {
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
         if let maxTokens = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body[maxTokensField] = .number(Double(maxTokens)) }
-        if let tools = context.tools, !tools.isEmpty { body["tools"] = .array(applyAnthropicCacheControlToTools(tools.map { toolJSON($0, compat: compat) }, compat: compat, cacheRetention: ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env))) }
+        let deferredToolNames = compat.deferredToolsMode == "kimi" ? deferredToolNames(in: context.messages) : []
+        let activeTools = context.tools?.filter { !deferredToolNames.contains($0.name) }
+        if let tools = activeTools, !tools.isEmpty { body["tools"] = .array(applyAnthropicCacheControlToTools(tools.map { toolJSON($0, compat: compat) }, compat: compat, cacheRetention: ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env))) }
         else if hasToolHistory(context.messages) { body["tools"] = .array([]) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         let shouldSendCacheKey = (model.baseUrl.contains("api.openai.com") && cacheRetention != CacheRetention.none) || (cacheRetention == .long && compat.supportsLongCacheRetention == true)
@@ -88,6 +90,7 @@ public enum OpenAICompletionsProvider {
         }
         var lastRole: Role?
         var pendingToolResultImages: [ContentBlock] = []
+        let toolsByName = Dictionary(uniqueKeysWithValues: (context.tools ?? []).map { ($0.name, $0) })
         func flushToolResultImages() {
             if pendingToolResultImages.isEmpty { return }
             if compat.requiresAssistantAfterToolResult == true { out.append(.object(["role": .string("assistant"), "content": .string("I have processed the tool results.")])) }
@@ -151,6 +154,12 @@ public enum OpenAICompletionsProvider {
             out.append(.object(obj))
             if message.role == .toolResult {
                 pendingToolResultImages.append(contentsOf: message.content.filter { $0.type == "image" })
+                if compat.deferredToolsMode == "kimi" {
+                    let deferredTools = (message.addedToolNames ?? []).compactMap { toolsByName[$0] }
+                    if !deferredTools.isEmpty {
+                        out.append(.object(["role": .string("system"), "tools": .array(deferredTools.map { toolJSON($0, compat: compat) })]))
+                    }
+                }
             }
             lastRole = message.role
         }
@@ -168,6 +177,14 @@ public enum OpenAICompletionsProvider {
 
     private static func hasToolHistory(_ messages: [Message]) -> Bool {
         messages.contains { message in message.role == .toolResult || (message.role == .assistant && message.content.contains { $0.type == "toolCall" }) }
+    }
+
+    private static func deferredToolNames(in messages: [Message]) -> Set<String> {
+        var names = Set<String>()
+        for message in messages where message.role == .toolResult {
+            for name in message.addedToolNames ?? [] { names.insert(name) }
+        }
+        return names
     }
 
     private static func clientAPIKey(model: Model, options: StreamOptions?) -> String? {

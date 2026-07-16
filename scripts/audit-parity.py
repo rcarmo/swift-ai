@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.80.7 counts, that every generated API/provider raw value is represented in
+v0.80.9 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,8 +15,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.80.7.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.80.7.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.80.9.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.80.9.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"

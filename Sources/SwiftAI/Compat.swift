@@ -31,6 +31,7 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
     public var allowEmptySignature: Bool?
     public var sendSessionIdHeader: Bool?
     public var supportsEagerToolInputStreaming: Bool?
+    public var deferredToolsMode: String?
     public init() {}
 }
 
@@ -89,6 +90,7 @@ public enum Compat {
         if override.allowEmptySignature != nil { detected.allowEmptySignature = override.allowEmptySignature }
         if override.sendSessionIdHeader != nil { detected.sendSessionIdHeader = override.sendSessionIdHeader }
         if override.supportsEagerToolInputStreaming != nil { detected.supportsEagerToolInputStreaming = override.supportsEagerToolInputStreaming }
+        if override.deferredToolsMode != nil { detected.deferredToolsMode = override.deferredToolsMode }
         return detected
     }
 

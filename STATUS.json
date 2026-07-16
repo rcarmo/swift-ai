@@ -1,8 +1,8 @@
 {
   "upstream": {
     "package": "@earendil-works/pi-ai",
-    "version": "0.80.7",
-    "reference": "npm tarball @earendil-works/pi-ai@0.80.7 for generated registries; npm registry gitHead 818d67457cdd6b60bce6b121d16b23141c252dd8; pinned repository audit 2be9efa19cd64aed40ca63f92c0c0f9a6bac7c9d inspected for post-package upstream comparison"
+    "version": "0.80.9",
+    "reference": "official release tag v0.80.9 at 2d16f92973230a7e095aa984f150ba8702784f50; release-only audit from prior pinned 2be9efa19cd64aed40ca63f92c0c0f9a6bac7c9d; generated registries exported from packages/ai at tag v0.80.9"
   },
   "swiftPM": {
     "package": "swift-ai",
@@ -61,7 +61,8 @@
   "validation": {
     "swiftToolchainUnavailableInContainer": true,
     "staticCommand": "python3 scripts/static-check.py",
-    "swiftCommand": "swift test"
+    "swiftCommand": "swift test",
+    "latestStaticCheck": "make static-check passed in this container for v0.80.9 parity changes"
   },
   "knownNonBundledCapabilities": [
     "Bedrock live AWS SigV4/event-stream transport",

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -45,17 +46,21 @@ def main() -> int:
     src = Path(sys.argv[1])
     dst = Path(sys.argv[2])
     models = json.loads(src.read_text())
+    if isinstance(models, dict):
+        models = [dict(model, provider=provider, id=model_id) for provider, provider_models in models.items() for model_id, model in provider_models.items()]
     models = [normalize_model(m) for m in models]
+    match = re.search(r"v(\d+(?:\.\d+)+)", src.name)
+    version = match.group(1) if match else "0.80.3"
     providers = sorted({m["provider"] for m in models})
     encoded = base64.b64encode(json.dumps(models, separators=(",", ":"), sort_keys=True).encode()).decode()
     body = "\n".join(chunks(encoded))
     dst.write_text(f'''import Foundation
 
-// Generated from @earendil-works/pi-ai/go-ai v0.80.3 model registry.
-// Source JSON: scripts/models.v0.80.3.json
+// Generated from @earendil-works/pi-ai/go-ai v{version} model registry.
+// Source JSON: scripts/{src.name}
 
 public enum BuiltinModels {{
-    public static let upstreamVersion = "0.80.3"
+    public static let upstreamVersion = "{version}"
     public static let modelCount = {len(models)}
     public static let providerCount = {len(providers)}
 

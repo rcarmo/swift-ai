@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_MODELS = ROOT / "scripts" / "models.v0.80.9.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.2d16f92.json"
 IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.80.9.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
@@ -25,7 +26,7 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1065
+EXPECTED_TEXT_MODELS = 1075
 EXPECTED_TEXT_PROVIDERS = 35
 EXPECTED_IMAGE_MODELS = 35
 EXPECTED_IMAGE_PROVIDERS = 1
@@ -85,6 +86,7 @@ def registered_api_raw_values() -> tuple[set[str], set[str]]:
 
 def main() -> int:
     text = json.loads(TEXT_MODELS.read_text())
+    upstream_text = json.loads(UPSTREAM_TEXT_MODELS.read_text())
     images = json.loads(IMAGE_MODELS.read_text())
     status = json.loads(STATUS.read_text())
     swift_status = SWIFT_STATUS.read_text()
@@ -117,7 +119,26 @@ def main() -> int:
             failures.append(f"{label}: got {got}, want {want}")
 
     text_ids = {(m["provider"], m["id"]) for m in text}
+    upstream_text_ids = {(m["provider"], m["id"]) for m in upstream_text}
     embedded_text_ids = {(m["provider"], m["id"]) for m in embedded_text}
+    if len(upstream_text_ids) != EXPECTED_TEXT_MODELS:
+        failures.append(f"upstream exact-tag provider/id pairs: got {len(upstream_text_ids)}, want {EXPECTED_TEXT_MODELS}")
+    if text_ids != upstream_text_ids:
+        missing = sorted(upstream_text_ids - text_ids)[:20]
+        extra = sorted(text_ids - upstream_text_ids)[:20]
+        failures.append(f"Swift snapshot differs from upstream exact-tag catalog: missing={missing} extra={extra}")
+    representative_ids = {
+        ("kimi-coding", "k3"),
+        ("moonshotai", "kimi-k3"),
+        ("openrouter", "moonshotai/kimi-k3"),
+        ("openrouter", "meta/muse-spark-1.1"),
+        ("vercel-ai-gateway", "anthropic/claude-opus-4.7-fast"),
+        ("vercel-ai-gateway", "moonshotai/kimi-k3"),
+        ("vercel-ai-gateway", "thinkingmachines/inkling"),
+    }
+    missing_representatives = sorted(representative_ids - upstream_text_ids)
+    if missing_representatives:
+        failures.append(f"upstream exact-tag representatives missing: {missing_representatives}")
     if text_ids != embedded_text_ids:
         failures.append("embedded text registry IDs differ from source JSON")
     image_ids = {(m["provider"], m["id"]) for m in images}

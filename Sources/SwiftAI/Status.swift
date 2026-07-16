@@ -5,7 +5,7 @@ public enum SwiftAIStatus {
     public static let upstreamVersion = "0.80.9"
     public static let referenceImplementation = "pi-ai v0.80.9"
 
-    public static let textModelCount = 1065
+    public static let textModelCount = 1075
     public static let textProviderCount = 35
     public static let textAPICount = 9
     public static let imageModelCount = 35

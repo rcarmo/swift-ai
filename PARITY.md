@@ -9,7 +9,7 @@ Tracks upstream `@earendil-works/pi-ai` **v0.80.9** via direct upstream inspecti
 - Core image type system: image APIs/providers, image context/input/output, image model metadata, assistant image result shape, image options.
 - Event protocol as a Swift `AIEvent` enum.
 - Actor-backed registries for text API providers, text models, image API providers, and image models.
-- Full embedded text model registry generated from upstream `pi-ai` v0.80.9: **1065 models / 35 providers**.
+- Full embedded text model registry generated from exact upstream `pi-ai` v0.80.9 tag `2d16f92`: **1075 models / 35 providers**, with an upstream-source comparator gate.
 - Full embedded image model registry generated from upstream `pi-ai` v0.80.9: **35 models / 1 provider**.
 - Environment key lookup with per-request `StreamOptions.env` / `ImagesOptions.env` overlay.
 - OpenAI-compatible compat detection, including v0.80.2 `chat-template` thinking kwargs metadata.

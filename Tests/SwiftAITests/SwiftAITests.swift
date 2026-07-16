@@ -124,7 +124,7 @@ final class SwiftAITests: XCTestCase {
 
     func testSwiftAIStatusConstants() {
         XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.9")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1065)
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1075)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
@@ -132,11 +132,16 @@ final class SwiftAITests: XCTestCase {
 
     func testGeneratedModelRegistryMetadata() throws {
         XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.9")
-        XCTAssertEqual(BuiltinModels.modelCount, 1065)
+        XCTAssertEqual(BuiltinModels.modelCount, 1075)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1065)
+        XCTAssertEqual(models.count, 1075)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
+        XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
+        XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
+        XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "moonshotai/kimi-k3" })
+        XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "meta/muse-spark-1.1" })
+        XCTAssertTrue(models.contains { $0.provider == .vercelAIGateway && $0.id == "thinkingmachines/inkling" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
 

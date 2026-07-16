@@ -9,7 +9,7 @@ Scope: release-only audit; no commits beyond `v0.80.9` were considered.
 | Upstream path | Material delta | Swift disposition |
 | --- | --- | --- |
 | `CHANGELOG.md`, `README.md`, `package.json` | Release metadata/changelog and package version updates. | Documented in this audit/`STATUS.json`; no runtime code required. |
-| `scripts/generate-models.ts`, `src/models.ts`, provider model files | Registry refresh with Kimi K3/Kimi high-speed entries, Kimi/Moonshot output-limit corrections, OpenRouter/Vercel catalog refreshes, xAI OAuth/provider label/model-list adjustments. | Regenerated `scripts/models.v0.80.9.json`, `scripts/image-models.v0.80.9.json`, `Sources/SwiftAI/ModelsGenerated.swift`, and `Sources/SwiftAI/ImageModelsGenerated.swift`; `BuiltinModels.upstreamVersion == 0.80.9`. Counts remain 1065 text / 35 image models. |
+| `scripts/generate-models.ts`, `src/models.ts`, provider model files | Registry refresh with Kimi K3/Kimi high-speed entries, Kimi/Moonshot output-limit corrections, OpenRouter/Vercel catalog refreshes, xAI OAuth/provider label/model-list adjustments. | Regenerated `scripts/models.v0.80.9.json`, `scripts/upstream-models.2d16f92.json`, `scripts/image-models.v0.80.9.json`, `Sources/SwiftAI/ModelsGenerated.swift`, and `Sources/SwiftAI/ImageModelsGenerated.swift` directly from the exact tag; `BuiltinModels.upstreamVersion == 0.80.9`. Counts are 1075 text / 35 image models, with `scripts/audit-parity.py` comparing Swift's snapshot and embedded registry to the exact-tag upstream catalog. |
 | `src/types.ts` | Adds `OpenAICompletionsCompat.deferredToolsMode?: "kimi"`. | Implemented as `OpenAICompletionsCompat.deferredToolsMode`. |
 | `src/api/openai-completions.ts` | Kimi deferred-tools behavior: remove newly added tools from top-level active tool list and serialize deferred tool declarations in a content-less system message after tool results. | Implemented in `OpenAICompletionsProvider.buildRequestBody`/message conversion; covered by `testOpenAICompletionsKimiDeferredTools`. |
 | `test/deferred-tools.test.ts` | New upstream regression tests for deferred tool loading. | Swift regression added for OpenAI/Kimi serialization. Existing Swift tests already cover Anthropic/Responses deferred tool plans. |
@@ -19,5 +19,5 @@ Scope: release-only audit; no commits beyond `v0.80.9` were considered.
 
 ## Validation
 
-- `make static-check` passed in this container.
-- Full Swift compile/test gate remains `swift test` on a Swift 5.9+ host; this container has no Swift toolchain.
+- `scripts/audit-parity.py` enforces exact-tag text catalog parity against `scripts/upstream-models.2d16f92.json` (1075/1075 provider/id pairs) plus representative Kimi K3, OpenRouter Muse, Vercel fast Opus/K3/Inkling entries.
+- Local Swift compile/test gates and GitHub Actions are required before acceptance.

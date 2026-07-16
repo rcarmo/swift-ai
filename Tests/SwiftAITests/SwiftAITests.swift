@@ -123,7 +123,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.7")
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.9")
         XCTAssertEqual(SwiftAIStatus.textModelCount, 1065)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
@@ -131,7 +131,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.7")
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.9")
         XCTAssertEqual(BuiltinModels.modelCount, 1065)
         XCTAssertEqual(BuiltinModels.providerCount, 35)
         let models = try BuiltinModels.all()
@@ -149,7 +149,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.7")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.9")
         XCTAssertEqual(BuiltinImageModels.modelCount, 35)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -1740,6 +1740,27 @@ final class SwiftAITests: XCTestCase {
             return (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         do { _ = try await provider.requestDeviceCode(); XCTFail("expected untrusted uri") } catch XAIOAuthError.untrustedVerificationURI {}
+    }
+
+    func testXAIOAuthDeviceCodePrefersTrustedCompleteVerificationURI() async throws {
+        let provider = XAIOAuthProvider()
+        final class DeviceFixture: @unchecked Sendable { var json = "" }
+        let fixture = DeviceFixture()
+        XAIOAuthProvider.requestTransport = { request in
+            (fixture.json.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["content-type": "application/json"])!)
+        }
+        defer { XAIOAuthProvider.requestTransport = nil }
+
+        fixture.json = #"{"device_code":"dev","user_code":"USER","verification_uri":"https://auth.x.ai/activate","verification_uri_complete":"https://auth.x.ai/activate?user_code=USER","interval":1,"expires_in":8}"#
+        let complete = try await provider.requestDeviceCode()
+        XCTAssertEqual(complete.verificationURI, "https://auth.x.ai/activate?user_code=USER")
+
+        fixture.json = #"{"device_code":"dev","user_code":"USER","verification_uri":"https://auth.x.ai/activate","interval":1,"expires_in":8}"#
+        let fallback = try await provider.requestDeviceCode()
+        XCTAssertEqual(fallback.verificationURI, "https://auth.x.ai/activate")
+
+        fixture.json = #"{"device_code":"dev","user_code":"USER","verification_uri":"https://auth.x.ai/activate","verification_uri_complete":"http://evil.test/activate?user_code=USER","interval":1,"expires_in":8}"#
+        do { _ = try await provider.requestDeviceCode(); XCTFail("expected untrusted complete uri") } catch XAIOAuthError.untrustedVerificationURI {}
     }
 
     func testGrok45RoutesThroughActualResponsesRequest() async throws {

@@ -3,7 +3,7 @@ import Foundation
 // Generated from @earendil-works/pi-ai/go-ai v0.80.9 model registry.
 // Source JSON: scripts/image-models.v0.80.9.json
 
-public enum BuiltinModels {
+public enum BuiltinImageModels {
     public static let upstreamVersion = "0.80.9"
     public static let modelCount = 35
     public static let providerCount = 1
@@ -180,15 +180,15 @@ dCI6WyJ0ZXh0IiwiaW1hZ2UiXSwibmFtZSI6InhBSTogR3JvayBJbWFnaW5lIEltYWdlIFF1YWxp
 dHkiLCJvdXRwdXQiOlsiaW1hZ2UiXSwicHJvdmlkZXIiOiJvcGVucm91dGVyIn1d
 """#
 
-    public static func all() throws -> [Model] {
+    public static func all() throws -> [ImagesModel] {
         let compact = encodedRegistry.split(whereSeparator: \.isNewline).joined()
         guard let data = Data(base64Encoded: compact) else { throw AIError.invalidResponse("invalid embedded model registry") }
-        return try JSONDecoder().decode([Model].self, from: data)
+        return try JSONDecoder().decode([ImagesModel].self, from: data)
     }
 
     public static func registerAll() async {
         do {
-            for model in try all() { await AIRegistry.shared.register(model) }
+            for model in try all() { await ImagesRegistry.shared.register(model) }
         } catch {
             assertionFailure("failed to decode embedded model registry: \(error)")
         }

@@ -36,7 +36,9 @@ public struct XAIOAuthProvider: OAuthProvider {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.form(["client_id": Self.clientID, "scope": Self.scope, "referrer": "pi"])
         let body = try await Self.jsonResponse(request: request, action: "device authorization")
-        let verificationURI = try Self.validateVerificationURI(Self.requiredString(body, "verification_uri"))
+        let baseVerificationURI = try Self.validateVerificationURI(Self.requiredString(body, "verification_uri"))
+        let completeVerificationURI = try body["verification_uri_complete"]?.stringValue.map(Self.validateVerificationURI)
+        let verificationURI = completeVerificationURI ?? baseVerificationURI
         let interval = Self.positiveInt(body, "interval") ?? 5
         return DeviceFlowResponse(deviceCode: try Self.requiredString(body, "device_code"), userCode: try Self.requiredString(body, "user_code"), verificationURI: verificationURI, interval: interval, expiresIn: try Self.requiredPositiveInt(body, "expires_in"))
     }

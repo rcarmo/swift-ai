@@ -243,6 +243,53 @@ final class CoreUtilityTests: XCTestCase {
         await SwiftAI.bootstrap()
     }
 
+    func testModelRuntimeStoreRefreshDedupeReplacementAndRemoval() async throws {
+        let store = InMemoryProviderModelsStore()
+        let runtime = ModelRuntime(store: store)
+        final class Counter: @unchecked Sendable { var count = 0 }
+        let counter = Counter()
+        let fallback = [Model(id: "fallback", name: "Fallback", api: .openAIResponses, provider: .xai)]
+        let dynamic = [Model(id: "dynamic", name: "Dynamic", api: .openAIResponses, provider: .xai)]
+        await runtime.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: fallback, refresh: { context in
+            counter.count += 1
+            XCTAssertEqual(context.providerId, "xai")
+            XCTAssertTrue(context.allowNetwork)
+            try await Task.sleep(nanoseconds: 10_000_000)
+            return dynamic
+        }))
+        let fallbackIDs = await runtime.listModels(provider: .xai).map(\.id)
+        XCTAssertEqual(fallbackIDs, ["fallback"])
+        async let first = runtime.refresh(provider: .xai, apiKey: "k")
+        async let second = runtime.refresh(provider: .xai, apiKey: "k")
+        let results = await [first, second]
+        XCTAssertTrue(results.allSatisfy { $0.errors.isEmpty })
+        XCTAssertEqual(counter.count, 1)
+        let dynamicModel = await runtime.model(provider: .xai, id: "dynamic")
+        XCTAssertEqual(dynamicModel?.id, "dynamic")
+        await runtime.replaceModels(provider: .xai, models: [Model(id: "replacement", name: "Replacement", api: .openAIResponses, provider: .xai)])
+        let replacementIDs = await runtime.listModels(provider: .xai).map(\.id)
+        XCTAssertEqual(replacementIDs, ["replacement"])
+        await runtime.removeModel(provider: .xai, id: "replacement")
+        let emptyModels = await runtime.listModels(provider: .xai)
+        XCTAssertEqual(emptyModels, [])
+        try await store.write(providerId: "xai", entry: StoredModelsEntry(models: [Model(id: "cached", name: "Cached", api: .openAIResponses, provider: .xai)]))
+        await runtime.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: fallback, refresh: { _ in throw AIError.provider("network down") }))
+        let failed = await runtime.refresh(provider: .xai, allowNetwork: true, force: true)
+        XCTAssertEqual(failed.errors.keys.sorted(), ["xai"])
+        let cachedIDs = await runtime.listModels(provider: .xai).map(\.id)
+        XCTAssertEqual(cachedIDs, ["cached"])
+    }
+
+    func testBootstrapRegistersXAIOAuthAndGrokFallback() async throws {
+        await SwiftAI.bootstrap()
+        let oauth = await OAuthRegistry.shared.provider(id: "xai")
+        let runtimeModel = await ModelRuntime.shared.model(provider: .xai, id: "grok-4.5")
+        let registryModel = await AIRegistry.shared.model(provider: .xai, id: "grok-4.5")
+        XCTAssertNotNil(oauth)
+        XCTAssertNotNil(runtimeModel)
+        XCTAssertEqual(registryModel?.api, .openAIResponses)
+    }
+
     func testCompatLegacyAPIRegistryDispatchPreservesRequestAPIKey() async throws {
         await AIRegistry.shared.clearProviders()
         final class Box: @unchecked Sendable { var apiKey: String? }

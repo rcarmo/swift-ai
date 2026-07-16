@@ -20,6 +20,7 @@ public actor AIRegistry {
     public func apiProvider(for api: API) -> APIProvider? { providers[api] }
 
     public func register(_ model: Model) { models["\(model.provider.rawValue)/\(model.id)"] = model }
+    public func unregisterModel(provider: Provider, id: String) { models.removeValue(forKey: "\(provider.rawValue)/\(id)") }
     public func clearModels() { models.removeAll() }
     public func model(provider: Provider, id: String) -> Model? { models["\(provider.rawValue)/\(id)"] }
     public func listModels(provider: Provider? = nil) -> [Model] { models.values.filter { provider == nil || $0.provider == provider! }.sorted { $0.id < $1.id } }
@@ -30,6 +31,11 @@ public enum SwiftAI {
     public static func bootstrap() async {
         await BuiltinModels.registerAll()
         await BuiltinImageModels.registerAll()
+        await ModelRuntime.shared.clear()
+        if let models = try? BuiltinModels.all() {
+            let grouped = Dictionary(grouping: models, by: \.provider)
+            for (provider, fallbackModels) in grouped { await ModelRuntime.shared.register(RuntimeProvider(id: provider, name: provider.rawValue, fallbackModels: fallbackModels)) }
+        }
         await AIRegistry.shared.register(APIProvider(api: .openAICompletions, stream: { model, context, options in OpenAICompletionsProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .openAIResponses, stream: { model, context, options in OpenAIResponsesProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .azureOpenAIResponses, stream: { model, context, options in OpenAIResponsesProvider.stream(model: model, context: context, options: options) }))
@@ -48,6 +54,9 @@ public enum SwiftAI {
         await OAuthRegistry.shared.register(GoogleGeminiCLIOAuthProvider())
         await OAuthRegistry.shared.register(GoogleAntigravityOAuthProvider())
         await OAuthRegistry.shared.register(RadiusOAuthProvider())
+        await OAuthRegistry.shared.register(XAIOAuthProvider())
+        await ModelRuntime.shared.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: [Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536)]))
+        if await AIRegistry.shared.model(provider: .xai, id: "grok-4.5") == nil { await AIRegistry.shared.register(Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536)) }
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

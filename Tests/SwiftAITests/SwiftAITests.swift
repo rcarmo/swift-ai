@@ -1683,6 +1683,69 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(OpenAIResponsesProvider.shouldRecycleCodexWebSocketConnection(createdAtMs: 0, nowMs: Int64(55 * 60 * 1000)))
     }
 
+    func testXAIOAuthDeviceRefreshTransitionsAndErrors() async throws {
+        final class XAIMock: @unchecked Sendable { var tokenResponses: [String] = []; var requests: [(path: String, body: String)] = [] }
+        let mock = XAIMock()
+        let provider = XAIOAuthProvider()
+        XAIOAuthProvider.requestTransport = { request in
+            let path = request.url?.path ?? ""
+            let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            mock.requests.append((path, body))
+            func response(_ status: Int, _ text: String) -> (Data, URLResponse) { (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["content-type": "application/json"])!) }
+            if path == "/oauth2/device/code" { return response(200, #"{"device_code":"dev","user_code":"USER","verification_uri":"https://auth.x.ai/activate","interval":1,"expires_in":8}"#) }
+            if path == "/oauth2/token" {
+                let next = mock.tokenResponses.isEmpty ? #"{"error":"authorization_pending"}"# : mock.tokenResponses.removeFirst()
+                return response(next.contains("access_token") ? 200 : 400, next)
+            }
+            return response(404, #"{"error":"missing"}"#)
+        }
+        defer { XAIOAuthProvider.requestTransport = nil }
+
+        mock.tokenResponses = [#"{"error":"authorization_pending"}"#, #"{"error":"slow_down"}"#, #"{"access_token":"access","refresh_token":"refresh","expires_in":3600}"#]
+        let creds = try await provider.login(callbacks: OAuthLoginCallbacks())
+        XCTAssertEqual(creds.access, "access")
+        XCTAssertTrue(mock.requests.contains { $0.path == "/oauth2/device/code" && $0.body.contains("referrer=pi") })
+        XCTAssertTrue(mock.requests.contains { $0.path == "/oauth2/token" && $0.body.contains("device_code=dev") })
+
+        mock.tokenResponses = [#"{"access_token":"new-access","expires_in":1800}"#]
+        let refreshed = try await provider.refreshToken(credentials: OAuthCredentials(refresh: "old-refresh", access: "old", expires: 0))
+        XCTAssertEqual(refreshed.access, "new-access")
+        XCTAssertEqual(refreshed.refresh, "old-refresh")
+        XCTAssertTrue(mock.requests.last?.body.contains("grant_type=refresh_token") == true)
+
+        mock.tokenResponses = [#"{"error":"access_denied"}"#]
+        do { _ = try await provider.pollDeviceToken(deviceCode: "dev"); XCTFail("expected denied") } catch XAIOAuthError.denied {}
+        mock.tokenResponses = [#"{"error":"expired_token"}"#]
+        do { _ = try await provider.pollDeviceToken(deviceCode: "dev"); XCTFail("expected expired") } catch XAIOAuthError.expired {}
+        XAIOAuthProvider.requestTransport = { request in
+            let text = #"{"device_code":"dev","user_code":"USER","verification_uri":"http://evil.test","expires_in":8}"#
+            return (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        do { _ = try await provider.requestDeviceCode(); XCTFail("expected untrusted uri") } catch XAIOAuthError.untrustedVerificationURI {}
+    }
+
+    func testGrok45RoutesThroughActualResponsesRequest() async throws {
+        final class CapturedGrokRequest: @unchecked Sendable { var url = ""; var headers: [String: String] = [:]; var body = "" }
+        let captured = CapturedGrokRequest()
+        OpenAIResponsesProvider.requestTransport = { request, _ in
+            captured.url = request.url?.absoluteString ?? ""
+            captured.headers = (request.allHTTPHeaderFields ?? [:]).reduce(into: [String: String]()) { $0[$1.key.lowercased()] = $1.value }
+            captured.body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"resp_grok\",\"status\":\"completed\"}}\n\n"
+            let bytes = AsyncThrowingStream<UInt8, Error> { continuation in for byte in sse.utf8 { continuation.yield(byte) }; continuation.finish() }
+            return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        defer { OpenAIResponsesProvider.requestTransport = nil }
+        let model = Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1")
+        var options = StreamOptions(); options.apiKey = "xai-key"
+        var last: AIEvent?
+        for await event in OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) { last = event }
+        guard case .done = last else { return XCTFail("missing grok done event") }
+        XCTAssertEqual(captured.url, "https://api.x.ai/v1/responses")
+        XCTAssertEqual(captured.headers["authorization"], "Bearer xai-key")
+        XCTAssertTrue(captured.body.contains("\"model\":\"grok-4.5\""))
+    }
+
     func testCodexResponsesActualRequestClampsUnicodeSessionHeaders() async throws {
         final class CapturedCodexRequest: @unchecked Sendable { var headers: [String: String] = [:]; var url = "" }
         let captured = CapturedCodexRequest()

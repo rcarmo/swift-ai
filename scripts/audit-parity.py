@@ -177,6 +177,7 @@ def main() -> int:
         "GoogleGeminiCLIOAuthProvider": "google-gemini-cli",
         "GoogleAntigravityOAuthProvider": "google-antigravity",
         "RadiusOAuthProvider": "radius",
+        "XAIOAuthProvider": "xai",
     }
     registered_oauth_ids = {oauth_class_to_id[name] for name in oauth_registered if name in oauth_class_to_id}
     if status_oauth != registered_oauth_ids:

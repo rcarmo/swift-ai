@@ -26,6 +26,8 @@ public enum ProviderEnvironment {
         .deepSeek: ["DEEPSEEK_API_KEY"],
         .moonshotAI: ["MOONSHOT_API_KEY"],
         .moonshotAICN: ["MOONSHOT_API_KEY"],
+        .qwenTokenPlan: ["QWEN_TOKEN_PLAN_API_KEY", "DASHSCOPE_API_KEY"],
+        .qwenTokenPlanCN: ["QWEN_TOKEN_PLAN_CN_API_KEY", "DASHSCOPE_API_KEY"],
         .cloudflareAIGateway: ["CLOUDFLARE_API_KEY"],
         .cloudflareWorkersAI: ["CLOUDFLARE_API_KEY"],
         .xiaomi: ["XIAOMI_API_KEY"],

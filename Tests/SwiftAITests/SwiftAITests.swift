@@ -123,25 +123,28 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.80.10")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1072)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 35)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.81.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1103)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 39)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.80.10")
-        XCTAssertEqual(BuiltinModels.modelCount, 1072)
-        XCTAssertEqual(BuiltinModels.providerCount, 35)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.81.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1103)
+        XCTAssertEqual(BuiltinModels.providerCount, 37)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1072)
+        XCTAssertEqual(models.count, 1103)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "moonshotai/kimi-k3" })
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "meta/muse-spark-1.1" })
         XCTAssertTrue(models.contains { $0.provider == .vercelAIGateway && $0.id == "thinkingmachines/inkling" && $0.api == .anthropicMessages })
+        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlan && $0.id == "qwen3.8-max-preview" && $0.api == .openAICompletions })
+        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanCN && $0.id == "qwen3.8-max-preview" && $0.api == .openAICompletions })
+        XCTAssertTrue(models.contains { $0.provider == .openCodeGo && $0.id == "grok-4.5" && $0.api == .openAIResponses })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
 
@@ -154,12 +157,14 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.80.9")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 35)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.81.1")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 39)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 35)
+        XCTAssertEqual(models.count, 39)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
+        XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
+        XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
     }
 
     func testOpenRouterImageResponseParser() throws {
@@ -898,6 +903,43 @@ final class SwiftAITests: XCTestCase {
             XCTAssertTrue(String(describing: error).contains("still failing"))
         }
         XCTAssertEqual(exhausted.attempts, [0, 1, 2])
+    }
+
+    func testRetryAssistantCallReportsAbortedRetriesUnsuccessful() async {
+        final class Box: @unchecked Sendable { var calls = 0; var finished: [(Bool, Int, String?)] = [] }
+        let box = Box()
+        let policy = RetryPolicy(maxRetries: 2, baseDelayMs: 0, jitterFraction: 0)
+        let result = await RetryRunner.retryAssistantCall(policy: policy, sleep: { _ in }, callbacks: AssistantRetryCallbacks(onRetryFinished: { success, attempt, finalError in box.finished.append((success, attempt, finalError)) })) {
+            box.calls += 1
+            var msg = Message(role: .assistant, content: [])
+            if box.calls == 1 { msg.stopReason = .error; msg.errorMessage = "503 service unavailable, please retry your request" }
+            else { msg.stopReason = .aborted }
+            return msg
+        }
+        XCTAssertEqual(result.stopReason, .aborted)
+        XCTAssertEqual(box.calls, 2)
+        XCTAssertEqual(box.finished.count, 1)
+        XCTAssertEqual(box.finished.first?.0, false)
+        XCTAssertEqual(box.finished.first?.1, 1)
+    }
+
+    func testRetryAssistantCallReportsEventuallySuccessfulRetry() async {
+        final class Box: @unchecked Sendable { var calls = 0; var scheduled: [Int] = []; var starts = 0; var finished: [(Bool, Int)] = [] }
+        let box = Box()
+        let policy = RetryPolicy(maxRetries: 2, baseDelayMs: 0, jitterFraction: 0)
+        let result = await RetryRunner.retryAssistantCall(policy: policy, sleep: { _ in }, callbacks: AssistantRetryCallbacks(onRetryScheduled: { attempt, _, _, _ in box.scheduled.append(attempt) }, onRetryAttemptStart: { box.starts += 1 }, onRetryFinished: { success, attempt, _ in box.finished.append((success, attempt)) })) {
+            box.calls += 1
+            var msg = Message(role: .assistant, content: [.text("ok")])
+            if box.calls == 1 { msg.stopReason = .error; msg.errorMessage = "rate limit 429" }
+            else { msg.stopReason = .stop }
+            return msg
+        }
+        XCTAssertEqual(result.stopReason, .stop)
+        XCTAssertEqual(box.scheduled, [1])
+        XCTAssertEqual(box.starts, 1)
+        XCTAssertEqual(box.finished.count, 1)
+        XCTAssertEqual(box.finished.first?.0, true)
+        XCTAssertEqual(box.finished.first?.1, 1)
     }
 
     func testRetryPolicy() throws {

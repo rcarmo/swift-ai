@@ -114,11 +114,7 @@ public enum OpenAICompletionsProvider {
                 }
                 contentValue = .array(parts)
             } else {
-                let contentText = message.content.compactMap { block -> String? in
-                    if block.type == "text" { return block.text }
-                    if compat.requiresThinkingAsText == true, block.type == "thinking" { return block.thinking }
-                    return nil
-                }.joined()
+                let contentText = AIUtilities.contentText(message.content, includeThinking: compat.requiresThinkingAsText == true)
                 if message.role == .toolResult, contentText.isEmpty {
                     let hasImages = message.content.contains { $0.type == "image" }
                     contentValue = .string(hasImages ? "(see attached image)" : "(no tool output)")

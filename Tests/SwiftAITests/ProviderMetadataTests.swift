@@ -432,6 +432,23 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertTrue(openCodeIDs.contains("glm-5.2"))
         XCTAssertFalse(openCodeIDs.contains("qwen3-coder"))
         XCTAssertFalse(openCodeIDs.contains("glm-4.6"))
+
+        let openCodeResponses = try model(.openCodeGo, "grok-4.5")
+        XCTAssertEqual(openCodeResponses.api, .openAIResponses)
+    }
+
+    func testUpstream0811QwenTokenPlanCatalogMetadata() throws {
+        for provider in [Provider.qwenTokenPlan, Provider.qwenTokenPlanCN] {
+            let ids = Set(try BuiltinModels.all().filter { $0.provider == provider }.map(\.id))
+            XCTAssertEqual(ids.count, 15)
+            XCTAssertTrue(ids.contains("qwen3.8-max-preview"))
+            XCTAssertTrue(ids.contains("glm-5.2"))
+            let model = try self.model(provider, "qwen3.8-max-preview")
+            XCTAssertEqual(model.api, .openAICompletions)
+            XCTAssertTrue(model.baseUrl.contains("aliyuncs.com"))
+        }
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .qwenTokenPlan, env: ["QWEN_TOKEN_PLAN_API_KEY": "qwen-key"]), "qwen-key")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .qwenTokenPlanCN, env: ["DASHSCOPE_API_KEY": "dashscope-key"]), "dashscope-key")
     }
 
     func testTogetherAPIKeyEnvironment() {

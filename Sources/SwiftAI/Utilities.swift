@@ -54,6 +54,31 @@ public enum AIUtilities {
 
     public static func estimateTextTokens(_ text: String) -> Int { Int(ceil(Double(text.count) / Double(charsPerToken))) }
 
+    public static func contentText(_ content: [ContentBlock], includeThinking: Bool = false, separator: String = "") -> String {
+        content.compactMap { block in
+            if block.type == "text" { return block.text }
+            if includeThinking, block.type == "thinking" { return block.thinking }
+            return nil
+        }.joined(separator: separator)
+    }
+
+    public static func uuidv7(timestampMs: UInt64? = nil, randomBytes: [UInt8]? = nil) -> String {
+        let timestamp = timestampMs ?? UInt64(Date().timeIntervalSince1970 * 1000)
+        var bytes = Array(repeating: UInt8(0), count: 16)
+        bytes[0] = UInt8((timestamp >> 40) & 0xff)
+        bytes[1] = UInt8((timestamp >> 32) & 0xff)
+        bytes[2] = UInt8((timestamp >> 24) & 0xff)
+        bytes[3] = UInt8((timestamp >> 16) & 0xff)
+        bytes[4] = UInt8((timestamp >> 8) & 0xff)
+        bytes[5] = UInt8(timestamp & 0xff)
+        let random = randomBytes ?? (0..<10).map { _ in UInt8.random(in: 0...255) }
+        for i in 0..<min(10, random.count) { bytes[6 + i] = random[i] }
+        bytes[6] = (bytes[6] & 0x0f) | 0x70
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        let hex = bytes.map { String(format: "%02x", $0) }.joined()
+        return "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20))"
+    }
+
     public static func estimateTextAndImageContentTokens(_ content: [ContentBlock]) -> Int {
         var chars = 0
         for block in content { chars += block.type == "text" ? (block.text ?? "").count : estimatedImageChars }

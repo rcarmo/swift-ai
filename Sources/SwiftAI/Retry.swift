@@ -67,6 +67,17 @@ public enum AssistantErrorRetryClassifier {
     }
 }
 
+public struct AssistantRetryCallbacks: Sendable {
+    public var onRetryScheduled: (@Sendable (_ attempt: Int, _ maxAttempts: Int, _ delayMs: Int, _ errorMessage: String) async -> Void)?
+    public var onRetryAttemptStart: (@Sendable () async -> Void)?
+    public var onRetryFinished: (@Sendable (_ success: Bool, _ attempt: Int, _ finalError: String?) async -> Void)?
+    public init(onRetryScheduled: (@Sendable (_ attempt: Int, _ maxAttempts: Int, _ delayMs: Int, _ errorMessage: String) async -> Void)? = nil, onRetryAttemptStart: (@Sendable () async -> Void)? = nil, onRetryFinished: (@Sendable (_ success: Bool, _ attempt: Int, _ finalError: String?) async -> Void)? = nil) {
+        self.onRetryScheduled = onRetryScheduled
+        self.onRetryAttemptStart = onRetryAttemptStart
+        self.onRetryFinished = onRetryFinished
+    }
+}
+
 public enum RetryRunner {
     public static func run<T>(policy: RetryPolicy, sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, onRetry: (@Sendable (Int, Error) async -> Void)? = nil, operation: @Sendable (Int) async throws -> T) async throws -> T {
         var lastError: Error?
@@ -80,6 +91,48 @@ public enum RetryRunner {
             }
         }
         throw lastError ?? AIError.provider("retry exhausted")
+    }
+
+    public static func retryAssistantCall(policy: RetryPolicy?, sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, callbacks: AssistantRetryCallbacks = AssistantRetryCallbacks(), produce: @Sendable () async -> Message) async -> Message {
+        let maxAttempts = policy?.maxRetries ?? 0
+        var attempt = 0
+        var lastRetry: (attempt: Int, errorMessage: String)?
+        while true {
+            let response = await produce()
+            if response.stopReason == .aborted {
+                if let lastRetry { await callbacks.onRetryFinished?(false, lastRetry.attempt, nil) }
+                return response
+            }
+            if response.stopReason != .error {
+                if let lastRetry { await callbacks.onRetryFinished?(true, lastRetry.attempt, nil) }
+                return response
+            }
+            guard let policy, attempt < maxAttempts, AssistantErrorRetryClassifier.isRetryableAssistantError(response) else {
+                if let lastRetry { await callbacks.onRetryFinished?(false, lastRetry.attempt, response.errorMessage) }
+                return response
+            }
+            attempt += 1
+            let errorMessage = response.errorMessage ?? "Unknown error"
+            lastRetry = (attempt, errorMessage)
+            let delayMs = max(0, policy.baseDelayMs) * Int(pow(2.0, Double(attempt - 1)))
+            await callbacks.onRetryScheduled?(attempt, maxAttempts, delayMs, errorMessage)
+            do {
+                try await sleep(UInt64(delayMs) * 1_000_000)
+            } catch is CancellationError {
+                await callbacks.onRetryFinished?(false, attempt, errorMessage)
+                var aborted = response
+                aborted.stopReason = .aborted
+                aborted.errorMessage = nil
+                return aborted
+            } catch {
+                await callbacks.onRetryFinished?(false, attempt, errorMessage)
+                var aborted = response
+                aborted.stopReason = .aborted
+                aborted.errorMessage = nil
+                return aborted
+            }
+            await callbacks.onRetryAttemptStart?()
+        }
     }
 }
 

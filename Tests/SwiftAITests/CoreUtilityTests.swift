@@ -70,6 +70,9 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(AIUtilities.estimateTextTokens(""), 0)
         XCTAssertEqual(AIUtilities.estimateTextTokens("hello"), 2)
         XCTAssertEqual(AIUtilities.estimateTextAndImageContentTokens([.text("abcd"), .image(data: "x", mimeType: "image/png")]), 1201)
+        XCTAssertEqual(AIUtilities.contentText([.text("a"), .thinking("hidden"), .text("b")]), "ab")
+        XCTAssertEqual(AIUtilities.contentText([.text("a"), .thinking("hidden"), .text("b")], includeThinking: true, separator: "|"), "a|hidden|b")
+        XCTAssertEqual(AIUtilities.uuidv7(timestampMs: 0x018bcfe56800, randomBytes: [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x11, 0x22]), "018bcfe5-6800-7234-9678-9abcdef01122")
         var assistant = Message(role: .assistant, content: [.text("answer")])
         var usage = Usage(); usage.input = 100; usage.output = 20; usage.cacheRead = 3; usage.cacheWrite = 2; usage.totalTokens = 125
         assistant.usage = usage; assistant.stopReason = .stop

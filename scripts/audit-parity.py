@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.80.10 counts, that every generated API/provider raw value is represented in
+v0.81.1 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,9 +15,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.80.10.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.8dc78834.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.80.9.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.81.1.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.20be4b18.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.81.1.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -26,9 +26,9 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1072
-EXPECTED_TEXT_PROVIDERS = 35
-EXPECTED_IMAGE_MODELS = 35
+EXPECTED_TEXT_MODELS = 1103
+EXPECTED_TEXT_PROVIDERS = 37
+EXPECTED_IMAGE_MODELS = 39
 EXPECTED_IMAGE_PROVIDERS = 1
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
@@ -135,6 +135,9 @@ def main() -> int:
         ("vercel-ai-gateway", "anthropic/claude-opus-4.7-fast"),
         ("vercel-ai-gateway", "moonshotai/kimi-k3"),
         ("vercel-ai-gateway", "thinkingmachines/inkling"),
+        ("qwen-token-plan", "qwen3.8-max-preview"),
+        ("qwen-token-plan-cn", "qwen3.8-max-preview"),
+        ("opencode-go", "grok-4.5"),
     }
     missing_representatives = sorted(representative_ids - upstream_text_ids)
     if missing_representatives:

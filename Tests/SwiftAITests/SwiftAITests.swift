@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.81.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1103)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 39)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.82.0")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1116)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 40)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.81.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1103)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.82.0")
+        XCTAssertEqual(BuiltinModels.modelCount, 1116)
         XCTAssertEqual(BuiltinModels.providerCount, 37)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1103)
+        XCTAssertEqual(models.count, 1116)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -145,6 +145,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlan && $0.id == "qwen3.8-max-preview" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanCN && $0.id == "qwen3.8-max-preview" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .openCodeGo && $0.id == "grok-4.5" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .google && $0.id == "gemini-2.5-computer-use-preview-10-2025" })
+        XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "inclusionai/ling-3.0-flash:free" })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
 
@@ -157,14 +159,15 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.81.1")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 39)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.82.0")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 40)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 39)
+        XCTAssertEqual(models.count, 40)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
+        XCTAssertTrue(models.contains { $0.id == "microsoft/mai-image-2.5-pro" })
     }
 
     func testOpenRouterImageResponseParser() throws {
@@ -865,6 +868,51 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(filtered.first?.baseUrl, "https://api.business.githubcopilot.com")
     }
 
+    func testOpenRouterOAuthKeyExchange() async throws {
+        final class Box: @unchecked Sendable { var body = ""; var path = "" }
+        let box = Box()
+        OpenRouterOAuthProvider.requestTransport = { request in
+            box.path = request.url?.path ?? ""
+            box.body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            return (#"{"key":"or-oauth-key"}"#.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["content-type": "application/json"])!)
+        }
+        defer { OpenRouterOAuthProvider.requestTransport = nil }
+        let creds = try await OpenRouterOAuthProvider.exchangeAuthorizationCode("code", verifier: "verifier")
+        XCTAssertEqual(creds.access, "or-oauth-key")
+        XCTAssertEqual(creds.refresh, "")
+        XCTAssertEqual(box.path, "/api/v1/auth/keys")
+        XCTAssertTrue(box.body.contains("code_verifier"))
+    }
+
+    func testKimiCodingOAuthDeviceAndRefresh() async throws {
+        final class Box: @unchecked Sendable { var refreshAttempts = 0; var paths: [String] = [] }
+        let box = Box()
+        KimiCodingOAuthProvider.requestTransport = { request in
+            let path = request.url?.path ?? ""
+            box.paths.append(path)
+            func response(_ status: Int, _ text: String) -> (Data, URLResponse) { (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["content-type": "application/json"])!) }
+            if path.contains("device_authorization") { return response(200, #"{"device_code":"dev","user_code":"USER","verification_uri":"https://auth.kimi.com/activate","verification_uri_complete":"https://auth.kimi.com/activate?user_code=USER","interval":1,"expires_in":60}"#) }
+            if path.contains("token") {
+                let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                if body.contains("refresh_token") {
+                    box.refreshAttempts += 1
+                    if box.refreshAttempts == 1 { return response(503, #"{"error":"temporarily_unavailable"}"#) }
+                    return response(200, #"{"access_token":"access2","refresh_token":"refresh2","expires_in":3600}"#)
+                }
+                return response(200, #"{"access_token":"access","refresh_token":"refresh","expires_in":3600}"#)
+            }
+            return response(404, "{}")
+        }
+        defer { KimiCodingOAuthProvider.requestTransport = nil }
+        let device = try await KimiCodingOAuthProvider.startDeviceAuthorization(oauthHost: "https://auth.kimi.test")
+        XCTAssertEqual(device.verificationURIComplete, "https://auth.kimi.com/activate?user_code=USER")
+        let polled = try await KimiCodingOAuthProvider.pollForToken(oauthHost: "https://auth.kimi.test", deviceCode: "dev")
+        if case .complete(let creds) = polled { XCTAssertEqual(creds.access, "access") } else { XCTFail("expected complete") }
+        let refreshed = try await KimiCodingOAuthProvider.refresh(oauthHost: "https://auth.kimi.test", refreshToken: "refresh")
+        XCTAssertEqual(refreshed.access, "access2")
+        XCTAssertEqual(box.refreshAttempts, 2)
+    }
+
     func testOAuthRegistryRoundTrip() async throws {
         await OAuthRegistry.shared.clear()
         let provider = OpenAICodexOAuthProvider()
@@ -940,6 +988,40 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(box.finished.count, 1)
         XCTAssertEqual(box.finished.first?.0, true)
         XCTAssertEqual(box.finished.first?.1, 1)
+    }
+
+    func testProviderRetryPolicyAndDNSClassifier() async throws {
+        XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError({ var msg = Message(role: .assistant, content: []); msg.stopReason = .error; msg.errorMessage = "getaddrinfo ENOTFOUND api.example"; return msg }()))
+        XCTAssertTrue(ProviderRetry.isRetryable(ProviderRetryError(status: 408, message: "timeout")))
+        XCTAssertTrue(ProviderRetry.isRetryable(ProviderRetryError(status: 409, message: "lock")))
+        XCTAssertFalse(ProviderRetry.isRetryable(ProviderRetryError(status: 400, headers: ["x-should-retry": "false"], message: "bad")))
+        XCTAssertTrue(ProviderRetry.isRetryable(ProviderRetryError(status: 400, headers: ["x-should-retry": "true"], message: "forced")))
+        XCTAssertEqual(try ProviderRetry.retryDelayMilliseconds(ProviderRetryError(status: 429, headers: ["retry-after-ms": "250"], message: "slow"), retryIndex: 0), 250)
+        XCTAssertThrowsError(try ProviderRetry.retryDelayMilliseconds(ProviderRetryError(status: 429, headers: ["retry-after": "120"], message: "slow"), retryIndex: 0, maxRetryDelayMs: 1_000))
+        final class Box: @unchecked Sendable { var attempts = 0; var sleeps: [UInt64] = [] }
+        let box = Box()
+        let result = try await ProviderRetry.run(maxRetries: 1, sleep: { ns in box.sleeps.append(ns) }) {
+            box.attempts += 1
+            if box.attempts == 1 { throw ProviderRetryError(status: 503, headers: ["retry-after-ms": "1"], message: "temporary") }
+            return "ok"
+        }
+        XCTAssertEqual(result, "ok")
+        XCTAssertEqual(box.attempts, 2)
+        XCTAssertEqual(box.sleeps, [1_000_000])
+    }
+
+    func testConstrainedSamplingToolShapes() throws {
+        let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["code": .object(["type": .string("string")])]), "required": .array([.string("code")])])
+        XCTAssertEqual(try OpenAICompletionsProvider.grammarInputProperty(Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiLark: "start: /[a-z]+/"))), "code")
+        let grammarModel = Model(id: "g", name: "G", api: .openAICompletions, provider: .openAI, completionsCompat: { var c = OpenAICompletionsCompat(); c.supportsOpenAIGrammarTools = true; return c }())
+        let grammarBody = OpenAICompletionsProvider.buildRequestBody(model: grammarModel, context: AIContext(messages: [.user("hi")], tools: [Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiLark: "start: /[a-z]+/"))]), options: nil)
+        guard case .array(let tools)? = grammarBody["tools"], case .object(let first)? = tools.first else { return XCTFail("missing grammar tool") }
+        XCTAssertEqual(first["type"], .string("custom"))
+        guard case .object(let format)? = first["format"] else { return XCTFail("missing format") }
+        XCTAssertEqual(format["syntax"], .string("lark"))
+        let strictBody = OpenAICompletionsProvider.buildRequestBody(model: Model(id: "s", name: "S", api: .openAICompletions, provider: .openAI), context: AIContext(messages: [.user("hi")], tools: [Tool(name: "strict", description: "Strict", parameters: schema, constrainedSampling: .jsonSchema(strict: "prefer"))]), options: nil)
+        guard case .array(let strictTools)? = strictBody["tools"], case .object(let strictWrapper)? = strictTools.first, case .object(let function)? = strictWrapper["function"] else { return XCTFail("missing strict tool") }
+        XCTAssertEqual(function["strict"], .bool(true))
     }
 
     func testRetryPolicy() throws {
@@ -2801,7 +2883,7 @@ final class SwiftAITests: XCTestCase {
         let tool = Tool(name: "lookup", description: "lookup", parameters: .object(["type": .string("object")]))
         let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [tool]), options: options)
         guard case .array(let tools)? = body["tools"], case .object(let toolObject) = tools[0], case .object(let function)? = toolObject["function"] else { return XCTFail("missing strict tool") }
-        XCTAssertEqual(function["strict"], .bool(true))
+        XCTAssertEqual(function["strict"], .bool(false))
         guard case .object(let kwargs)? = body["chat_template_kwargs"] else { return XCTFail("missing kwargs") }
         XCTAssertEqual(kwargs["enable_thinking"], .bool(true))
         XCTAssertEqual(kwargs["effort"], .string("high"))

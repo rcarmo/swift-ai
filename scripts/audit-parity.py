@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.81.1 counts, that every generated API/provider raw value is represented in
+v0.82.0 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,9 +15,10 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.81.1.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.20be4b18.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.81.1.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.82.0.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.083e616.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.82.0.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.083e616.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -26,9 +27,9 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1103
+EXPECTED_TEXT_MODELS = 1116
 EXPECTED_TEXT_PROVIDERS = 37
-EXPECTED_IMAGE_MODELS = 39
+EXPECTED_IMAGE_MODELS = 40
 EXPECTED_IMAGE_PROVIDERS = 1
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
@@ -88,6 +89,7 @@ def main() -> int:
     text = json.loads(TEXT_MODELS.read_text())
     upstream_text = json.loads(UPSTREAM_TEXT_MODELS.read_text())
     images = json.loads(IMAGE_MODELS.read_text())
+    upstream_images = json.loads(UPSTREAM_IMAGE_MODELS.read_text())
     status = json.loads(STATUS.read_text())
     swift_status = SWIFT_STATUS.read_text()
     embedded_text = embedded_registry(MODELS_GENERATED)
@@ -138,6 +140,8 @@ def main() -> int:
         ("qwen-token-plan", "qwen3.8-max-preview"),
         ("qwen-token-plan-cn", "qwen3.8-max-preview"),
         ("opencode-go", "grok-4.5"),
+        ("google", "gemini-2.5-computer-use-preview-10-2025"),
+        ("openrouter", "inclusionai/ling-3.0-flash:free"),
     }
     missing_representatives = sorted(representative_ids - upstream_text_ids)
     if missing_representatives:
@@ -145,6 +149,21 @@ def main() -> int:
     if text_ids != embedded_text_ids:
         failures.append("embedded text registry IDs differ from source JSON")
     image_ids = {(m["provider"], m["id"]) for m in images}
+    upstream_image_ids = {(m["provider"], m["id"]) for m in upstream_images}
+    if len(upstream_image_ids) != EXPECTED_IMAGE_MODELS:
+        failures.append(f"upstream exact-tag image provider/id pairs: got {len(upstream_image_ids)}, want {EXPECTED_IMAGE_MODELS}")
+    if image_ids != upstream_image_ids:
+        missing = sorted(upstream_image_ids - image_ids)[:20]
+        extra = sorted(image_ids - upstream_image_ids)[:20]
+        failures.append(f"Swift image snapshot differs from upstream exact-tag catalog: missing={missing} extra={extra}")
+    representative_image_ids = {
+        ("openrouter", "krea/krea-2-large"),
+        ("openrouter", "openrouter/auto-beta"),
+        ("openrouter", "microsoft/mai-image-2.5-pro"),
+    }
+    missing_image_representatives = sorted(representative_image_ids - upstream_image_ids)
+    if missing_image_representatives:
+        failures.append(f"upstream exact-tag image representatives missing: {missing_image_representatives}")
     embedded_image_ids = {(m["provider"], m["id"]) for m in embedded_images}
     if image_ids != embedded_image_ids:
         failures.append("embedded image registry IDs differ from source JSON")

@@ -1,6 +1,6 @@
 # swift-ai parity status
 
-Tracks upstream `@earendil-works/pi-ai` **v0.81.1** via direct upstream inspection (release tag `20be4b18d4c57487f8993d2762bace129f0cf7c6`). `STATUS.json` contains the same high-level status in machine-readable form.
+Tracks upstream `@earendil-works/pi-ai` **v0.82.0** via direct upstream inspection (release tag `083e61621276bff9f6faefab87ce07fcd98734e2`). `STATUS.json` contains the same high-level status in machine-readable form.
 
 ## Implemented
 
@@ -9,8 +9,8 @@ Tracks upstream `@earendil-works/pi-ai` **v0.81.1** via direct upstream inspecti
 - Core image type system: image APIs/providers, image context/input/output, image model metadata, assistant image result shape, image options.
 - Event protocol as a Swift `AIEvent` enum.
 - Actor-backed registries for text API providers, text models, image API providers, and image models.
-- Full embedded text model registry generated from exact upstream `pi-ai` v0.81.1 tag `20be4b18`: **1103 models / 37 providers**, with an upstream-source comparator gate.
-- Full embedded image model registry generated from upstream `pi-ai` v0.81.1: **39 models / 1 provider**.
+- Full embedded text model registry generated from exact upstream `pi-ai` v0.82.0 tag `083e6162`: **1116 models / 37 providers**, with an upstream-source comparator gate.
+- Full embedded image model registry generated from upstream `pi-ai` v0.82.0: **40 models / 1 provider**.
 - Environment key lookup with per-request `StreamOptions.env` / `ImagesOptions.env` overlay.
 - OpenAI-compatible compat detection, including v0.80.2 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
@@ -38,9 +38,9 @@ Tracks upstream `@earendil-works/pi-ai` **v0.81.1** via direct upstream inspecti
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, functionResponse tool results, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
 - Amazon Bedrock provider surface: registration, pluggable `BedrockTransport`, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
 
-## v0.81.1 release audit
+## v0.82.0 release audit
 
-See `docs/upstream-v0.81.1-audit.md` for the exact changed-path disposition matrix from v0.80.10 `8dc78834cde4e329284cf505f9e3f99763df5529` through release tag `20be4b18d4c57487f8993d2762bace129f0cf7c6`.
+See `docs/upstream-v0.82.0-audit.md` for the exact 96-path disposition matrix from v0.81.1 `20be4b18d4c57487f8993d2762bace129f0cf7c6` through release tag `083e61621276bff9f6faefab87ce07fcd98734e2`.
 
 ## Pluggable/non-bundled runtime pieces
 

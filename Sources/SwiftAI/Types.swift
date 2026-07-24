@@ -201,7 +201,29 @@ public struct Message: Codable, Equatable, Sendable {
     public static func user(_ text: String) -> Message { Message(role: .user, content: [.text(text)]) }
 }
 
-public struct Tool: Codable, Equatable, Sendable { public var name: String; public var description: String; public var parameters: JSONValue; public init(name: String, description: String, parameters: JSONValue) { self.name = name; self.description = description; self.parameters = parameters } }
+public struct GrammarVariants: Codable, Equatable, Sendable {
+    public var openaiLark: String?
+    public var openaiRegex: String?
+    enum CodingKeys: String, CodingKey { case openaiLark = "openai_lark"; case openaiRegex = "openai_regex" }
+    public init(openaiLark: String? = nil, openaiRegex: String? = nil) { self.openaiLark = openaiLark; self.openaiRegex = openaiRegex }
+}
+
+public struct ConstrainedSamplingConfig: Codable, Equatable, Sendable {
+    public var type: String
+    public var strict: String?
+    public var variants: GrammarVariants?
+    public init(type: String, strict: String? = nil, variants: GrammarVariants? = nil) { self.type = type; self.strict = strict; self.variants = variants }
+    public static func jsonSchema(strict: String = "prefer") -> ConstrainedSamplingConfig { ConstrainedSamplingConfig(type: "json_schema", strict: strict) }
+    public static func grammar(openaiLark: String? = nil, openaiRegex: String? = nil) -> ConstrainedSamplingConfig { ConstrainedSamplingConfig(type: "grammar", variants: GrammarVariants(openaiLark: openaiLark, openaiRegex: openaiRegex)) }
+}
+
+public struct Tool: Codable, Equatable, Sendable {
+    public var name: String
+    public var description: String
+    public var parameters: JSONValue
+    public var constrainedSampling: ConstrainedSamplingConfig?
+    public init(name: String, description: String, parameters: JSONValue, constrainedSampling: ConstrainedSamplingConfig? = nil) { self.name = name; self.description = description; self.parameters = parameters; self.constrainedSampling = constrainedSampling }
+}
 public struct AIContext: Codable, Equatable, Sendable { public var systemPrompt: String?; public var messages: [Message]; public var tools: [Tool]?; public init(systemPrompt: String? = nil, messages: [Message] = [], tools: [Tool]? = nil) { self.systemPrompt = systemPrompt; self.messages = messages; self.tools = tools } }
 
 public struct ModelCost: Codable, Equatable, Sendable { public var input = 0.0; public var output = 0.0; public var cacheRead = 0.0; public var cacheWrite = 0.0; public init(input: Double = 0, output: Double = 0, cacheRead: Double = 0, cacheWrite: Double = 0) { self.input = input; self.output = output; self.cacheRead = cacheRead; self.cacheWrite = cacheWrite } }

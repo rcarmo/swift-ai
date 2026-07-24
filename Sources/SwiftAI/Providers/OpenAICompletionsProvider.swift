@@ -233,9 +233,39 @@ public enum OpenAICompletionsProvider {
         return tools
     }
 
+    public static func grammarInputProperty(_ tool: Tool) throws -> String {
+        guard let schema = tool.parameters.objectValue, schema["type"]?.stringValue == "object" else { throw AIError.provider("Tool \"\(tool.name)\" cannot use grammar constrained sampling: grammar constrained sampling requires an object parameter schema.") }
+        guard let required = schema["required"]?.arrayValue, required.count == 1, let inputProperty = required.first?.stringValue else { throw AIError.provider("Tool \"\(tool.name)\" cannot use grammar constrained sampling: grammar constrained sampling requires exactly one required string property.") }
+        guard let property = schema["properties"]?.objectValue?[inputProperty]?.objectValue else { throw AIError.provider("Tool \"\(tool.name)\" cannot use grammar constrained sampling: grammar constrained sampling requires a properties entry for \(inputProperty).") }
+        guard property["type"]?.stringValue == "string" else { throw AIError.provider("Tool \"\(tool.name)\" cannot use grammar constrained sampling: grammar constrained sampling property \(inputProperty) must have type string.") }
+        return inputProperty
+    }
+
+    private static func validateConstrainedSampling(tools: [Tool]?, compat: OpenAICompletionsCompat) throws {
+        for tool in tools ?? [] {
+            if tool.constrainedSampling?.type == "json_schema", tool.constrainedSampling?.strict == "require", compat.supportsStrictMode == false { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but strict tools are unsupported.") }
+            if tool.constrainedSampling?.type == "grammar", compat.supportsOpenAIGrammarTools == true {
+                let variants = tool.constrainedSampling?.variants
+                let hasLark = variants?.openaiLark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                let hasRegex = variants?.openaiRegex?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                if !hasLark && !hasRegex { throw AIError.provider("Tool \"\(tool.name)\" cannot use grammar constrained sampling: no supported grammar variant was provided.") }
+                _ = try grammarInputProperty(tool)
+            }
+        }
+    }
+
     private static func toolJSON(_ tool: Tool, compat: OpenAICompletionsCompat) -> JSONValue {
+        if tool.constrainedSampling?.type == "grammar", compat.supportsOpenAIGrammarTools == true {
+            let variants = tool.constrainedSampling?.variants
+            let lark = variants?.openaiLark?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let regex = variants?.openaiRegex?.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let definition = (lark?.isEmpty == false ? lark : (regex?.isEmpty == false ? regex : nil)), (try? grammarInputProperty(tool)) != nil else { return .object(["type": .string("function"), "function": .object(["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters])]) }
+            return .object(["type": .string("custom"), "name": .string(tool.name), "description": .string(tool.description), "format": .object(["type": .string(lark?.isEmpty == false ? "grammar" : "regex"), "syntax": .string(lark?.isEmpty == false ? "lark" : "regex"), "definition": .string(definition)])])
+        }
+        let strictModeSupported = compat.supportsStrictMode != false
+
         var function: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]
-        if compat.supportsStrictMode != false { function["strict"] = .bool(true) }
+        if strictModeSupported { function["strict"] = .bool(tool.constrainedSampling?.type == "json_schema" ? true : false) }
         return .object(["type": .string("function"), "function": .object(function)])
     }
 
@@ -249,6 +279,7 @@ public enum OpenAICompletionsProvider {
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         if stream { request.setValue("text/event-stream", forHTTPHeaderField: "Accept") }
         let compat = Compat.detect(for: model)
+        try validateConstrainedSampling(tools: context.tools, compat: compat)
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none, compat.sendSessionAffinityHeaders == true {
             request.setValue(session, forHTTPHeaderField: "session_id")

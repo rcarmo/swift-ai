@@ -58,7 +58,7 @@ public struct RetryPolicy: Equatable, Sendable {
 
 public enum AssistantErrorRetryClassifier {
     private static let nonRetryablePattern = try! NSRegularExpression(pattern: "GoUsageLimitError|FreeUsageLimitError|Monthly usage limit reached|available balance|insufficient_quota|out of budget|quota exceeded|billing", options: [.caseInsensitive])
-    private static let retryablePattern = try! NSRegularExpression(pattern: "overloaded|rate.?limit|too many requests|429|500|502|503|504|524|service.?unavailable|server.?error|internal.?error|provider.?returned.?error|network.?error|connection.?error|connection.?refused|connection.?lost|other side closed|socket connection was closed|fetch failed|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|websocket.?closed|websocket.?error|ended without|stream ended before message_stop|http2 request did not get a response|retry delay|you can retry your request|try your request again|please retry your request|ResourceExhausted", options: [.caseInsensitive])
+    private static let retryablePattern = try! NSRegularExpression(pattern: "overloaded|rate.?limit|too many requests|429|500|502|503|504|524|service.?unavailable|server.?error|internal.?error|provider.?returned.?error|network.?error|connection.?error|connection.?refused|connection.?lost|other side closed|socket connection was closed|fetch failed|getaddrinfo|ENOTFOUND|EAI_AGAIN|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|websocket.?closed|websocket.?error|ended without|stream ended before message_stop|http2 request did not get a response|retry delay|you can retry your request|try your request again|please retry your request|ResourceExhausted", options: [.caseInsensitive])
     public static func isRetryableAssistantError(_ message: Message) -> Bool {
         guard message.stopReason == .error, let errorMessage = message.errorMessage, !errorMessage.isEmpty else { return false }
         let range = NSRange(errorMessage.startIndex..<errorMessage.endIndex, in: errorMessage)
@@ -136,6 +136,48 @@ public enum RetryRunner {
     }
 }
 
+public struct ProviderRetryError: Error, Sendable {
+    public var status: Int?
+    public var headers: [String: String]
+    public var message: String
+    public init(status: Int? = nil, headers: [String: String] = [:], message: String) { self.status = status; self.headers = headers; self.message = message }
+}
+
+public enum ProviderRetry {
+    public static func isRetryable(_ error: ProviderRetryError) -> Bool {
+        let headers = Dictionary(uniqueKeysWithValues: error.headers.map { ($0.key.lowercased(), $0.value) })
+        if headers["x-should-retry"] == "true" { return true }
+        if headers["x-should-retry"] == "false" { return false }
+        guard let status = error.status else { return true }
+        return status == 408 || status == 409 || status == 429 || status >= 500
+    }
+
+    public static func retryDelayMilliseconds(_ error: ProviderRetryError, retryIndex: Int, maxRetryDelayMs: Int = 60_000, now: Date = Date()) throws -> Int {
+        let headers = Dictionary(uniqueKeysWithValues: error.headers.map { ($0.key.lowercased(), $0.value) })
+        let parsed: Int?
+        if let retryAfterMs = headers["retry-after-ms"], let value = Double(retryAfterMs) { parsed = Int(value) }
+        else if let retryAfter = headers["retry-after"] { parsed = HTTPRetry.parseRetryAfterHeader(retryAfter, now: now) }
+        else { parsed = Int(min(0.5 * pow(2.0, Double(max(0, retryIndex))), 8.0) * 1000) }
+        let delay = max(0, parsed ?? 0)
+        if maxRetryDelayMs > 0, delay > maxRetryDelayMs { throw AIError.provider("Server requested \(Int(ceil(Double(delay) / 1000.0)))s retry delay (max: \(Int(ceil(Double(maxRetryDelayMs) / 1000.0)))s). \(error.message)") }
+        return delay
+    }
+
+    public static func run<T>(maxRetries: Int, maxRetryDelayMs: Int = 60_000, sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, operation: @Sendable () async throws -> T) async throws -> T {
+        var remaining = max(0, maxRetries)
+        let initial = remaining
+        while true {
+            do { return try await operation() }
+            catch let error as ProviderRetryError {
+                guard remaining > 0, isRetryable(error) else { throw error }
+                let retryIndex = initial - remaining
+                remaining -= 1
+                try await sleep(UInt64(try retryDelayMilliseconds(error, retryIndex: retryIndex, maxRetryDelayMs: maxRetryDelayMs)) * 1_000_000)
+            }
+        }
+    }
+}
+
 public enum HTTPRetry {
     public static func shouldRetry(statusCode: Int, policy: RetryPolicy = .default()) -> Bool {
         if let statuses = policy.retryableStatuses { return statuses.contains(statusCode) }
@@ -145,8 +187,12 @@ public enum HTTPRetry {
     public static func retryAfterMs(headers: [AnyHashable: Any]) -> Int? {
         let value = header(headers, "Retry-After") ?? header(headers, "retry-after")
         guard let value else { return nil }
+        return parseRetryAfterHeader(value)
+    }
+
+    public static func parseRetryAfterHeader(_ value: String, now: Date = Date()) -> Int? {
         if let seconds = Double(value.trimmingCharacters(in: .whitespacesAndNewlines)) { return Int(seconds * 1000) }
-        if let date = HTTPDateParser.parse(value) { return max(0, Int(date.timeIntervalSinceNow * 1000)) }
+        if let date = HTTPDateParser.parse(value) { return max(0, Int(date.timeIntervalSince(now) * 1000)) }
         return nil
     }
 

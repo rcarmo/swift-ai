@@ -25,6 +25,7 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
     public var vercelGatewayRouting: [String: JSONValue]?
     public var zaiToolStream: Bool?
     public var supportsStrictMode: Bool?
+    public var supportsOpenAIGrammarTools: Bool?
     public var cacheControlFormat: String?
     public var sendSessionAffinityHeaders: Bool?
     public var supportsLongCacheRetention: Bool?
@@ -84,6 +85,7 @@ public enum Compat {
         if override.vercelGatewayRouting != nil { detected.vercelGatewayRouting = override.vercelGatewayRouting }
         if override.zaiToolStream != nil { detected.zaiToolStream = override.zaiToolStream }
         if override.supportsStrictMode != nil { detected.supportsStrictMode = override.supportsStrictMode }
+        if override.supportsOpenAIGrammarTools != nil { detected.supportsOpenAIGrammarTools = override.supportsOpenAIGrammarTools }
         if override.cacheControlFormat != nil { detected.cacheControlFormat = override.cacheControlFormat }
         if override.sendSessionAffinityHeaders != nil { detected.sendSessionAffinityHeaders = override.sendSessionAffinityHeaders }
         if override.supportsLongCacheRetention != nil { detected.supportsLongCacheRetention = override.supportsLongCacheRetention }
@@ -108,6 +110,7 @@ public enum Compat {
         c.chatTemplateKwargs = [:]
         c.zaiToolStream = false
         c.supportsStrictMode = true
+        c.supportsOpenAIGrammarTools = false
 
         if provider == .openRouter || lower.contains("openrouter.ai") {
             c.supportsStore = false; c.thinkingFormat = "openrouter"; c.openRouterRouting = [:]

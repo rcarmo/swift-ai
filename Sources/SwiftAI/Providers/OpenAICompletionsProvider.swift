@@ -385,17 +385,22 @@ public enum OpenAICompletionsProvider {
         }
         for tool in delta.toolCalls ?? [] {
             let key = tool.index
+            let isCustom = tool.custom != nil || tool.type == "custom"
             if state.activeTools[key] == nil {
                 let idx = state.partial.content.count
-                state.partial.content.append(ContentBlock(type: "toolCall", id: tool.id, name: tool.function?.name))
-                state.activeTools[key] = ActiveTool(index: key, id: tool.id, name: tool.function?.name, args: "", contentIndex: idx)
+                let name = tool.function?.name ?? tool.custom?.name
+                state.partial.content.append(ContentBlock(type: "toolCall", id: tool.id, name: name))
+                state.activeTools[key] = ActiveTool(index: key, id: tool.id, name: name, args: "", contentIndex: idx, customProperty: isCustom ? "input" : nil, customInput: "")
                 if let id = tool.id, let detail = state.pendingReasoningDetails[id] { state.partial.content[idx].thoughtSignature = jsonString(detail) }
                 yield(.toolCallStart(contentIndex: idx, partial: state.partial))
             }
             guard var active = state.activeTools[key] else { continue }
             if let id = tool.id { active.id = id; state.partial.content[active.contentIndex].id = id; if let detail = state.pendingReasoningDetails[id] { state.partial.content[active.contentIndex].thoughtSignature = jsonString(detail) } }
-            if let name = tool.function?.name { active.name = name; state.partial.content[active.contentIndex].name = name }
-            if let args = tool.function?.arguments, !args.isEmpty { active.args += args; yield(.toolCallDelta(contentIndex: active.contentIndex, delta: args, partial: state.partial)) }
+            if let name = tool.function?.name ?? tool.custom?.name { active.name = name; state.partial.content[active.contentIndex].name = name }
+            if isCustom, let input = tool.custom?.input, !input.isEmpty {
+                let next = (active.customInput ?? "") + input
+                if let delta = appendCustomInput(active: &active, nextInput: next, close: false) { yield(.toolCallDelta(contentIndex: active.contentIndex, delta: delta, partial: state.partial)) }
+            } else if let args = tool.function?.arguments, !args.isEmpty { active.args += args; yield(.toolCallDelta(contentIndex: active.contentIndex, delta: args, partial: state.partial)) }
             state.activeTools[key] = active
         }
     }
@@ -409,8 +414,9 @@ public enum OpenAICompletionsProvider {
             if block.type == "thinking" { yield(.thinkingEnd(contentIndex: idx, content: block.thinking ?? "", partial: state.partial)) }
         }
         for key in state.activeTools.keys.sorted() {
-            guard let active = state.activeTools[key] else { continue }
-            let args = parseJSONObject(active.args)
+            guard var active = state.activeTools[key] else { continue }
+            if active.customProperty != nil, let delta = appendCustomInput(active: &active, nextInput: active.customInput ?? "", close: true) { yield(.toolCallDelta(contentIndex: active.contentIndex, delta: delta, partial: state.partial)) }
+            let args = active.customProperty.map { [$0: JSONValue.string(active.customInput ?? "")] } ?? parseJSONObject(active.args)
             state.partial.content[active.contentIndex].arguments = args
             let call = ContentBlock(type: "toolCall", id: active.id, name: active.name, arguments: args)
             yield(.toolCallEnd(contentIndex: active.contentIndex, toolCall: call, partial: state.partial))
@@ -426,6 +432,19 @@ public enum OpenAICompletionsProvider {
         }
     }
 
+    private static func appendCustomInput(active: inout ActiveTool, nextInput: String, close: Bool) -> String? {
+        guard let property = active.customProperty, active.customClosed != true, nextInput.hasPrefix(active.customInput ?? "") else { return nil }
+        let current = active.customInput ?? ""
+        let inputDelta = String(nextInput.dropFirst(current.count))
+        if !close && inputDelta.isEmpty { return nil }
+        var delta = ""
+        if active.customStarted != true { delta += "{\"\(property)\":\""; active.customStarted = true }
+        delta += String((try? JSONEncoder().encode(JSONValue.string(inputDelta))).flatMap { String(data: $0, encoding: .utf8) }?.dropFirst().dropLast() ?? Substring(inputDelta))
+        active.customInput = nextInput
+        if close { delta += "\"}"; active.customClosed = true }
+        active.args = delta
+        return delta
+    }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func jsonString(_ value: JSONValue) -> String { guard let data = try? JSONEncoder().encode(value) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func reasoningDetailID(_ value: JSONValue) -> String? { if case .object(let object) = value, object["type"] == .string("reasoning.encrypted") { return object["id"]?.stringValue }; return nil }
@@ -452,7 +471,7 @@ private struct StreamState {
     mutating func applyUsage(_ raw: SSEUsage) { var u = partial.usage ?? Usage(); u.input = raw.promptTokens ?? 0; u.output = raw.completionTokens ?? 0; u.reasoning = raw.completionTokensDetails?.reasoningTokens ?? 0; u.totalTokens = raw.totalTokens ?? (u.input + u.output); if let cached = raw.promptTokensDetails?.cachedTokens ?? raw.promptCacheHitTokens { u.cacheRead = cached; u.input = max(0, u.input - cached) }; if let written = raw.promptTokensDetails?.cacheWriteTokens { u.cacheWrite = written; u.input = max(0, u.input - written) }; AIUtilities.applyCost(model: model, usage: &u); partial.usage = u }
 }
 
-private struct ActiveTool { var index: Int; var id: String?; var name: String?; var args: String; var contentIndex: Int }
+private struct ActiveTool { var index: Int; var id: String?; var name: String?; var args: String; var contentIndex: Int; var customProperty: String? = nil; var customInput: String? = nil; var customStarted: Bool = false; var customClosed: Bool = false }
 
 private struct ChatCompletionResponse: Decodable { var id: String?; var model: String?; var choices: [Choice]; var usage: ChatUsage?; struct Choice: Decodable { var message: ChatMessage; var finishReason: String?; enum CodingKeys: String, CodingKey { case message; case finishReason = "finish_reason" } }; struct ChatMessage: Decodable { var content: String? } }
 private struct ChatUsage: Decodable { var promptTokens: Int?; var completionTokens: Int?; var totalTokens: Int?; var completionTokensDetails: CompletionTokensDetails?; enum CodingKeys: String, CodingKey { case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens"; case completionTokensDetails = "completion_tokens_details" }; struct CompletionTokensDetails: Decodable { var reasoningTokens: Int?; enum CodingKeys: String, CodingKey { case reasoningTokens = "reasoning_tokens" } } }
@@ -460,6 +479,7 @@ private struct ChatUsage: Decodable { var promptTokens: Int?; var completionToke
 private struct SSEChunk: Decodable { var id: String?; var model: String?; var choices: [SSEChoice]; var usage: SSEUsage? }
 private struct SSEChoice: Decodable { var index: Int?; var delta: SSEDelta; var finishReason: String?; var usage: SSEUsage?; enum CodingKeys: String, CodingKey { case index, delta, usage; case finishReason = "finish_reason" } }
 private struct SSEDelta: Decodable { var role: String?; var content: String?; var toolCalls: [SSEToolCall]?; var reasoning: String?; var reasoningContent: String?; var reasoningText: String?; var reasoningDetails: [JSONValue]?; enum CodingKeys: String, CodingKey { case role, content, reasoning; case toolCalls = "tool_calls"; case reasoningContent = "reasoning_content"; case reasoningText = "reasoning_text"; case reasoningDetails = "reasoning_details" } }
-private struct SSEToolCall: Decodable { var index: Int; var id: String?; var type: String?; var function: SSEToolFunction? }
+private struct SSEToolCall: Decodable { var index: Int; var id: String?; var type: String?; var function: SSEToolFunction?; var custom: SSEToolCustom? }
 private struct SSEToolFunction: Decodable { var name: String?; var arguments: String? }
+private struct SSEToolCustom: Decodable { var name: String?; var input: String? }
 private struct SSEUsage: Decodable { var promptTokens: Int?; var completionTokens: Int?; var totalTokens: Int?; var promptCacheHitTokens: Int?; var promptTokensDetails: PromptTokensDetails?; var completionTokensDetails: CompletionTokensDetails?; enum CodingKeys: String, CodingKey { case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens"; case promptCacheHitTokens = "prompt_cache_hit_tokens"; case promptTokensDetails = "prompt_tokens_details"; case completionTokensDetails = "completion_tokens_details" }; struct PromptTokensDetails: Decodable { var cachedTokens: Int?; var cacheWriteTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens"; case cacheWriteTokens = "cache_write_tokens" } }; struct CompletionTokensDetails: Decodable { var reasoningTokens: Int?; enum CodingKeys: String, CodingKey { case reasoningTokens = "reasoning_tokens" } } }

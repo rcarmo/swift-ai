@@ -1024,6 +1024,26 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(function["strict"], .bool(true))
     }
 
+    func testOpenAICompletionsCustomGrammarStreamReconstruction() throws {
+        let sse = """
+        data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"custom","custom":{"name":"emit","input":"ab"}}]}}]}
+
+        data: {"choices":[{"delta":{"tool_calls":[{"index":0,"custom":{"input":"cd"}}]}}]}
+
+        data: {"choices":[{"finish_reason":"tool_calls","delta":{}}]}
+
+        data: [DONE]
+
+        """
+        let events = OpenAICompletionsProvider.processSSEText(sse, model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI))
+        let deltas = events.compactMap { event -> String? in if case .toolCallDelta(_, let delta, _) = event { return delta }; return nil }
+        XCTAssertEqual(deltas, ["{\"input\":\"ab", "cd", "\"}"])
+        let ended = events.compactMap { event -> ContentBlock? in if case .toolCallEnd(_, let toolCall, _) = event { return toolCall }; return nil }.last
+        XCTAssertEqual(ended?.name, "emit")
+        XCTAssertEqual(ended?.arguments?["input"], .string("abcd"))
+        XCTAssertTrue(events.contains { if case .done(let reason, _) = $0 { return reason == .toolUse }; return false })
+    }
+
     func testResponsesCodexAzureConstrainedSamplingAndCustomInputStream() throws {
         let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["input": .object(["type": .string("string")])]), "required": .array([.string("input")])])
         let tool = Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiRegex: "[a-z]+"))

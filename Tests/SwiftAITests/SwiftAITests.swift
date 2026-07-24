@@ -1024,6 +1024,71 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(function["strict"], .bool(true))
     }
 
+    func testResponsesCodexAzureConstrainedSamplingAndCustomInputStream() throws {
+        let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["input": .object(["type": .string("string")])]), "required": .array([.string("input")])])
+        let tool = Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiRegex: "[a-z]+"))
+        let compat = OpenAIResponsesCompat(supportsOpenAIGrammarTools: true)
+        for api in [API.openAIResponses, .azureOpenAIResponses, .openAICodexResponses] {
+            let model = Model(id: "m", name: "M", api: api, provider: .openAI, responsesCompat: compat)
+            let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [tool]), options: nil)
+            guard case .array(let tools)? = body["tools"], case .object(let first)? = tools.first else { return XCTFail("missing tools for \(api.rawValue)") }
+            XCTAssertEqual(first["type"], .string("custom"), api.rawValue)
+            guard case .object(let format)? = first["format"] else { return XCTFail("missing format") }
+            XCTAssertEqual(format["syntax"], .string("regex"))
+        }
+        let sse = """
+        event: response.output_item.added
+        data: {"item":{"type":"custom_tool_call","id":"ctc_1","call_id":"call_1","name":"emit","input":"a"}}
+
+        event: response.custom_tool_call_input.delta
+        data: {"delta":"bc"}
+
+        event: response.custom_tool_call_input.done
+        data: {"input":"abcd"}
+
+        event: response.output_item.done
+        data: {"item":{"type":"custom_tool_call","id":"ctc_1","call_id":"call_1","name":"emit","input":"abcd"}}
+
+        event: response.completed
+        data: {"response":{"status":"completed","output":[]}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(sse, model: Model(id: "m", name: "M", api: .openAIResponses, provider: .openAI))
+        let deltas = events.compactMap { event -> String? in if case .toolCallDelta(_, let delta, _) = event { return delta }; return nil }
+        XCTAssertEqual(deltas, ["{\"input\":\"bc", "d\"}"])
+        let ended = events.compactMap { event -> ContentBlock? in if case .toolCallEnd(_, let toolCall, _) = event { return toolCall }; return nil }.last
+        XCTAssertEqual(ended?.arguments?["input"], .string("abcd"))
+    }
+
+    func testProviderRetryWiredIntoResponsesTransport() async throws {
+        final class Box: @unchecked Sendable { var attempts = 0 }
+        let box = Box()
+        OpenAIResponsesProvider.requestTransport = { _, _ in
+            box.attempts += 1
+            if box.attempts == 1 { throw ProviderRetryError(status: 503, headers: ["retry-after-ms": "1"], message: "temporary") }
+            let text = "event: response.completed\ndata: {\"response\":{\"status\":\"completed\",\"output\":[]}}\n\n"
+            let bytes = Array(text.utf8)
+            let stream = AsyncThrowingStream<UInt8, Error> { continuation in bytes.forEach { continuation.yield($0) }; continuation.finish() }
+            return (stream, HTTPURLResponse(url: URL(string: "https://example.test")!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        defer { OpenAIResponsesProvider.requestTransport = nil }
+        var options = StreamOptions(); options.apiKey = "key"; options.maxRetries = 1
+        let stream = OpenAIResponsesProvider.stream(model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, baseUrl: "https://example.test/v1"), context: AIContext(messages: [.user("hi")]), options: options)
+        var sawDone = false
+        for await event in stream { if case .done = event { sawDone = true } }
+        XCTAssertTrue(sawDone)
+        XCTAssertEqual(box.attempts, 2)
+    }
+
+    func testProviderRetryCapAndCancellation() async throws {
+        do { _ = try await ProviderRetry.run(maxRetries: 1, maxRetryDelayMs: 1_000) { throw ProviderRetryError(status: 429, headers: ["retry-after": "120"], message: "slow") } as String; XCTFail("expected retry cap failure") } catch { XCTAssertTrue(String(describing: error).contains("Server requested")) }
+        let task = Task {
+            try await ProviderRetry.run(maxRetries: 1, sleep: { _ in try await Task.sleep(nanoseconds: 10_000_000_000) }) { throw ProviderRetryError(status: 503, headers: ["retry-after-ms": "10000"], message: "slow") } as String
+        }
+        task.cancel()
+        do { _ = try await task.value; XCTFail("expected cancellation") } catch is CancellationError {}
+    }
+
     func testRetryPolicy() throws {
         XCTAssertEqual(RetryPolicy(options: Optional<StreamOptions>.none).maxRetries, 0)
         var explicit = StreamOptions()

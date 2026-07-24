@@ -41,7 +41,9 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
     public var sendSessionIdHeader: Bool?
     public var supportsLongCacheRetention: Bool?
     public var supportsToolSearch: Bool?
-    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch }
+    public var supportsStrictMode: Bool?
+    public var supportsOpenAIGrammarTools: Bool?
+    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools }
 }
 public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?

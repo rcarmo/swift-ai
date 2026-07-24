@@ -299,7 +299,10 @@ public enum OpenAICompletionsProvider {
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
         let request = try await makeRequest(model: model, context: context, options: options, stream: true)
-        let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
+        let policy = RetryPolicy(options: options)
+        let (bytes, response) = try await ProviderRetry.run(maxRetries: policy.maxRetries, maxRetryDelayMs: policy.maxRetryDelayMs) {
+            try await HTTPRetry.providerBytes(for: request, maxRetryDelayMs: policy.maxRetryDelayMs)
+        }
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
@@ -318,7 +321,10 @@ public enum OpenAICompletionsProvider {
 
     private static func request(model: Model, context: AIContext, options: StreamOptions?) async throws -> Message {
         let request = try await makeRequest(model: model, context: context, options: options, stream: false)
-        let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(options: options))
+        let policy = RetryPolicy(options: options)
+        let (data, response) = try await ProviderRetry.run(maxRetries: policy.maxRetries, maxRetryDelayMs: policy.maxRetryDelayMs) {
+            try await HTTPRetry.providerData(for: request, maxRetryDelayMs: policy.maxRetryDelayMs)
+        }
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "") }

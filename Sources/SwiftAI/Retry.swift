@@ -231,8 +231,33 @@ public enum HTTPRetry {
         throw lastError ?? AIError.provider("retry failed")
     }
 
+    public static func providerData(for request: URLRequest, maxRetryDelayMs: Int = 60_000) async throws -> (Data, URLResponse) {
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                let headers = Dictionary(uniqueKeysWithValues: http.allHeaderFields.map { (String(describing: $0.key), String(describing: $0.value)) })
+                let providerError = ProviderRetryError(status: http.statusCode, headers: headers, message: "HTTP \(http.statusCode)")
+                if ProviderRetry.isRetryable(providerError) { throw providerError }
+            }
+            return (data, response)
+        } catch let error as ProviderRetryError {
+            throw error
+        } catch {
+            throw ProviderRetryError(status: nil, message: String(describing: error))
+        }
+    }
+
     public static func bytes(for request: URLRequest, policy: RetryPolicy) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
         let (data, response) = try await data(for: request, policy: policy)
+        let stream = AsyncThrowingStream<UInt8, Error> { continuation in
+            for byte in data { continuation.yield(byte) }
+            continuation.finish()
+        }
+        return (stream, response)
+    }
+
+    public static func providerBytes(for request: URLRequest, maxRetryDelayMs: Int = 60_000) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        let (data, response) = try await providerData(for: request, maxRetryDelayMs: maxRetryDelayMs)
         let stream = AsyncThrowingStream<UInt8, Error> { continuation in
             for byte in data { continuation.yield(byte) }
             continuation.finish()

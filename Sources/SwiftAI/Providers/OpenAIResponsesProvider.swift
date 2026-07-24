@@ -41,7 +41,8 @@ public enum OpenAIResponsesProvider {
         var input = convertInput(model: model, context: context, deferredMarkers: plan.markers)
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
-        if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0) }) }
+        let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
+        if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0, supportsOpenAIGrammarTools: supportsGrammar) }) }
         if let t = options?.temperature { body["temperature"] = .number(t) }
         if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(max)) }
         if model.reasoning {
@@ -167,6 +168,7 @@ public enum OpenAIResponsesProvider {
         var suffix = "/responses"
         if model.api == .openAICodexResponses { base = resolveCodexURL(model.baseUrl); suffix = "" }
         if model.api == .azureOpenAIResponses { let cfg = try resolveAzureConfig(model: model, options: options); base = cfg.baseURL; suffix = "/responses?api-version=\(cfg.apiVersion.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cfg.apiVersion)"; requestModel.id = cfg.deployment }
+        try validateConstrainedSampling(tools: context.tools, model: requestModel)
         var body = buildRequestBody(model: requestModel, context: context, options: options)
         if let hook = options?.onPayload { body = try await hook(body, model) }
         var request = URLRequest(url: URL(string: base + suffix)!)
@@ -201,9 +203,12 @@ public enum OpenAIResponsesProvider {
         }
         do {
             let policy = RetryPolicy(options: options)
-            let bytesAndResponse: (AsyncThrowingStream<UInt8, Error>, URLResponse)
-            if let transport = requestTransport { bytesAndResponse = try await transport(request, policy) }
-            else { bytesAndResponse = try await HTTPRetry.bytes(for: request, policy: policy) }
+            let providerRetries = policy.maxRetries
+            let retryRequest = request
+            let bytesAndResponse: (AsyncThrowingStream<UInt8, Error>, URLResponse) = try await ProviderRetry.run(maxRetries: providerRetries, maxRetryDelayMs: policy.maxRetryDelayMs) {
+                if let transport = requestTransport { return try await transport(retryRequest, RetryPolicy(maxRetries: 0, maxRetryDelayMs: policy.maxRetryDelayMs)) }
+                return try await HTTPRetry.providerBytes(for: retryRequest, maxRetryDelayMs: policy.maxRetryDelayMs)
+            }
             let (bytes, response) = bytesAndResponse
             guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
             if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
@@ -246,12 +251,15 @@ public enum OpenAIResponsesProvider {
             case "message": state.partial.content.append(ContentBlock(type: "text")); state.current = ("message", state.partial.content.count - 1); yield(.textStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
             case "reasoning": state.partial.content.append(ContentBlock(type: "thinking")); state.current = ("reasoning", state.partial.content.count - 1); yield(.thinkingStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
             case "function_call": let block = ContentBlock(type: "toolCall", id: item.item.callId ?? item.item.id, name: item.item.name); state.partial.content.append(block); state.current = ("function_call", state.partial.content.count - 1); state.toolArgs[state.partial.content.count - 1] = ""; yield(.toolCallStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
+            case "custom_tool_call": var block = ContentBlock(type: "toolCall", id: item.item.callId ?? item.item.id, name: item.item.name); block.arguments = ["input": .string(item.item.input ?? "")]; state.partial.content.append(block); state.current = ("custom_tool_call", state.partial.content.count - 1); state.customInputs[state.partial.content.count - 1] = GrammarInputBuffer(property: "input", input: item.item.input ?? ""); yield(.toolCallStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
             default: break
             }
         case "response.output_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].text = (state.partial.content[idx].text ?? "") + raw; yield(.textDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.reasoning_summary_text.delta", "response.reasoning_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + raw; yield(.thinkingDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.function_call_arguments.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.toolArgs[idx, default: ""] += raw; yield(.toolCallDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
         case "response.function_call_arguments.done": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(ResponseArgumentsDone.self, from: data) { state.toolArgs[idx] = raw.arguments ?? state.toolArgs[idx] ?? "" }
+        case "response.custom_tool_call_input.delta": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(CustomToolInputDelta.self, from: data), let delta = appendCustomInput(index: idx, nextInput: (state.customInputs[idx]?.input ?? "") + (raw.delta ?? ""), close: false, state: &state) { yield(.toolCallDelta(contentIndex: idx, delta: delta, partial: state.partial)) }
+        case "response.custom_tool_call_input.done": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(CustomToolInputDone.self, from: data), let delta = appendCustomInput(index: idx, nextInput: raw.input ?? state.customInputs[idx]?.input ?? "", close: true, state: &state) { yield(.toolCallDelta(contentIndex: idx, delta: delta, partial: state.partial)) }
         case "response.output_item.done": if let raw = try? JSONDecoder().decode(ResponseOutputItemDone.self, from: data) { applyReasoningItem(raw.item, state: &state, overwriteEncryptedContent: true) }; closeCurrent(state: &state, yield: yield)
         case "response.completed", "response.incomplete": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; if let responseModel = raw.response?.model, !responseModel.isEmpty, responseModel != state.model.id { state.partial.responseModel = responseModel }; for item in raw.response?.output ?? [] { applyReasoningItem(item, state: &state, overwriteEncryptedContent: false) }; applyUsage(raw.response?.usage, serviceTier: raw.response?.serviceTier, state: &state); state.partial.stopReason = mapStatus(raw.response?.status ?? (eventName == "response.incomplete" ? "incomplete" : nil)); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
         case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; state.partial.stopReason = .error; let msg = raw.response?.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? raw.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? "response failed"; state.partial.errorMessage = msg; yield(.error(reason: .error, message: state.partial, error: AIError.provider(msg))) }
@@ -260,7 +268,20 @@ public enum OpenAIResponsesProvider {
         }
     }
 
-    private static func closeCurrent(state: inout ResponsesStreamState, yield: (AIEvent) -> Void) { guard let current = state.current else { return }; let block = state.partial.content[current.index]; switch current.type { case "message": yield(.textEnd(contentIndex: current.index, content: block.text ?? "", partial: state.partial)); case "reasoning": yield(.thinkingEnd(contentIndex: current.index, content: block.thinking ?? "", partial: state.partial)); case "function_call": let args = parseJSONObject(state.toolArgs[current.index] ?? ""); state.partial.content[current.index].arguments = args; yield(.toolCallEnd(contentIndex: current.index, toolCall: state.partial.content[current.index], partial: state.partial)); default: break }; state.current = nil }
+    private static func appendCustomInput(index: Int, nextInput: String, close: Bool, state: inout ResponsesStreamState) -> String? {
+        guard var buffer = state.customInputs[index], !buffer.closed, nextInput.hasPrefix(buffer.input) else { return nil }
+        let inputDelta = String(nextInput.dropFirst(buffer.input.count))
+        if !close && inputDelta.isEmpty { return nil }
+        var delta = ""
+        if !buffer.started { delta += "{\"\(buffer.property)\":\""; buffer.started = true }
+        delta += String((try? JSONEncoder().encode(JSONValue.string(inputDelta))).flatMap { String(data: $0, encoding: .utf8) }?.dropFirst().dropLast() ?? Substring(inputDelta))
+        buffer.input = nextInput
+        if close { delta += "\"}"; buffer.closed = true }
+        state.customInputs[index] = buffer
+        state.partial.content[index].arguments = [buffer.property: .string(buffer.input)]
+        return delta
+    }
+    private static func closeCurrent(state: inout ResponsesStreamState, yield: (AIEvent) -> Void) { guard let current = state.current else { return }; let block = state.partial.content[current.index]; switch current.type { case "message": yield(.textEnd(contentIndex: current.index, content: block.text ?? "", partial: state.partial)); case "reasoning": yield(.thinkingEnd(contentIndex: current.index, content: block.thinking ?? "", partial: state.partial)); case "function_call": let args = parseJSONObject(state.toolArgs[current.index] ?? ""); state.partial.content[current.index].arguments = args; yield(.toolCallEnd(contentIndex: current.index, toolCall: state.partial.content[current.index], partial: state.partial)); case "custom_tool_call": if let buffer = state.customInputs[current.index] { state.partial.content[current.index].arguments = [buffer.property: .string(buffer.input)] }; yield(.toolCallEnd(contentIndex: current.index, toolCall: state.partial.content[current.index], partial: state.partial)); default: break }; state.current = nil }
     private static func applyReasoningItem(_ item: ReasoningOutputItem, state: inout ResponsesStreamState, overwriteEncryptedContent: Bool) { guard item.type == "reasoning", let id = item.id else { return }; guard let idx = state.partial.content.firstIndex(where: { $0.type == "thinking" && ($0.id == id || $0.thinkingSignature == nil) }) else { return }; state.partial.content[idx].id = id; let existing = decodeReasoningSignature(state.partial.content[idx].thinkingSignature); var object = existing ?? item.asJSON(); if !overwriteEncryptedContent, existing?["encrypted_content"] != nil { return }; if let encrypted = item.encryptedContent, !encrypted.isEmpty { object["encrypted_content"] = .string(encrypted) }; if let encoded = encodeReasoningSignature(object) { state.partial.content[idx].thinkingSignature = encoded } }
     private static func decodeReasoningSignature(_ signature: String?) -> [String: JSONValue]? { guard let signature, let data = signature.data(using: .utf8) else { return nil }; return try? JSONDecoder().decode([String: JSONValue].self, from: data) }
     private static func encodeReasoningSignature(_ object: [String: JSONValue]) -> String? { guard let data = try? JSONEncoder().encode(object) else { return nil }; return String(data: data, encoding: .utf8) }
@@ -281,7 +302,7 @@ public enum OpenAIResponsesProvider {
                 if let tools = deferredMarkers[msg.timestamp], !tools.isEmpty {
                     let callID = "ts_" + AIUtilities.shortHash("\(msg.timestamp):\(tools.map(\.name).joined(separator: ","))")
                     out.append(.object(["type": .string("tool_search_call"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed")]))
-                    out.append(.object(["type": .string("tool_search_output"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed"), "tools": .array(tools.map { toolJSON($0, deferred: true) })]))
+                    out.append(.object(["type": .string("tool_search_output"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed"), "tools": .array(tools.map { toolJSON($0, deferred: true, supportsOpenAIGrammarTools: model.responsesCompat?.supportsOpenAIGrammarTools == true) })]))
                 }
                 let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
                 out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": toolResultOutput(msg)]))
@@ -334,7 +355,36 @@ public enum OpenAIResponsesProvider {
     private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
     private static func normalizeResponsesItemID(_ value: String) -> String { let raw = value.hasPrefix("fc_") ? String(value.dropFirst(3)) : value; let filtered = raw.filter { $0.isLetter || $0.isNumber }; if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }; return "fc_" + AIUtilities.shortHash(raw) }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
-    private static func toolJSON(_ tool: Tool, deferred: Bool = false) -> JSONValue { var obj: [String: JSONValue] = ["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]; if deferred { obj["defer_loading"] = .bool(true) }; return .object(obj) }
+    private static func toolJSON(_ tool: Tool, deferred: Bool = false, supportsOpenAIGrammarTools: Bool = false) -> JSONValue {
+        if tool.constrainedSampling?.type == "grammar", supportsOpenAIGrammarTools {
+            let variants = tool.constrainedSampling?.variants
+            let lark = variants?.openaiLark?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let regex = variants?.openaiRegex?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let definition = (lark?.isEmpty == false ? lark : (regex?.isEmpty == false ? regex : nil)), (try? OpenAICompletionsProvider.grammarInputProperty(tool)) != nil {
+                var obj: [String: JSONValue] = ["type": .string("custom"), "name": .string(tool.name), "description": .string(tool.description), "format": .object(["type": .string("grammar"), "syntax": .string(lark?.isEmpty == false ? "lark" : "regex"), "definition": .string(definition)])]
+                if deferred { obj["defer_loading"] = .bool(true) }
+                return .object(obj)
+            }
+        }
+        var obj: [String: JSONValue] = ["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]
+        obj["strict"] = .bool(tool.constrainedSampling?.type == "json_schema" ? true : false)
+        if deferred { obj["defer_loading"] = .bool(true) }
+        return .object(obj)
+    }
+    private static func validateConstrainedSampling(tools: [Tool]?, model: Model) throws {
+        let supportsStrict = model.responsesCompat?.supportsStrictMode != false
+        let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
+        for tool in tools ?? [] {
+            if tool.constrainedSampling?.type == "json_schema", tool.constrainedSampling?.strict == "require", !supportsStrict { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but strict tools are unsupported.") }
+            if tool.constrainedSampling?.type == "grammar", supportsGrammar {
+                let variants = tool.constrainedSampling?.variants
+                let hasLark = variants?.openaiLark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                let hasRegex = variants?.openaiRegex?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                if !hasLark && !hasRegex { throw AIError.provider("Tool \"\(tool.name)\" cannot use grammar constrained sampling: no supported grammar variant was provided.") }
+                _ = try OpenAICompletionsProvider.grammarInputProperty(tool)
+            }
+        }
+    }
     private static func deferredToolPlan(model: Model, context: AIContext) -> (immediateTools: [Tool], markers: [Int64: [Tool]]) {
         let tools = context.tools ?? []
         guard supportsToolSearch(model), !tools.isEmpty else { return (tools, [:]) }
@@ -364,12 +414,15 @@ public enum OpenAIResponsesProvider {
     }
 }
 
-private struct ResponsesStreamState { var model: Model; var partial: Message; var started = false; var sawTerminal = false; var current: (type: String, index: Int)?; var toolArgs: [Int: String] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
+private struct GrammarInputBuffer { var property: String; var input: String; var started = false; var closed = false }
+private struct ResponsesStreamState { var model: Model; var partial: Message; var started = false; var sawTerminal = false; var current: (type: String, index: Int)?; var toolArgs: [Int: String] = [:]; var customInputs: [Int: GrammarInputBuffer] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct ResponseCreated: Decodable { var response: Inner?; struct Inner: Decodable { var id: String? } }
-private struct ResponseOutputItemAdded: Decodable { var item: Item; struct Item: Decodable { var type: String; var id: String?; var callId: String?; var name: String?; enum CodingKeys: String, CodingKey { case type, id, name; case callId = "call_id" } } }
+private struct ResponseOutputItemAdded: Decodable { var item: Item; struct Item: Decodable { var type: String; var id: String?; var callId: String?; var name: String?; var input: String?; enum CodingKeys: String, CodingKey { case type, id, name, input; case callId = "call_id" } } }
 private struct ResponseOutputItemDone: Decodable { var item: ReasoningOutputItem }
 private struct ReasoningOutputItem: Decodable { var type: String; var id: String?; var summary: JSONValue?; var encryptedContent: String?; enum CodingKeys: String, CodingKey { case type, id, summary; case encryptedContent = "encrypted_content" }; func asJSON() -> [String: JSONValue] { var object: [String: JSONValue] = ["type": .string(type)]; if let id { object["id"] = .string(id) }; if let summary { object["summary"] = summary }; if let encryptedContent { object["encrypted_content"] = .string(encryptedContent) }; return object } }
 private struct ResponseDelta: Decodable { var delta: String? }
+private struct CustomToolInputDelta: Decodable { var delta: String? }
+private struct CustomToolInputDone: Decodable { var input: String? }
 private struct ResponseArgumentsDone: Decodable { var arguments: String? }
 private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var model: String?; var serviceTier: String?; var usage: ResponseUsage?; var output: [ReasoningOutputItem]?; enum CodingKeys: String, CodingKey { case id, status, model, usage, output; case serviceTier = "service_tier" } } }
 private struct ResponseUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var totalTokens: Int?; var inputTokenDetails: InputTokenDetails?; var outputTokenDetails: OutputTokenDetails?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case totalTokens = "total_tokens"; case inputTokenDetails = "input_tokens_details"; case outputTokenDetails = "output_tokens_details" }; struct InputTokenDetails: Decodable { var cachedTokens: Int?; var cacheWriteTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens"; case cacheWriteTokens = "cache_write_tokens" } }; struct OutputTokenDetails: Decodable { var reasoningTokens: Int?; enum CodingKeys: String, CodingKey { case reasoningTokens = "reasoning_tokens" } } }

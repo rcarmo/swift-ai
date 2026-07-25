@@ -59,6 +59,8 @@ public enum AnthropicMessagesProvider {
             headers["Authorization"] = "Bearer \(key)"
             for (k, v) in AIUtilities.copilotHeaders() { headers[k] = v }
             for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { headers[k] = v }
+        } else if isBearerAuthToken(key, env: options?.env) {
+            headers["Authorization"] = key.hasPrefix("Bearer ") ? key : "Bearer \(key)"
         } else {
             headers["X-Api-Key"] = key
         }
@@ -68,6 +70,12 @@ public enum AnthropicMessagesProvider {
         for (k, v) in model.headers ?? [:] { headers[k] = v }
         for (k, v) in options?.headers ?? [:] { headers[k] = v }
         return headers
+    }
+
+    private static func isBearerAuthToken(_ key: String, env: ProviderEnv?) -> Bool {
+        if key.hasPrefix("Bearer ") { return true }
+        let bearerEnvValues = ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_OAUTH_TOKEN"].compactMap { ProviderEnvironment.value($0, env: env) }.filter { !$0.isEmpty }
+        return bearerEnvValues.contains(key)
     }
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {

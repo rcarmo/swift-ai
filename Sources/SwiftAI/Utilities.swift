@@ -179,6 +179,9 @@ public enum AIUtilities {
     }
 
     private static func firstInt(_ object: [String: Any], keys: [String]) -> Int? { for key in keys { if let value = object[key] as? Int { return value } }; return nil }
+    private static func isReadableStreamLike(_ object: [String: Any]) -> Bool {
+        object["getReader"] != nil || object["pipeTo"] != nil || object["locked"] != nil || String(describing: object["constructor"] ?? "").contains("ReadableStream")
+    }
     private static func extractProviderErrorBody(_ object: [String: Any]) -> String? {
         let body: Any?
         if let text = object["body"] as? String { body = text }
@@ -186,6 +189,7 @@ public enum AIUtilities {
         else if let response = object["$response"] as? [String: Any], let responseBody = response["body"] { body = responseBody }
         else { body = nil }
         guard let body else { return nil }
+        if let object = body as? [String: Any], isReadableStreamLike(object) { return nil }
         let text = (body as? String) ?? safeJsonStringify(body)
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty || trimmed == "{}" ? nil : truncateErrorText(trimmed, maxChars: maxProviderErrorBodyChars)

@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.82.0")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1116)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.82.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1109)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 40)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.82.0")
-        XCTAssertEqual(BuiltinModels.modelCount, 1116)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.82.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1109)
         XCTAssertEqual(BuiltinModels.providerCount, 37)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1116)
+        XCTAssertEqual(models.count, 1109)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -159,7 +159,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.82.0")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.82.1")
         XCTAssertEqual(BuiltinImageModels.modelCount, 40)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -250,6 +250,7 @@ final class SwiftAITests: XCTestCase {
 
     func testProviderEnvironmentResolution() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_AUTH_TOKEN": "auth", "ANTHROPIC_API_KEY": "api"]), "auth")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "router"]), "router")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .radius, env: ["PI_GATEWAY_API_KEY": "radius-key"]), "radius-key")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_PROFILE": "default"]), "<authenticated>")
@@ -773,6 +774,17 @@ final class SwiftAITests: XCTestCase {
         let key = gemini.apiKey(credentials: OAuthCredentials(refresh: "r", access: "tok", expires: 0, extra: ["projectId": .string("project")]))
         XCTAssertTrue(key.contains("tok"))
         XCTAssertTrue(key.contains("project"))
+    }
+
+    func testAnthropicBearerAuthEnvHeaders() {
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic)
+        var options = StreamOptions(); options.env = ["ANTHROPIC_AUTH_TOKEN": "auth-token"]
+        let authHeaders = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(), apiKey: "auth-token", options: options)
+        XCTAssertEqual(authHeaders["Authorization"], "Bearer auth-token")
+        XCTAssertNil(authHeaders["X-Api-Key"])
+        let apiHeaders = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(), apiKey: "api-key", options: nil)
+        XCTAssertEqual(apiHeaders["X-Api-Key"], "api-key")
+        XCTAssertNil(apiHeaders["Authorization"])
     }
 
     func testAnthropicOAuthProviderShape() {
@@ -1683,6 +1695,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(generatedStates.contains("handoff=url"))
         XCTAssertEqual(RadiusOAuthProvider.authorizationCodeFields(clientID: "client", code: "code", verifier: "verifier")["code_verifier"], "verifier")
         XCTAssertEqual(RadiusOAuthProvider.refreshTokenFields(clientID: "client", refreshToken: "refresh")["grant_type"], "refresh_token")
+        XCTAssertEqual(RadiusOAuthProvider.tokenEndpoint(gateway: "https://radius.test"), "https://radius.test/v1/oauth/token")
+        XCTAssertEqual(RadiusOAuthProvider.deviceAuthorizationEndpoint(gateway: "radius.test/"), "https://radius.test/v1/oauth/device")
 
         let gatewayConfig = RadiusGatewayConfig(baseUrl: "https://radius.test/v1", models: [RadiusGatewayModel(id: "auto", name: "Radius Auto", reasoning: true, thinkingLevelMap: [.high: "high", .max: "max"], input: ["text", "image"], cost: ModelCost(input: 1, output: 2, cacheRead: 0.1, cacheWrite: 0.2), contextWindow: 128000, maxTokens: 16384)])
         let creds = RadiusOAuthProvider.credentials(refresh: "refresh", access: "access", expiresIn: 3600, gatewayConfig: gatewayConfig, now: Date(timeIntervalSince1970: 1_000))
@@ -1716,7 +1730,7 @@ final class SwiftAITests: XCTestCase {
         final class RadiusHTTPMock: @unchecked Sendable { var requests: [RadiusRecordedRequest] = []; var configFailuresRemaining = 0; var tokenMode = "ok" }
         let mock = RadiusHTTPMock()
         let provider = RadiusOAuthProvider(gateway: "https://radius.test")
-        let oauthJSON = #"{"issuer":"https://radius.test","authorizationEndpoint":"https://radius.test/authorize","tokenEndpoint":"https://radius.test/token","deviceAuthorizationEndpoint":"https://radius.test/device","deviceAuthorizationEventsEndpoint":"https://radius.test/events","verificationEndpoint":"https://radius.test/verify","clientId":"client","scope":"openid ai","deviceCodeGrantType":"urn:ietf:params:oauth:grant-type:device_code"}"#
+        let oauthJSON = #"{"authorizationEndpoint":"https://radius.test/authorize"}"#
         let configJSON = #"{"baseUrl":"https://radius.test/v1","models":[{"id":"auto","name":"Radius Auto","reasoning":true,"input":["text"],"cost":{"input":1,"output":2,"cacheRead":0,"cacheWrite":0},"contextWindow":128000,"maxTokens":16384},{"id":"auto","name":"Duplicate","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1}]}"#
         RadiusOAuthProvider.requestTransport = { request in
             let path = request.url?.path ?? ""
@@ -1725,7 +1739,7 @@ final class SwiftAITests: XCTestCase {
             func response(_ status: Int, _ text: String) -> (Data, URLResponse) { (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["content-type": "application/json"])!) }
             switch path {
             case "/v1/oauth": return response(200, oauthJSON)
-            case "/token":
+            case "/v1/oauth/token":
                 if mock.tokenMode == "denied" { return response(400, #"{"error":"access_denied"}"#) }
                 if mock.tokenMode == "expired" { return response(400, #"{"error":"expired_token"}"#) }
                 return response(200, #"{"access_token":"access-new","refresh_token":"refresh-new","expires_in":3600}"#)
@@ -1738,12 +1752,14 @@ final class SwiftAITests: XCTestCase {
         defer { RadiusOAuthProvider.requestTransport = nil }
 
         let discovered = try await provider.loadOAuthConfig(gateway: provider.gateway)
-        XCTAssertEqual(discovered.clientId, "client")
+        XCTAssertEqual(discovered.clientId, RadiusOAuthProvider.oauthClientID)
+        XCTAssertEqual(discovered.scope, RadiusOAuthProvider.oauthScope)
+        XCTAssertEqual(discovered.deviceCodeGrantType, RadiusOAuthProvider.oauthDeviceCodeGrantType)
         let codeCreds = try await provider.exchangeCode("code", verifier: "verifier", config: discovered)
         XCTAssertEqual(codeCreds.access, "access-new")
-        XCTAssertEqual(mock.requests.first(where: { $0.path == "/token" })?.method, "POST")
-        XCTAssertTrue(mock.requests.first(where: { $0.path == "/token" })?.body.contains("grant_type=authorization_code") == true)
-        XCTAssertTrue(mock.requests.first(where: { $0.path == "/token" })?.body.contains("code_verifier=verifier") == true)
+        XCTAssertEqual(mock.requests.first(where: { $0.path == "/v1/oauth/token" })?.method, "POST")
+        XCTAssertTrue(mock.requests.first(where: { $0.path == "/v1/oauth/token" })?.body.contains("grant_type=authorization_code") == true)
+        XCTAssertTrue(mock.requests.first(where: { $0.path == "/v1/oauth/token" })?.body.contains("code_verifier=verifier") == true)
         let configRequest = mock.requests.first { $0.path == "/v1/config" }
         XCTAssertEqual(configRequest?.auth, "Bearer access-new")
         let injected = provider.modifyModels([Model(id: "old", name: "Old", api: .piMessages, provider: .radius)], credentials: codeCreds)
@@ -1773,9 +1789,9 @@ final class SwiftAITests: XCTestCase {
             let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
             mock.requests.append(path + "?" + body)
             func response(_ status: Int, _ text: String) -> (Data, URLResponse) { (text.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!) }
-            if path == "/device" { return response(200, #"{"device_code":"dev","user_code":"USER","verification_uri":"https://radius.test/verify","interval":1,"expires_in":8}"#) }
+            if path == "/v1/oauth/device" { return response(200, #"{"device_code":"dev","user_code":"USER","verification_uri":"https://radius.test/verify","interval":1,"expires_in":8}"#) }
             if path == "/v1/config" { return response(200, #"{"baseUrl":"https://radius.test/v1","models":[]}"#) }
-            if path == "/token" {
+            if path == "/v1/oauth/token" {
                 let next = mock.tokenResponses.isEmpty ? #"{"error":"authorization_pending"}"# : mock.tokenResponses.removeFirst()
                 let status = next.contains("access_token") ? 200 : 400
                 return response(status, next)

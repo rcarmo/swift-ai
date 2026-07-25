@@ -99,6 +99,8 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(AIUtilities.formatProviderError(status: 503, body: "   "), "503")
         XCTAssertEqual(AIUtilities.formatProviderError(status: 503, body: "", prefix: "OpenAI API error"), "OpenAI API error (503)")
         XCTAssertEqual(AIUtilities.formatProviderError(status: 400, body: String(repeating: "x", count: 4025)), "400: \(String(repeating: "x", count: 4000))... [truncated 25 chars]")
+        let streamLike = AIUtilities.normalizeProviderError(["$response": ["statusCode": 500, "body": ["locked": false, "getReader": "function"]], "message": "500 status code"] as [String: Any])
+        XCTAssertNil(streamLike.body)
         XCTAssertEqual(AIUtilities.safeJsonStringify(["b": 2, "a": 1]), #"{"a":1,"b":2}"#)
 
         let anthropicBody = AnthropicMessagesProvider.buildRequestBody(model: Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, contextWindow: 5000, maxTokens: 2000), context: boundary, options: nil)
@@ -122,6 +124,10 @@ final class CoreUtilityTests: XCTestCase {
         guard let sonnetFields = BedrockProvider.additionalModelRequestFields(model: sonnet5, options: reasoningOptions), case .object(let sonnetThinking)? = sonnetFields["thinking"] else { return XCTFail("missing sonnet 5 thinking") }
         XCTAssertEqual(sonnetThinking["type"], .string("adaptive"))
         XCTAssertEqual(sonnetThinking["display"], .string("summarized"))
+        let opus5 = Model(id: "global.anthropic.claude-opus-5-v1", name: "Claude Opus 5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        reasoningOptions.reasoning = .xhigh
+        guard let opusFields = BedrockProvider.additionalModelRequestFields(model: opus5, options: reasoningOptions), case .object(let outputConfig)? = opusFields["output_config"] else { return XCTFail("missing opus 5 output config") }
+        XCTAssertEqual(outputConfig["effort"], .string("xhigh"))
         XCTAssertEqual(sonnetFields["output_config"], .object(["effort": .string("high")]))
 
         let sse = """
@@ -289,7 +295,7 @@ final class CoreUtilityTests: XCTestCase {
         let removedReplacement = await AIRegistry.shared.model(provider: .faux, id: "replacement")
         XCTAssertEqual(emptyModels, [])
         XCTAssertNil(removedReplacement)
-        try await store.write(providerId: "faux", entry: StoredModelsEntry(models: [Model(id: "cached", name: "Cached", api: .openAIResponses, provider: .faux)]))
+        try await store.write(providerId: "faux", entry: StoredModelsEntry(models: [Model(id: "cached", name: "Cached", api: .openAIResponses, provider: .faux)], etag: "etag-1"))
         await runtime.register(RuntimeProvider(id: .faux, name: "Faux", fallbackModels: fallback, refresh: { _ in throw AIError.provider("network down") }))
         let failed = await runtime.refresh(provider: .faux, allowNetwork: true, force: true)
         XCTAssertEqual(failed.errors.keys.sorted(), ["faux"])
@@ -331,6 +337,20 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertTrue(offline.errors.isEmpty)
         let offlineIDs = await runtime.listModels(provider: .radius).map(\.id)
         XCTAssertEqual(offlineIDs, ["radius-auto"])
+    }
+
+    func testModelsErrorCauseAndRuntimeETagPropagation() async throws {
+        let error = ModelsError("model refresh failed", cause: AIError.provider("boom"))
+        XCTAssertTrue(String(describing: error).contains("boom"))
+        let store = InMemoryProviderModelsStore()
+        try await store.write(providerId: "faux", entry: StoredModelsEntry(models: [Model(id: "cached", name: "Cached", api: .openAIResponses, provider: .faux)], etag: "etag-42"))
+        final class Box: @unchecked Sendable { var etag: String? }
+        let box = Box()
+        let runtime = ModelRuntime(store: store)
+        await runtime.register(RuntimeProvider(id: .faux, name: "Faux", refresh: { context in box.etag = context.currentETag; return [Model(id: "fresh", name: "Fresh", api: .openAIResponses, provider: .faux)] }))
+        let result = await runtime.refresh(provider: .faux, allowNetwork: true, force: true)
+        XCTAssertTrue(result.errors.isEmpty)
+        XCTAssertEqual(box.etag, "etag-42")
     }
 
     func testBootstrapRegistersXAIOAuthAndGrokFallback() async throws {

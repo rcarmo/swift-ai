@@ -159,12 +159,12 @@ public enum BedrockProvider {
 
     private static func supportsAdaptiveThinking(_ model: Model) -> Bool {
         modelMatchCandidates(model).contains { value in
-            value.contains("opus-4-6") || value.contains("opus-4-7") || value.contains("opus-4-8") || value.contains("sonnet-4-6") || value.contains("sonnet-5") || value.contains("fable-5")
+            value.contains("opus-4-6") || value.contains("opus-4-7") || value.contains("opus-4-8") || value.contains("opus-5") || value.contains("sonnet-4-6") || value.contains("sonnet-5") || value.contains("fable-5")
         }
     }
 
     private static func supportsNativeXHighEffort(_ model: Model) -> Bool {
-        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("sonnet-5") || $0.contains("fable-5") }
+        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus-5") || $0.contains("sonnet-5") || $0.contains("fable-5") }
     }
 
     private static func mapBedrockEffort(model: Model, reasoning: ThinkingLevel) -> String {

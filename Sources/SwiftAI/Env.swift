@@ -3,7 +3,7 @@ import Foundation
 public enum ProviderEnvironment {
     private static let providerEnvMap: [Provider: [String]] = [
         .openAI: ["OPENAI_API_KEY"],
-        .anthropic: ["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
+        .anthropic: ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
         .google: ["GEMINI_API_KEY"],
         .googleVertex: ["GOOGLE_CLOUD_API_KEY"],
         .azureOpenAI: ["AZURE_OPENAI_API_KEY"],

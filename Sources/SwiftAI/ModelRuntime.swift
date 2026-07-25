@@ -3,7 +3,15 @@ import Foundation
 public struct StoredModelsEntry: Codable, Equatable, Sendable {
     public var models: [Model]
     public var fetchedAt: Date
-    public init(models: [Model], fetchedAt: Date = Date()) { self.models = models; self.fetchedAt = fetchedAt }
+    public var etag: String?
+    public init(models: [Model], fetchedAt: Date = Date(), etag: String? = nil) { self.models = models; self.fetchedAt = fetchedAt; self.etag = etag }
+}
+
+public struct ModelsError: Error, CustomStringConvertible, Sendable {
+    public var message: String
+    public var cause: String?
+    public init(_ message: String, cause: Error? = nil) { self.message = message; self.cause = cause.map { Diagnostics.formatThrownValue($0) } }
+    public var description: String { cause.map { "\(message): \($0)" } ?? message }
 }
 
 public protocol ProviderModelsStore: Sendable {
@@ -26,8 +34,9 @@ public struct ModelRefreshContext: Sendable {
     public var store: any ProviderModelsStore
     public var allowNetwork: Bool
     public var force: Bool
-    public init(providerId: String, apiKey: String? = nil, store: any ProviderModelsStore, allowNetwork: Bool, force: Bool = false) {
-        self.providerId = providerId; self.apiKey = apiKey; self.store = store; self.allowNetwork = allowNetwork; self.force = force
+    public var currentETag: String?
+    public init(providerId: String, apiKey: String? = nil, store: any ProviderModelsStore, allowNetwork: Bool, force: Bool = false, currentETag: String? = nil) {
+        self.providerId = providerId; self.apiKey = apiKey; self.store = store; self.allowNetwork = allowNetwork; self.force = force; self.currentETag = currentETag
     }
 }
 
@@ -93,10 +102,11 @@ public actor ModelRuntime {
         }
         let store = self.store
         let task = Task<[Model], Error> {
-            if let entry = try await store.read(providerId: providerId.rawValue) { await self.replaceModels(provider: providerId, models: entry.models) }
-            guard allowNetwork, let refresh = provider.refresh else { return (try await store.read(providerId: providerId.rawValue))?.models ?? provider.fallbackModels }
+            let cached = try await store.read(providerId: providerId.rawValue)
+            if let entry = cached { await self.replaceModels(provider: providerId, models: entry.models) }
+            guard allowNetwork, let refresh = provider.refresh else { return cached?.models ?? provider.fallbackModels }
             try Task.checkCancellation()
-            let models = try await refresh(ModelRefreshContext(providerId: providerId.rawValue, apiKey: apiKey, store: store, allowNetwork: allowNetwork, force: force))
+            let models = try await refresh(ModelRefreshContext(providerId: providerId.rawValue, apiKey: apiKey, store: store, allowNetwork: allowNetwork, force: force, currentETag: cached?.etag))
             try await store.write(providerId: providerId.rawValue, entry: StoredModelsEntry(models: models))
             return models
         }

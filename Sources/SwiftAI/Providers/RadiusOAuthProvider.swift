@@ -14,6 +14,9 @@ public struct RadiusOAuthProvider: OAuthProvider {
     public static let callbackPort = 1456
     public static let callbackPath = "/oauth/callback"
     public static let redirectURI = "http://127.0.0.1:1456/oauth/callback"
+    public static let oauthClientID = "pi-gateway"
+    public static let oauthScope = "gateway offline_access"
+    public static let oauthDeviceCodeGrantType = "urn:ietf:params:oauth:grant-type:device_code"
 
     public var gateway: String
     public init(gateway: String = RadiusOAuthProvider.defaultGateway) { self.gateway = Self.normalizeGatewayURL(gateway) }
@@ -34,7 +37,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials {
         let config = try await loadOAuthConfig(gateway: gateway)
-        return try await tokenRequest(url: config.tokenEndpoint, fields: Self.refreshTokenFields(clientID: config.clientId, refreshToken: credentials.refresh), fallbackRefresh: credentials.refresh, fallbackGatewayConfig: Self.gatewayConfig(from: credentials))
+        return try await tokenRequest(url: Self.tokenEndpoint(gateway: gateway), fields: Self.refreshTokenFields(clientID: config.clientId, refreshToken: credentials.refresh), fallbackRefresh: credentials.refresh, fallbackGatewayConfig: Self.gatewayConfig(from: credentials))
     }
 
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
@@ -65,7 +68,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
     public static func generateState() -> String { UUID().uuidString }
 
     public func exchangeCode(_ code: String, verifier: String, config: RadiusOAuthConfig) async throws -> OAuthCredentials {
-        try await tokenRequest(url: config.tokenEndpoint, fields: Self.authorizationCodeFields(clientID: config.clientId, code: code, verifier: verifier), fallbackRefresh: nil, fallbackGatewayConfig: nil)
+        try await tokenRequest(url: Self.tokenEndpoint(gateway: gateway), fields: Self.authorizationCodeFields(clientID: config.clientId, code: code, verifier: verifier), fallbackRefresh: nil, fallbackGatewayConfig: nil)
     }
 
     public func loginDeviceCode(config: RadiusOAuthConfig, callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials {
@@ -81,7 +84,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
         let url = URL(string: Self.normalizeGatewayURL(gateway) + "/v1/oauth")!
         let (data, response) = try await Self.data(for: URLRequest(url: url))
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
-        return try JSONDecoder().decode(RadiusOAuthConfig.self, from: data)
+        return try RadiusOAuthConfig.decode(data: data, gateway: Self.normalizeGatewayURL(gateway))
     }
 
     public func loadGatewayConfig(gateway: String, apiKey: String?) async throws -> RadiusGatewayConfig {
@@ -95,6 +98,8 @@ public struct RadiusOAuthProvider: OAuthProvider {
 
     public static func authorizationCodeFields(clientID: String, code: String, verifier: String) -> [String: String] { ["grant_type": "authorization_code", "client_id": clientID, "code": code, "redirect_uri": redirectURI, "code_verifier": verifier] }
     public static func refreshTokenFields(clientID: String, refreshToken: String) -> [String: String] { ["grant_type": "refresh_token", "client_id": clientID, "refresh_token": refreshToken] }
+    public static func tokenEndpoint(gateway: String) -> String { Self.normalizeGatewayURL(gateway) + "/v1/oauth/token" }
+    public static func deviceAuthorizationEndpoint(gateway: String) -> String { Self.normalizeGatewayURL(gateway) + "/v1/oauth/device" }
     public static func normalizeGatewayURL(_ value: String) -> String { (value.contains("://") ? value : "https://\(value)").trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
 
     public static func credentials(refresh: String, access: String, expiresIn: Double, gatewayConfig: RadiusGatewayConfig?, now: Date = Date()) -> OAuthCredentials {
@@ -126,7 +131,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
     }
 
     private func startDeviceFlow(config: RadiusOAuthConfig) async throws -> DeviceFlowResponse {
-        var request = URLRequest(url: URL(string: config.deviceAuthorizationEndpoint)!)
+        var request = URLRequest(url: URL(string: Self.deviceAuthorizationEndpoint(gateway: gateway))!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.form(["client_id": config.clientId, "scope": config.scope])
@@ -136,7 +141,7 @@ public struct RadiusOAuthProvider: OAuthProvider {
     }
 
     private func pollDeviceToken(config: RadiusOAuthConfig, deviceCode: String) async throws -> OAuthDeviceCodePollStatus<OAuthCredentials> {
-        var request = URLRequest(url: URL(string: config.tokenEndpoint)!)
+        var request = URLRequest(url: URL(string: Self.tokenEndpoint(gateway: gateway))!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.form(["grant_type": config.deviceCodeGrantType, "client_id": config.clientId, "device_code": deviceCode])
@@ -213,6 +218,21 @@ public struct RadiusOAuthConfig: Codable, Equatable, Sendable {
     public var scope: String
     public var deviceCodeGrantType: String
     public init(issuer: String, authorizationEndpoint: String, tokenEndpoint: String, deviceAuthorizationEndpoint: String, deviceAuthorizationEventsEndpoint: String, verificationEndpoint: String, clientId: String, scope: String, deviceCodeGrantType: String) { self.issuer = issuer; self.authorizationEndpoint = authorizationEndpoint; self.tokenEndpoint = tokenEndpoint; self.deviceAuthorizationEndpoint = deviceAuthorizationEndpoint; self.deviceAuthorizationEventsEndpoint = deviceAuthorizationEventsEndpoint; self.verificationEndpoint = verificationEndpoint; self.clientId = clientId; self.scope = scope; self.deviceCodeGrantType = deviceCodeGrantType }
+    public static func decode(data: Data, gateway: String) throws -> RadiusOAuthConfig {
+        let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
+        let authorizationEndpoint = raw["authorizationEndpoint"]?.stringValue ?? raw["authorization_endpoint"]?.stringValue ?? "\(gateway)/v1/oauth/authorize"
+        return RadiusOAuthConfig(
+            issuer: raw["issuer"]?.stringValue ?? gateway,
+            authorizationEndpoint: authorizationEndpoint,
+            tokenEndpoint: raw["tokenEndpoint"]?.stringValue ?? raw["token_endpoint"]?.stringValue ?? RadiusOAuthProvider.tokenEndpoint(gateway: gateway),
+            deviceAuthorizationEndpoint: raw["deviceAuthorizationEndpoint"]?.stringValue ?? raw["device_authorization_endpoint"]?.stringValue ?? RadiusOAuthProvider.deviceAuthorizationEndpoint(gateway: gateway),
+            deviceAuthorizationEventsEndpoint: raw["deviceAuthorizationEventsEndpoint"]?.stringValue ?? raw["device_authorization_events_endpoint"]?.stringValue ?? "\(gateway)/v1/oauth/device/events",
+            verificationEndpoint: raw["verificationEndpoint"]?.stringValue ?? raw["verification_endpoint"]?.stringValue ?? "\(gateway)/v1/oauth/verify",
+            clientId: raw["clientId"]?.stringValue ?? raw["client_id"]?.stringValue ?? RadiusOAuthProvider.oauthClientID,
+            scope: raw["scope"]?.stringValue ?? RadiusOAuthProvider.oauthScope,
+            deviceCodeGrantType: raw["deviceCodeGrantType"]?.stringValue ?? raw["device_code_grant_type"]?.stringValue ?? RadiusOAuthProvider.oauthDeviceCodeGrantType
+        )
+    }
 }
 
 public struct RadiusGatewayConfig: Codable, Equatable, Sendable {

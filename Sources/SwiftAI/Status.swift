@@ -2,10 +2,10 @@ import Foundation
 
 public enum SwiftAIStatus {
     public static let upstreamPackage = "@earendil-works/pi-ai"
-    public static let upstreamVersion = "0.82.0"
-    public static let referenceImplementation = "pi-ai v0.82.0"
+    public static let upstreamVersion = "0.82.1"
+    public static let referenceImplementation = "pi-ai v0.82.1"
 
-    public static let textModelCount = 1116
+    public static let textModelCount = 1109
     public static let textProviderCount = 37
     public static let textAPICount = 9
     public static let imageModelCount = 40

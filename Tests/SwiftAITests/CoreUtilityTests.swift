@@ -268,7 +268,7 @@ final class CoreUtilityTests: XCTestCase {
             XCTAssertEqual(context.providerId, "faux")
             XCTAssertTrue(context.allowNetwork)
             try await Task.sleep(nanoseconds: 10_000_000)
-            return dynamic
+            return ModelRefreshResponse(models: dynamic)
         }))
         let fallbackIDs = await runtime.listModels(provider: .faux).map(\.id)
         XCTAssertEqual(fallbackIDs, ["fallback"])
@@ -306,13 +306,15 @@ final class CoreUtilityTests: XCTestCase {
     func testRadiusRuntimeProviderRefreshUsesConfigAndCacheFallback() async throws {
         let store = InMemoryProviderModelsStore()
         let runtime = ModelRuntime(store: store)
-        final class RadiusMock: @unchecked Sendable { var fail = false; var auth: String? }
+        final class RadiusMock: @unchecked Sendable { var fail = false; var auth: String?; var ifNoneMatch: String?; var notModified = false }
         let mock = RadiusMock()
         RadiusOAuthProvider.requestTransport = { request in
             mock.auth = request.value(forHTTPHeaderField: "Authorization")
+            mock.ifNoneMatch = request.value(forHTTPHeaderField: "If-None-Match")
             if mock.fail { return (#"{"error":"temporary"}"#.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!) }
+            if mock.notModified { return (Data(), HTTPURLResponse(url: request.url!, statusCode: 304, httpVersion: nil, headerFields: ["ETag": "etag-radius"])!) }
             let json = #"{"baseUrl":"https://radius.test/v1","models":[{"id":"radius-auto","name":"Radius Auto","reasoning":true,"input":["text"],"cost":{"input":1,"output":2,"cacheRead":0,"cacheWrite":0},"contextWindow":128000,"maxTokens":16384}]}"#
-            return (json.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return (json.data(using: .utf8)!, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["ETag": "etag-radius"])!)
         }
         defer { RadiusOAuthProvider.requestTransport = nil }
         let fallback = [Model(id: "radius-fallback", name: "Radius Fallback", api: .piMessages, provider: .radius)]
@@ -327,6 +329,15 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(refreshedIDs, ["radius-auto"])
         XCTAssertNil(staleRadiusFallback)
         XCTAssertEqual(registeredRadiusAuto?.baseUrl, "https://radius.test/v1")
+        let stored = try await store.read(providerId: "radius")
+        XCTAssertEqual(stored?.etag, "etag-radius")
+        mock.notModified = true
+        let revalidated = await runtime.refresh(provider: .radius, apiKey: "radius-key", force: true)
+        XCTAssertTrue(revalidated.errors.isEmpty)
+        XCTAssertEqual(mock.ifNoneMatch, "etag-radius")
+        let revalidatedEntry = try await store.read(providerId: "radius")
+        XCTAssertEqual(revalidatedEntry?.models.map(\.id), ["radius-auto"])
+        mock.notModified = false
         mock.fail = true
         let failed = await runtime.refresh(provider: .radius, apiKey: "radius-key", force: true)
         XCTAssertEqual(failed.errors.keys.sorted(), ["radius"])
@@ -347,10 +358,12 @@ final class CoreUtilityTests: XCTestCase {
         final class Box: @unchecked Sendable { var etag: String? }
         let box = Box()
         let runtime = ModelRuntime(store: store)
-        await runtime.register(RuntimeProvider(id: .faux, name: "Faux", refresh: { context in box.etag = context.currentETag; return [Model(id: "fresh", name: "Fresh", api: .openAIResponses, provider: .faux)] }))
+        await runtime.register(RuntimeProvider(id: .faux, name: "Faux", refresh: { context in box.etag = context.currentETag; return ModelRefreshResponse(models: [Model(id: "fresh", name: "Fresh", api: .openAIResponses, provider: .faux)], etag: "etag-43") }))
         let result = await runtime.refresh(provider: .faux, allowNetwork: true, force: true)
         XCTAssertTrue(result.errors.isEmpty)
         XCTAssertEqual(box.etag, "etag-42")
+        let refreshedEntry = try await store.read(providerId: "faux")
+        XCTAssertEqual(refreshedEntry?.etag, "etag-43")
     }
 
     func testBootstrapRegistersXAIOAuthAndGrokFallback() async throws {

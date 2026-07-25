@@ -3,8 +3,9 @@ import Foundation
 public struct StoredModelsEntry: Codable, Equatable, Sendable {
     public var models: [Model]
     public var fetchedAt: Date
+    public var checkedAt: Date
     public var etag: String?
-    public init(models: [Model], fetchedAt: Date = Date(), etag: String? = nil) { self.models = models; self.fetchedAt = fetchedAt; self.etag = etag }
+    public init(models: [Model], fetchedAt: Date = Date(), checkedAt: Date? = nil, etag: String? = nil) { self.models = models; self.fetchedAt = fetchedAt; self.checkedAt = checkedAt ?? fetchedAt; self.etag = etag }
 }
 
 public struct ModelsError: Error, CustomStringConvertible, Sendable {
@@ -46,7 +47,14 @@ public struct ModelRefreshResult: Sendable {
     public init(aborted: Bool = false, errors: [String: String] = [:]) { self.aborted = aborted; self.errors = errors }
 }
 
-public typealias ModelRefreshHandler = @Sendable (ModelRefreshContext) async throws -> [Model]
+public struct ModelRefreshResponse: Sendable {
+    public var models: [Model]
+    public var etag: String?
+    public var notModified: Bool
+    public init(models: [Model], etag: String? = nil, notModified: Bool = false) { self.models = models; self.etag = etag; self.notModified = notModified }
+}
+
+public typealias ModelRefreshHandler = @Sendable (ModelRefreshContext) async throws -> ModelRefreshResponse
 
 public struct RuntimeProvider: Sendable {
     public var id: Provider
@@ -98,7 +106,7 @@ public actor ModelRuntime {
         if let task = inFlight[providerId], !force {
             do { let models = try await task.value; await replaceModels(provider: providerId, models: models); return ModelRefreshResult() }
             catch is CancellationError { return ModelRefreshResult(aborted: true) }
-            catch { return ModelRefreshResult(errors: [providerId.rawValue: String(describing: error)]) }
+            catch { return ModelRefreshResult(errors: [providerId.rawValue: String(describing: ModelsError("Model refresh failed for \(providerId.rawValue)", cause: error))]) }
         }
         let store = self.store
         let task = Task<[Model], Error> {
@@ -106,8 +114,10 @@ public actor ModelRuntime {
             if let entry = cached { await self.replaceModels(provider: providerId, models: entry.models) }
             guard allowNetwork, let refresh = provider.refresh else { return cached?.models ?? provider.fallbackModels }
             try Task.checkCancellation()
-            let models = try await refresh(ModelRefreshContext(providerId: providerId.rawValue, apiKey: apiKey, store: store, allowNetwork: allowNetwork, force: force, currentETag: cached?.etag))
-            try await store.write(providerId: providerId.rawValue, entry: StoredModelsEntry(models: models))
+            let refreshed = try await refresh(ModelRefreshContext(providerId: providerId.rawValue, apiKey: apiKey, store: store, allowNetwork: allowNetwork, force: force, currentETag: cached?.etag))
+            let models = refreshed.models
+            let fetchedAt = refreshed.notModified ? (cached?.fetchedAt ?? Date()) : Date()
+            try await store.write(providerId: providerId.rawValue, entry: StoredModelsEntry(models: models, fetchedAt: fetchedAt, checkedAt: Date(), etag: refreshed.etag ?? cached?.etag))
             return models
         }
         inFlight[providerId] = task
@@ -117,7 +127,7 @@ public actor ModelRuntime {
         catch {
             if let entry = try? await store.read(providerId: providerId.rawValue) { await replaceModels(provider: providerId, models: entry.models) }
             else { await replaceModels(provider: providerId, models: provider.fallbackModels) }
-            return ModelRefreshResult(errors: [providerId.rawValue: String(describing: error)])
+            return ModelRefreshResult(errors: [providerId.rawValue: String(describing: ModelsError("Model refresh failed for \(providerId.rawValue)", cause: error))])
         }
     }
 

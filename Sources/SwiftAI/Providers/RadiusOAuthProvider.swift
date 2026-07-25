@@ -87,13 +87,18 @@ public struct RadiusOAuthProvider: OAuthProvider {
         return try RadiusOAuthConfig.decode(data: data, gateway: Self.normalizeGatewayURL(gateway))
     }
 
-    public func loadGatewayConfig(gateway: String, apiKey: String?) async throws -> RadiusGatewayConfig {
+    public func loadGatewayConfig(gateway: String, apiKey: String?, etag: String? = nil) async throws -> RadiusGatewayConfig {
         var request = URLRequest(url: URL(string: Self.normalizeGatewayURL(gateway) + "/v1/config")!)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let etag, !etag.isEmpty { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
         let (data, response) = try await Self.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
-        return try JSONDecoder().decode(RadiusGatewayConfig.self, from: data)
+        guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("missing HTTP response") }
+        if http.statusCode == 304 { return RadiusGatewayConfig(baseUrl: "", models: [], etag: http.value(forHTTPHeaderField: "ETag") ?? etag, notModified: true) }
+        guard http.statusCode == 200 else { throw RadiusOAuthError.http(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "") }
+        var config = try JSONDecoder().decode(RadiusGatewayConfig.self, from: data)
+        config.etag = http.value(forHTTPHeaderField: "ETag")
+        return config
     }
 
     public static func authorizationCodeFields(clientID: String, code: String, verifier: String) -> [String: String] { ["grant_type": "authorization_code", "client_id": clientID, "code": code, "redirect_uri": redirectURI, "code_verifier": verifier] }
@@ -177,15 +182,16 @@ public enum RadiusRuntimeProviderFactory {
     public static func provider(fallbackModels: [Model] = []) -> RuntimeProvider {
         RuntimeProvider(id: .radius, name: "Radius", fallbackModels: fallbackModels, refresh: { context in
             if !context.allowNetwork {
-                if let cached = try await context.store.read(providerId: context.providerId) { return cached.models }
-                return fallbackModels
+                if let cached = try await context.store.read(providerId: context.providerId) { return ModelRefreshResponse(models: cached.models, etag: cached.etag, notModified: true) }
+                return ModelRefreshResponse(models: fallbackModels)
             }
             let oauth = RadiusOAuthProvider()
-            let config = try await oauth.loadGatewayConfig(gateway: oauth.gateway, apiKey: context.apiKey)
+            let config = try await oauth.loadGatewayConfig(gateway: oauth.gateway, apiKey: context.apiKey, etag: context.currentETag)
+            if config.notModified, let cached = try await context.store.read(providerId: context.providerId) { return ModelRefreshResponse(models: cached.models, etag: config.etag ?? context.currentETag, notModified: true) }
             let models = config.models.map { gatewayModel in
                 Model(id: gatewayModel.id, name: gatewayModel.name, api: .piMessages, provider: .radius, baseUrl: config.baseUrl, reasoning: gatewayModel.reasoning, thinkingLevelMap: gatewayModel.thinkingLevelMap, input: gatewayModel.input, cost: gatewayModel.cost, contextWindow: gatewayModel.contextWindow, maxTokens: gatewayModel.maxTokens)
             }
-            return models
+            return ModelRefreshResponse(models: models, etag: config.etag)
         })
     }
 }
@@ -238,7 +244,17 @@ public struct RadiusOAuthConfig: Codable, Equatable, Sendable {
 public struct RadiusGatewayConfig: Codable, Equatable, Sendable {
     public var baseUrl: String
     public var models: [RadiusGatewayModel]
-    public init(baseUrl: String, models: [RadiusGatewayModel]) { self.baseUrl = baseUrl; self.models = models }
+    public var etag: String?
+    public var notModified: Bool
+    public init(baseUrl: String, models: [RadiusGatewayModel], etag: String? = nil, notModified: Bool = false) { self.baseUrl = baseUrl; self.models = models; self.etag = etag; self.notModified = notModified }
+    enum CodingKeys: String, CodingKey { case baseUrl, models, etag, notModified }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        baseUrl = try c.decode(String.self, forKey: .baseUrl)
+        models = try c.decode([RadiusGatewayModel].self, forKey: .models)
+        etag = try c.decodeIfPresent(String.self, forKey: .etag)
+        notModified = try c.decodeIfPresent(Bool.self, forKey: .notModified) ?? false
+    }
 }
 
 public struct RadiusGatewayModel: Codable, Equatable, Sendable {

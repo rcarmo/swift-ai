@@ -41,8 +41,20 @@ public actor OAuthRegistry {
     public func listProviders() -> [any OAuthProvider] { providers.values.sorted { $0.id < $1.id } }
     public func clear() { providers.removeAll() }
 
+    public func login(id: String, callbacks: OAuthLoginCallbacks = OAuthLoginCallbacks()) async throws -> OAuthCredentials {
+        guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
+        do { return try await provider.login(callbacks: callbacks) }
+        catch { throw ModelsError("OAuth login failed for \(id)", cause: error) }
+    }
+
+    public func refreshToken(id: String, credentials: OAuthCredentials) async throws -> OAuthCredentials {
+        guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
+        do { return try await provider.refreshToken(credentials: credentials) }
+        catch { throw ModelsError("OAuth refresh failed for \(id)", cause: error) }
+    }
+
     public func apiKey(id: String, credentials: OAuthCredentials) throws -> (OAuthCredentials, String) {
-        guard let provider = providers[id] else { throw AIError.provider("OAuth provider \(id) not registered") }
+        guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
         return (credentials, provider.apiKey(credentials: credentials))
     }
 }

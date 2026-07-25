@@ -925,6 +925,36 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(box.refreshAttempts, 2)
     }
 
+    func testOAuthRegistryCausePreservingFailures() async throws {
+        struct FailingOAuthProvider: OAuthProvider {
+            let id = "failing"
+            let name = "Failing"
+            func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials { throw AIError.provider("login boom") }
+            func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { throw AIError.provider("refresh boom") }
+            func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
+            func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
+        }
+        await OAuthRegistry.shared.clear()
+        await OAuthRegistry.shared.register(FailingOAuthProvider())
+        do { _ = try await OAuthRegistry.shared.login(id: "failing"); XCTFail("expected login failure") } catch { XCTAssertTrue(String(describing: error).contains("OAuth login failed for failing")); XCTAssertTrue(String(describing: error).contains("login boom")) }
+        do { _ = try await OAuthRegistry.shared.refreshToken(id: "failing", credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)); XCTFail("expected refresh failure") } catch { XCTAssertTrue(String(describing: error).contains("OAuth refresh failed for failing")); XCTAssertTrue(String(describing: error).contains("refresh boom")) }
+        do { _ = try await OAuthRegistry.shared.apiKey(id: "missing", credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)); XCTFail("expected missing failure") } catch { XCTAssertTrue(String(describing: error).contains("OAuth provider missing not registered")) }
+        await OAuthRegistry.shared.clear()
+        await SwiftAI.bootstrap()
+    }
+
+    func testCredentialStoreCausePreservingFailures() async throws {
+        struct FailingCredentialStore: CredentialStore {
+            func read(providerId: String) async throws -> Credential? { throw AIError.provider("read boom") }
+            func modify(providerId: String, _ fn: @Sendable (Credential?) async throws -> Credential?) async throws -> Credential? { throw AIError.provider("write boom") }
+            func delete(providerId: String) async throws { throw AIError.provider("delete boom") }
+        }
+        let store = CausePreservingCredentialStore(FailingCredentialStore())
+        do { _ = try await store.read(providerId: "oauth"); XCTFail("expected read failure") } catch { XCTAssertTrue(String(describing: error).contains("Credential read failed for oauth")); XCTAssertTrue(String(describing: error).contains("read boom")) }
+        do { _ = try await store.modify(providerId: "oauth") { _ in nil }; XCTFail("expected write failure") } catch { XCTAssertTrue(String(describing: error).contains("Credential write failed for oauth")); XCTAssertTrue(String(describing: error).contains("write boom")) }
+        do { try await store.delete(providerId: "oauth"); XCTFail("expected delete failure") } catch { XCTAssertTrue(String(describing: error).contains("Credential delete failed for oauth")); XCTAssertTrue(String(describing: error).contains("delete boom")) }
+    }
+
     func testOAuthRegistryRoundTrip() async throws {
         await OAuthRegistry.shared.clear()
         let provider = OpenAICodexOAuthProvider()

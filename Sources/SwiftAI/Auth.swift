@@ -61,6 +61,23 @@ public actor InMemoryCredentialStore: CredentialStore {
     public func delete(providerId: String) async throws { values.removeValue(forKey: providerId) }
 }
 
+public struct CausePreservingCredentialStore: CredentialStore {
+    public var base: any CredentialStore
+    public init(_ base: any CredentialStore) { self.base = base }
+    public func read(providerId: String) async throws -> Credential? {
+        do { return try await base.read(providerId: providerId) }
+        catch { throw ModelsError("Credential read failed for \(providerId)", cause: error) }
+    }
+    public func modify(providerId: String, _ fn: @Sendable (Credential?) async throws -> Credential?) async throws -> Credential? {
+        do { return try await base.modify(providerId: providerId, fn) }
+        catch { throw ModelsError("Credential write failed for \(providerId)", cause: error) }
+    }
+    public func delete(providerId: String) async throws {
+        do { try await base.delete(providerId: providerId) }
+        catch { throw ModelsError("Credential delete failed for \(providerId)", cause: error) }
+    }
+}
+
 public protocol AuthContext: Sendable {
     func env(_ name: String) async -> String?
     func fileExists(_ path: String) async -> Bool

@@ -930,18 +930,27 @@ final class SwiftAITests: XCTestCase {
             let id = "refreshing"
             let name = "Refreshing"
             func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials { OAuthCredentials(refresh: "r", access: "login", expires: 0) }
-            func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { OAuthCredentials(refresh: credentials.refresh, access: "refreshed", expires: Int64(Date(timeIntervalSince1970: 2_000).timeIntervalSince1970 * 1000)) }
+            func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials {
+                let expiry: TimeInterval = credentials.refresh == "short" ? 1_400 : 2_000
+                return OAuthCredentials(refresh: credentials.refresh, access: "refreshed-\(credentials.refresh)", expires: Int64(Date(timeIntervalSince1970: expiry).timeIntervalSince1970 * 1000))
+            }
             func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
             func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
         }
         await OAuthRegistry.shared.clear()
         await OAuthRegistry.shared.register(RefreshingOAuthProvider())
         let now = Date(timeIntervalSince1970: 1_000)
-        let nearExpiry = OAuthCredentials(refresh: "r", access: "old", expires: Int64(now.addingTimeInterval(299).timeIntervalSince1970 * 1000))
-        let refreshed = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: nearExpiry, now: now)
-        XCTAssertEqual(refreshed.1, "refreshed")
-        let validWithOverride = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: nearExpiry, minimumValiditySeconds: 100, now: now)
-        XCTAssertEqual(validWithOverride.1, "old")
+        let belowDefaultOverride = OAuthCredentials(refresh: "long", access: "old", expires: Int64(now.addingTimeInterval(299).timeIntervalSince1970 * 1000))
+        let refreshedByDefaultFloor = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: belowDefaultOverride, minimumValiditySeconds: 100, now: now)
+        XCTAssertEqual(refreshedByDefaultFloor.1, "refreshed-long")
+        let defaultBoundary = OAuthCredentials(refresh: "long", access: "old", expires: Int64(now.addingTimeInterval(300).timeIntervalSince1970 * 1000))
+        let refreshedAtBoundary = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: defaultBoundary, now: now)
+        XCTAssertEqual(refreshedAtBoundary.1, "refreshed-long")
+        let strictFailure = OAuthCredentials(refresh: "short", access: "old", expires: Int64(now.addingTimeInterval(299).timeIntervalSince1970 * 1000))
+        do { _ = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: strictFailure, minimumValiditySeconds: 900, now: now); XCTFail("expected strict minimum failure") } catch { XCTAssertTrue(String(describing: error).contains("did not satisfy minimum validity")); XCTAssertTrue(String(describing: error).contains("expires too soon")) }
+        let strictSuccess = OAuthCredentials(refresh: "long", access: "old", expires: Int64(now.addingTimeInterval(299).timeIntervalSince1970 * 1000))
+        let refreshedStrict = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: strictSuccess, minimumValiditySeconds: 900, now: now)
+        XCTAssertEqual(refreshedStrict.1, "refreshed-long")
         await OAuthRegistry.shared.clear()
         await SwiftAI.bootstrap()
     }

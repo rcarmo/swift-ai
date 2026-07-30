@@ -58,13 +58,18 @@ public actor OAuthRegistry {
         return (credentials, provider.apiKey(credentials: credentials))
     }
 
-    public func resolveAPIKey(id: String, credentials: OAuthCredentials, minimumValiditySeconds: Int = 300, now: Date = Date()) async throws -> (OAuthCredentials, String) {
+    public func resolveAPIKey(id: String, credentials: OAuthCredentials, minimumValiditySeconds: Int? = nil, now: Date = Date()) async throws -> (OAuthCredentials, String) {
         guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
         var resolved = credentials
-        let minValidityMs = Int64(max(0, minimumValiditySeconds)) * 1000
-        if resolved.expires - Int64(now.timeIntervalSince1970 * 1000) <= minValidityMs {
+        let effectiveMinimumSeconds = max(300, minimumValiditySeconds ?? 300)
+        let minValidityMs = Int64(effectiveMinimumSeconds) * 1000
+        let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        if resolved.expires - nowMs <= minValidityMs {
             do { resolved = try await provider.refreshToken(credentials: credentials) }
             catch { throw ModelsError("OAuth refresh failed for \(id)", cause: error) }
+        }
+        if let explicit = minimumValiditySeconds, explicit > 300, resolved.expires - nowMs < Int64(explicit) * 1000 {
+            throw ModelsError("OAuth refresh for \(id) did not satisfy minimum validity of \(explicit)s", cause: AIError.provider("refreshed token expires too soon"))
         }
         return (resolved, provider.apiKey(credentials: resolved))
     }

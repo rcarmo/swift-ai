@@ -925,6 +925,27 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(box.refreshAttempts, 2)
     }
 
+    func testOAuthMinimumValidityRefreshBoundaryAndOverride() async throws {
+        struct RefreshingOAuthProvider: OAuthProvider {
+            let id = "refreshing"
+            let name = "Refreshing"
+            func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials { OAuthCredentials(refresh: "r", access: "login", expires: 0) }
+            func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { OAuthCredentials(refresh: credentials.refresh, access: "refreshed", expires: Int64(Date(timeIntervalSince1970: 2_000).timeIntervalSince1970 * 1000)) }
+            func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
+            func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
+        }
+        await OAuthRegistry.shared.clear()
+        await OAuthRegistry.shared.register(RefreshingOAuthProvider())
+        let now = Date(timeIntervalSince1970: 1_000)
+        let nearExpiry = OAuthCredentials(refresh: "r", access: "old", expires: Int64(now.addingTimeInterval(299).timeIntervalSince1970 * 1000))
+        let refreshed = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: nearExpiry, now: now)
+        XCTAssertEqual(refreshed.1, "refreshed")
+        let validWithOverride = try await OAuthRegistry.shared.resolveAPIKey(id: "refreshing", credentials: nearExpiry, minimumValiditySeconds: 100, now: now)
+        XCTAssertEqual(validWithOverride.1, "old")
+        await OAuthRegistry.shared.clear()
+        await SwiftAI.bootstrap()
+    }
+
     func testOAuthRegistryCausePreservingFailures() async throws {
         struct FailingOAuthProvider: OAuthProvider {
             let id = "failing"
@@ -1064,6 +1085,51 @@ final class SwiftAITests: XCTestCase {
         let strictBody = OpenAICompletionsProvider.buildRequestBody(model: Model(id: "s", name: "S", api: .openAICompletions, provider: .openAI), context: AIContext(messages: [.user("hi")], tools: [Tool(name: "strict", description: "Strict", parameters: schema, constrainedSampling: .jsonSchema(strict: "prefer"))]), options: nil)
         guard case .array(let strictTools)? = strictBody["tools"], case .object(let strictWrapper)? = strictTools.first, case .object(let function)? = strictWrapper["function"] else { return XCTFail("missing strict tool") }
         XCTAssertEqual(function["strict"], .bool(true))
+    }
+
+    func testProviderRawStopReasonsAndUnknownErrors() throws {
+        let googleUnknown = """
+        data: {"candidates":[{"content":{"parts":[{"text":"hi"}]},"finishReason":"SAFETY"}]}
+
+        """
+        let googleEvents = GoogleGenerativeAIProvider.processSSEText(googleUnknown, model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google))
+        XCTAssertTrue(googleEvents.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "SAFETY" && message?.stopReason == .error }; return false })
+        let mistralUnknown = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"weird\"}]}\n\n"
+        let mistralEvents = MistralConversationsProvider.processSSEText(mistralUnknown, model: Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral))
+        XCTAssertTrue(mistralEvents.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "weird" && message?.stopReason == .error }; return false })
+        var bedrock = Message(role: .assistant, content: [])
+        BedrockProvider.applyStopReason("unknown_stop", to: &bedrock)
+        XCTAssertEqual(bedrock.rawStopReason, "unknown_stop")
+        XCTAssertEqual(bedrock.stopReason, .error)
+    }
+
+    func testOpenAICompletionsMalformedCustomPrefersFunctionPayload() throws {
+        let sse = """
+        data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"custom","function":{"name":"fn","arguments":"{\\\"a\\\":"},"custom":{"name":"emit","input":"bad"}}]}}]}
+
+        data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"1}"},"custom":{"input":"ignored"}}]},"finish_reason":"tool_calls"}]}
+
+        data: [DONE]
+
+        """
+        let events = OpenAICompletionsProvider.processSSEText(sse, model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI))
+        let deltas = events.compactMap { event -> String? in if case .toolCallDelta(_, let delta, _) = event { return delta }; return nil }
+        XCTAssertEqual(deltas, ["{\"a\":", "1}"])
+        let ended = events.compactMap { event -> ContentBlock? in if case .toolCallEnd(_, let toolCall, _) = event { return toolCall }; return nil }.last
+        XCTAssertEqual(ended?.name, "fn")
+        XCTAssertEqual(ended?.arguments?["a"], .number(1))
+    }
+
+    func testResponsesRejectPendingTerminalStatuses() throws {
+        for status in ["pending", "in_progress", "queued"] {
+            let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"\(status)\",\"output\":[]}}\n\n"
+            let events = OpenAIResponsesProvider.processSSEText(sse, model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI))
+            XCTAssertTrue(events.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == status && message?.stopReason == .error }; return false }, status)
+        }
+        let azureEvents = OpenAIResponsesProvider.processSSEText("event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"in_progress\",\"output\":[]}}\n\n", model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI))
+        XCTAssertTrue(azureEvents.contains { if case .error = $0 { return true }; return false })
+        let codexEvents = OpenAIResponsesProvider.processSSEText("event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"queued\",\"output\":[]}}\n\n", model: Model(id: "codex", name: "Codex", api: .openAICodexResponses, provider: .openAICodex))
+        XCTAssertTrue(codexEvents.contains { if case .error = $0 { return true }; return false })
     }
 
     func testOpenAICompletionsMissingAndRawFinishReason() throws {

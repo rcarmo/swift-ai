@@ -164,7 +164,7 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(responsesMessage.usage?.cacheWrite, 4)
         XCTAssertEqual(responsesMessage.usage?.reasoning, 12)
         let googleUsageSSE = """
-        data: {"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20,"thoughtsTokenCount":7,"totalTokenCount":37}}
+        data: {"candidates":[{"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20,"thoughtsTokenCount":7,"totalTokenCount":37}}
 
         """
         guard case .done(_, let googleMessage)? = GoogleGenerativeAIProvider.processSSEText(googleUsageSSE, model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google)).last else { return XCTFail("missing google done") }

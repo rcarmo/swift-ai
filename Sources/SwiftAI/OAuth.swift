@@ -57,6 +57,17 @@ public actor OAuthRegistry {
         guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
         return (credentials, provider.apiKey(credentials: credentials))
     }
+
+    public func resolveAPIKey(id: String, credentials: OAuthCredentials, minimumValiditySeconds: Int = 300, now: Date = Date()) async throws -> (OAuthCredentials, String) {
+        guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
+        var resolved = credentials
+        let minValidityMs = Int64(max(0, minimumValiditySeconds)) * 1000
+        if resolved.expires - Int64(now.timeIntervalSince1970 * 1000) <= minValidityMs {
+            do { resolved = try await provider.refreshToken(credentials: credentials) }
+            catch { throw ModelsError("OAuth refresh failed for \(id)", cause: error) }
+        }
+        return (resolved, provider.apiKey(credentials: resolved))
+    }
 }
 
 public struct PKCEPair: Equatable, Sendable { public var verifier: String; public var challenge: String }

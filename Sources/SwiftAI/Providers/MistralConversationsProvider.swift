@@ -72,7 +72,7 @@ public enum MistralConversationsProvider {
         if let model = chunk.model, !model.isEmpty, model != state.model.id, state.partial.responseModel == nil { state.partial.responseModel = model }
         if let usage = chunk.usage { var u = state.partial.usage ?? Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
         guard let choice = chunk.choices.first else { return }
-        if let finish = choice.finishReason { state.finishReason = finish }
+        if let finish = choice.finishReason { state.finishReason = finish; state.partial.rawStopReason = finish }
         if let content = choice.delta.content, !content.isEmpty {
             if state.partial.content.last?.type != "text" { state.partial.content.append(ContentBlock(type: "text")); yield(.textStart(contentIndex: state.partial.content.count - 1, partial: state.partial)) }
             let idx = state.partial.content.count - 1
@@ -145,7 +145,7 @@ public enum MistralConversationsProvider {
     private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["type": .string("function"), "function": .object(["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters])]) }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
-    private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "length", "model_length": return .length; case "tool_calls": return .toolUse; case "error": return .error; default: return .stop } }
+    private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "stop", "end": return .stop; case "length", "model_length": return .length; case "tool_calls": return .toolUse; case "error": return .error; case nil: return .error; default: return .error } }
     private static func normalizeToolCallID(_ id: String) -> String { let filtered = id.filter { $0.isLetter || $0.isNumber }; if filtered.count == 9 { return String(filtered) }; return String(AIUtilities.shortHash(id).filter { $0.isLetter || $0.isNumber }.prefix(9)).padding(toLength: 9, withPad: "0", startingAt: 0) }
 }
 

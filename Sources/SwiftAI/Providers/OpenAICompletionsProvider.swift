@@ -385,7 +385,8 @@ public enum OpenAICompletionsProvider {
         }
         for tool in delta.toolCalls ?? [] {
             let key = tool.index
-            let isCustom = tool.custom != nil || tool.type == "custom"
+            let hasFunctionPayload = tool.function?.name != nil || tool.function?.arguments != nil
+            let isCustom = !hasFunctionPayload && (tool.custom != nil || tool.type == "custom")
             if state.activeTools[key] == nil {
                 let idx = state.partial.content.count
                 let name = tool.function?.name ?? tool.custom?.name

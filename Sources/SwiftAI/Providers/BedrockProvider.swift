@@ -60,7 +60,12 @@ public enum BedrockProvider {
     }
 
     public static func mapStopReason(_ raw: String?) -> StopReason {
-        switch raw { case "end_turn", "stop_sequence": return .stop; case "tool_use": return .toolUse; case "max_tokens": return .length; case "guardrail_intervened", "content_filtered", "error": return .error; default: return .stop }
+        switch raw { case "end_turn", "stop_sequence": return .stop; case "tool_use": return .toolUse; case "max_tokens": return .length; case "guardrail_intervened", "content_filtered", "error": return .error; case nil: return .error; default: return .error }
+    }
+    public static func applyStopReason(_ raw: String?, to message: inout Message) {
+        message.rawStopReason = raw
+        message.stopReason = mapStopReason(raw)
+        if message.stopReason == .error, let raw { message.errorMessage = "Provider stop_reason: \(raw)" }
     }
 
     public static func createImageBlock(data: String, mimeType: String) -> JSONValue {

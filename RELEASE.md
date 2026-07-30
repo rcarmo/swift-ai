@@ -14,7 +14,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
   - `cd5f2871a404c9471c598b9289e7ebb57fea54c8` — `Sync upstream v0.83.0 parity`
   - `bdc55b3643921eb70aefd627702a8a0f7768c338` — `Complete v0.83.0 runtime stop handling`
   - `5d2ecee6784b957d5636060c37997c9bee91f29d` — `Fix OAuth minimum validity refresh semantics`
-- Latest accepted CI before this documentation update: <https://github.com/rcarmo/swift-ai/actions/runs/30522243699>
+  - `adaa42f434264968440b8c06492b0ca660bfea47` — `Document upstream release audit policy`
+- Latest accepted CI for this release chain: <https://github.com/rcarmo/swift-ai/actions/runs/30522489514>
 
 ## Exact upstream delta
 
@@ -32,40 +33,40 @@ packages/ai/scripts/generate-models.ts
 packages/ai/src/api/anthropic-messages.ts
 packages/ai/src/api/azure-openai-responses.ts
 packages/ai/src/api/bedrock-converse-stream.ts
+packages/ai/src/api/google-generative-ai.ts
+packages/ai/src/api/google-vertex.ts
+packages/ai/src/api/mistral-conversations.ts
 packages/ai/src/api/openai-codex-responses.ts
 packages/ai/src/api/openai-completions.ts
+packages/ai/src/api/openai-responses-shared.ts
 packages/ai/src/api/openai-responses.ts
+packages/ai/src/api/openrouter-images.ts
 packages/ai/src/api/pi-messages.ts
+packages/ai/src/api/simple-options.ts
 packages/ai/src/auth/oauth/openrouter.ts
+packages/ai/src/auth/resolve.ts
 packages/ai/src/providers/faux.ts
 packages/ai/src/types.ts
-packages/ai/test/anthropic-auth-token.test.ts
+packages/ai/test/anthropic-sse-parsing.test.ts
+packages/ai/test/azure-openai-responses-reasoning-replay.test.ts
 packages/ai/test/bedrock-credentials.test.ts
-packages/ai/test/bedrock-models.test.ts
-packages/ai/test/bedrock-thinking-payload.test.ts
-packages/ai/test/context-overflow.test.ts
-packages/ai/test/cross-provider-handoff.test.ts
-packages/ai/test/empty.test.ts
+packages/ai/test/bedrock-raw-stop-reason.test.ts
+packages/ai/test/constrained-sampling.test.ts
+packages/ai/test/faux-provider.test.ts
 packages/ai/test/fetch-option.test.ts
-packages/ai/test/model-data-validation.test.ts
+packages/ai/test/github-copilot-anthropic.test.ts
+packages/ai/test/google-raw-stop-reason.test.ts
+packages/ai/test/mistral-raw-stop-reason.test.ts
+packages/ai/test/models-runtime.test.ts
+packages/ai/test/oauth-auth.test.ts
+packages/ai/test/openai-completions-raw-stop-reason.test.ts
 packages/ai/test/openai-completions-tool-choice.test.ts
-packages/ai/test/openai-responses-reasoning-replay-e2e.test.ts
-packages/ai/test/opencode-go.test.ts
+packages/ai/test/openai-responses-partial-json-cleanup.test.ts
+packages/ai/test/openai-responses-terminal-event.test.ts
 packages/ai/test/openrouter-oauth.test.ts
 packages/ai/test/pi-messages.test.ts
-packages/ai/test/provider-error-body-regression.test.ts
-packages/ai/test/providers.test.ts
 packages/ai/test/qwen-token-plan-models.test.ts
-packages/ai/test/reasoning-signature-cache.test.ts
-packages/ai/test/retry.test.ts
-packages/ai/test/stream.test.ts
-packages/ai/test/supports-xhigh.test.ts
-packages/ai/test/text.test.ts
-packages/ai/test/tokens.test.ts
-packages/ai/test/tool-call-without-result.test.ts
-packages/ai/test/total-tokens.test.ts
-packages/ai/test/unicode-surrogate.test.ts
-packages/ai/test/xhigh.test.ts
+packages/ai/test/validation.test.ts
 ```
 
 The detailed disposition matrix is in [`docs/upstream-v0.83.0-audit.md`](docs/upstream-v0.83.0-audit.md).
@@ -178,10 +179,10 @@ Latest local results before the documentation-policy update:
 - `scripts/static-check.py`: passed.
 - hidden skip scan: no `XCTSkip` matches.
 
-Latest GitHub Actions before the documentation-policy update:
+Latest GitHub Actions for the current release documentation-policy commit:
 
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/30522243699>
-- Commit: `5d2ecee6784b957d5636060c37997c9bee91f29d`
+- Run: <https://github.com/rcarmo/swift-ai/actions/runs/30522489514>
+- Commit: `adaa42f434264968440b8c06492b0ca660bfea47`
 - Jobs:
   - `static-check`: success
   - `swift-test (ubuntu-latest)`: success

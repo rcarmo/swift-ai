@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.82.1 counts, that every generated API/provider raw value is represented in
+v0.83.0 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,10 +15,10 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.82.1.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.b4f2936.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.82.1.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.b4f2936.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.83.0.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.845d6ff.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.83.0.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.845d6ff.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -27,7 +27,7 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1109
+EXPECTED_TEXT_MODELS = 1153
 EXPECTED_TEXT_PROVIDERS = 37
 EXPECTED_IMAGE_MODELS = 40
 EXPECTED_IMAGE_PROVIDERS = 1

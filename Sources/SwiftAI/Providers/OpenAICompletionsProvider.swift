@@ -330,7 +330,7 @@ public enum OpenAICompletionsProvider {
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
         var message = Message(role: .assistant, content: [.text(raw.choices.first?.message.content ?? "")])
-        message.api = model.api; message.provider = model.provider; message.model = model.id; message.responseId = raw.id; message.responseModel = raw.model; message.stopReason = raw.choices.first?.finishReason == "length" ? .length : .stop
+        message.api = model.api; message.provider = model.provider; message.model = model.id; message.responseId = raw.id; message.responseModel = raw.model; message.rawStopReason = raw.choices.first?.finishReason; message.stopReason = raw.choices.first?.finishReason == "length" ? .length : .stop
         if let usage = raw.usage { var u = Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.reasoning = usage.completionTokensDetails?.reasoningTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(model: model, usage: &u); message.usage = u }
         return message
     }
@@ -359,7 +359,7 @@ public enum OpenAICompletionsProvider {
         if let usage = chunk.usage { state.applyUsage(usage) }
         guard let choice = chunk.choices.first else { return }
         if let usage = choice.usage { state.applyUsage(usage) }
-        if let finish = choice.finishReason { state.finishReason = finish }
+        if let finish = choice.finishReason { state.finishReason = finish; state.partial.rawStopReason = finish }
         let delta = choice.delta
         if let text = delta.content, !text.isEmpty {
             if state.partial.content.last?.type != "text" { state.partial.content.append(ContentBlock(type: "text")); yield(.textStart(contentIndex: state.partial.content.count - 1, partial: state.partial)) }
@@ -422,6 +422,7 @@ public enum OpenAICompletionsProvider {
             yield(.toolCallEnd(contentIndex: active.contentIndex, toolCall: call, partial: state.partial))
         }
         state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        if state.finishReason == nil { state.partial.stopReason = .error; state.partial.errorMessage = "Stream ended without finish_reason"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "missing finish_reason"))); return }
         let reason = stopReason(from: state.finishReason)
         state.partial.stopReason = reason
         if reason == .error, let finish = state.finishReason {
@@ -451,7 +452,8 @@ public enum OpenAICompletionsProvider {
 
     private static func stopReason(from finish: String?) -> StopReason {
         switch finish {
-        case nil, "stop", "end": return .stop
+        case "stop", "end": return .stop
+        case nil: return .error
         case "length": return .length
         case "tool_calls", "function_call": return .toolUse
         default: return .error

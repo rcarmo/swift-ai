@@ -62,7 +62,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
 public enum ThinkingLevel: String, Codable, Sendable { case minimal, low, medium, high, xhigh, max }
 public enum ModelThinkingLevel: String, Codable, Hashable, Sendable { case off, minimal, low, medium, high, xhigh, max }
 public enum Role: String, Codable, Sendable { case user, assistant, toolResult }
-public enum StopReason: String, Codable, Sendable { case stop, length, toolUse, error, aborted }
+public enum StopReason: String, Codable, Sendable { case pending, stop, length, toolUse, error, aborted }
 public enum CacheRetention: String, Codable, Sendable { case none, short, long }
 public enum Transport: String, Codable, Sendable { case sse, websocket, webSocketCached = "websocket-cached", auto }
 
@@ -146,13 +146,14 @@ public struct Message: Codable, Equatable, Sendable {
     public var usage: Usage?
     public var stopReason: StopReason?
     public var errorMessage: String?
+    public var rawStopReason: String?
     public var toolCallId: String?
     public var toolName: String?
     public var isError: Bool?
     public var details: JSONValue?
     public var addedToolNames: [String]?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, toolCallId, toolName, isError, details, addedToolNames }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, rawStopReason, toolCallId, toolName, isError, details, addedToolNames }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -170,6 +171,7 @@ public struct Message: Codable, Equatable, Sendable {
         usage = try c.decodeIfPresent(Usage.self, forKey: .usage)
         stopReason = try c.decodeIfPresent(StopReason.self, forKey: .stopReason)
         errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
+        rawStopReason = try c.decodeIfPresent(String.self, forKey: .rawStopReason)
         toolCallId = try c.decodeIfPresent(String.self, forKey: .toolCallId)
         toolName = try c.decodeIfPresent(String.self, forKey: .toolName)
         isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
@@ -191,6 +193,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(usage, forKey: .usage)
         try c.encodeIfPresent(stopReason, forKey: .stopReason)
         try c.encodeIfPresent(errorMessage, forKey: .errorMessage)
+        try c.encodeIfPresent(rawStopReason, forKey: .rawStopReason)
         try c.encodeIfPresent(toolCallId, forKey: .toolCallId)
         try c.encodeIfPresent(toolName, forKey: .toolName)
         try c.encodeIfPresent(isError, forKey: .isError)

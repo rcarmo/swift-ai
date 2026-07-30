@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.82.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1109)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.83.0")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1153)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 40)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.82.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1109)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.83.0")
+        XCTAssertEqual(BuiltinModels.modelCount, 1153)
         XCTAssertEqual(BuiltinModels.providerCount, 37)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1109)
+        XCTAssertEqual(models.count, 1153)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -159,7 +159,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.82.1")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.83.0")
         XCTAssertEqual(BuiltinImageModels.modelCount, 40)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -1064,6 +1064,47 @@ final class SwiftAITests: XCTestCase {
         let strictBody = OpenAICompletionsProvider.buildRequestBody(model: Model(id: "s", name: "S", api: .openAICompletions, provider: .openAI), context: AIContext(messages: [.user("hi")], tools: [Tool(name: "strict", description: "Strict", parameters: schema, constrainedSampling: .jsonSchema(strict: "prefer"))]), options: nil)
         guard case .array(let strictTools)? = strictBody["tools"], case .object(let strictWrapper)? = strictTools.first, case .object(let function)? = strictWrapper["function"] else { return XCTFail("missing strict tool") }
         XCTAssertEqual(function["strict"], .bool(true))
+    }
+
+    func testOpenAICompletionsMissingAndRawFinishReason() throws {
+        let missing = OpenAICompletionsProvider.processSSEText("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n", model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI))
+        XCTAssertTrue(missing.contains { if case .error(_, let message, _) = $0 { return message?.errorMessage?.contains("finish_reason") == true }; return false })
+        let raw = OpenAICompletionsProvider.processSSEText("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n", model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI))
+        let done = raw.compactMap { event -> Message? in if case .done(_, let message) = event { return message }; return nil }.last
+        XCTAssertEqual(done?.rawStopReason, "length")
+        XCTAssertEqual(done?.stopReason, .length)
+    }
+
+    func testAnthropicMissingSensitiveAndRawStopReason() throws {
+        let sensitive = """
+        event: message_start
+        data: {"message":{"id":"msg","usage":{"input_tokens":1}}}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"sensitive"},"usage":{"output_tokens":1}}
+
+        event: message_stop
+        data: {}
+
+        """
+        let sensitiveEvents = AnthropicMessagesProvider.processSSEText(sensitive, model: Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic))
+        XCTAssertTrue(sensitiveEvents.contains { if case .done(_, let message) = $0 { return message.rawStopReason == "sensitive" && message.stopReason == .error && message.errorMessage?.contains("sensitive") == true }; return false })
+        let missing = """
+        event: message_start
+        data: {"message":{"id":"msg","usage":{"input_tokens":1}}}
+
+        event: message_stop
+        data: {}
+
+        """
+        let missingEvents = AnthropicMessagesProvider.processSSEText(missing, model: Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic))
+        XCTAssertTrue(missingEvents.contains { if case .error(_, let message, _) = $0 { return message?.errorMessage?.contains("without a stop reason") == true }; return false })
+    }
+
+    func testOpenRouterOAuthAuthorizationCodeParsing() {
+        XCTAssertEqual(OpenRouterOAuthProvider.authorizationCode(from: "code-123"), "code-123")
+        XCTAssertEqual(OpenRouterOAuthProvider.authorizationCode(from: "http://127.0.0.1/callback?code=cb-123&state=x"), "cb-123")
+        XCTAssertNil(OpenRouterOAuthProvider.authorizationCode(from: "   "))
     }
 
     func testOpenAICompletionsCustomGrammarStreamReconstruction() throws {
@@ -2162,7 +2203,7 @@ final class SwiftAITests: XCTestCase {
         data: {}
 
         event: response.completed
-        data: {"response":{"id":"resp_1","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5,"input_tokens_details":{"cached_tokens":1}}}}
+        data: {"response":{"id":"resp_1","status":"completed","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5,"input_tokens_details":{"cached_tokens":1}}}}
 
         """
         let events = OpenAIResponsesProvider.processSSEText(sse, model: model)

@@ -146,7 +146,7 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(anthropicMessage.usage?.totalTokens, 20)
 
         let openAIUsageSSE = """
-        data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":30}}}
+        data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":30}}}
 
         data: [DONE]
 

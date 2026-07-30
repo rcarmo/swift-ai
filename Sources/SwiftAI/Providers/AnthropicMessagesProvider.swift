@@ -166,8 +166,9 @@ public enum AnthropicMessagesProvider {
             usage.totalTokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite
             AIUtilities.applyCost(model: state.model, usage: &usage)
             state.partial.usage = usage
+            state.partial.rawStopReason = raw.delta.stopReason
             state.partial.stopReason = stopReason(raw.delta.stopReason)
-            if state.partial.stopReason == .error { state.partial.errorMessage = raw.delta.stopDetails?.explanation ?? "The model refused to complete the request" }
+            if state.partial.stopReason == .error { state.partial.errorMessage = raw.delta.stopDetails?.explanation ?? (raw.delta.stopReason == "sensitive" ? "Provider stopped with: sensitive" : "The model refused to complete the request") }
         case "message_stop": state.sawMessageStop = true
         default: break
         }
@@ -182,7 +183,7 @@ public enum AnthropicMessagesProvider {
             return
         }
         state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        if state.partial.stopReason == nil { state.partial.stopReason = .stop }
+        if state.partial.stopReason == nil { state.partial.stopReason = .error; state.partial.errorMessage = "Anthropic stream ended without a stop reason"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "anthropic stream error"))); return }
         yield(.done(reason: state.partial.stopReason ?? .stop, message: state.partial))
     }
 
@@ -260,7 +261,7 @@ public enum AnthropicMessagesProvider {
     public static func normalizeBaseURL(_ base: String) -> String { let b = base.isEmpty ? "https://api.anthropic.com/v1" : base.trimmingCharacters(in: CharacterSet(charactersIn: "/")); return b.hasSuffix("/v1") ? b : b + "/v1" }
     private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh, .max: return options?.thinkingBudgets?.high ?? 16384 } }
-    private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; default: return .stop } }
+    private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "end_turn", "stop_sequence": return .stop; case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; case nil: return .pending; default: return .error } }
     private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false, deferredMarkers: [Int64: [String]] = [:]) -> [JSONValue] {
         messages.map { message in
             let role = message.role == .assistant ? "assistant" : "user"

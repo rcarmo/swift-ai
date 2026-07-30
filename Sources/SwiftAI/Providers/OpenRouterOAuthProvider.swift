@@ -24,13 +24,20 @@ public struct OpenRouterOAuthProvider: OAuthProvider {
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
         await callbacks.onAuth?(OAuthAuthInfo(url: components.url!.absoluteString, instructions: "Complete OpenRouter sign-in in your browser and paste the returned authorization code."))
-        guard let code = try await callbacks.onPrompt?(OAuthPrompt(message: "OpenRouter authorization code", placeholder: "code")), !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.provider("OpenRouter OAuth requires an authorization code") }
-        return try await Self.exchangeAuthorizationCode(code.trimmingCharacters(in: .whitespacesAndNewlines), verifier: pkce.verifier)
+        guard let rawCode = try await callbacks.onPrompt?(OAuthPrompt(message: "OpenRouter authorization code or callback URL", placeholder: "code or URL")), let code = Self.authorizationCode(from: rawCode) else { throw AIError.provider("OpenRouter OAuth requires an authorization code") }
+        return try await Self.exchangeAuthorizationCode(code, verifier: pkce.verifier)
     }
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { credentials }
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
+
+    public static func authorizationCode(from input: String) -> String? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let url = URL(string: trimmed), let components = URLComponents(url: url, resolvingAgainstBaseURL: false), let code = components.queryItems?.first(where: { $0.name == "code" })?.value, !code.isEmpty { return code }
+        return trimmed
+    }
 
     public static func exchangeAuthorizationCode(_ code: String, verifier: String) async throws -> OAuthCredentials {
         var request = URLRequest(url: URL(string: tokenURL)!)

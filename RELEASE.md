@@ -11,8 +11,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Previous accepted upstream tag commit: `845d6ff1f6643aba440341cce877ce1c43ebbc39`
 - Swift parity branch: `main`
 - Current Swift parity commits for v0.84.0:
-  - this release update commit — `Sync upstream v0.84.0 parity`
-- Latest accepted CI for this release chain: pending CI for this release update commit
+  - `f3879329ac0479116f049f17406a553f4fa14d56` — `Sync upstream v0.84.0 parity`
+- Latest accepted CI for this release chain: <https://github.com/rcarmo/swift-ai/actions/runs/31106354871>
 
 ## Exact upstream delta
 
@@ -211,8 +211,8 @@ Latest local results before this commit:
 
 Latest GitHub Actions for this release update commit:
 
-- Run: pending
-- Commit: this release update commit
+- Run: <https://github.com/rcarmo/swift-ai/actions/runs/31106354871>
+- Commit: `f3879329ac0479116f049f17406a553f4fa14d56`
 - Jobs:
   - `static-check`: success
   - `swift-test (ubuntu-latest)`: success

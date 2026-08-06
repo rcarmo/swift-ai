@@ -5,23 +5,20 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 ## Current upstream parity baseline
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.83.0`
-- Current upstream tag commit: `845d6ff1f6643aba440341cce877ce1c43ebbc39`
-- Previous accepted upstream release: `v0.82.1`
-- Previous accepted upstream tag commit: `b4f293684bba718d59cc1157679bcf6157b3a7f5`
+- Current upstream release: `v0.84.0`
+- Current upstream tag commit: `a5f43bf8aff3c55752432655f7334e3dafd1e256`
+- Previous accepted upstream release: `v0.83.0`
+- Previous accepted upstream tag commit: `845d6ff1f6643aba440341cce877ce1c43ebbc39`
 - Swift parity branch: `main`
-- Current Swift parity commits for v0.83.0:
-  - `cd5f2871a404c9471c598b9289e7ebb57fea54c8` — `Sync upstream v0.83.0 parity`
-  - `bdc55b3643921eb70aefd627702a8a0f7768c338` — `Complete v0.83.0 runtime stop handling`
-  - `5d2ecee6784b957d5636060c37997c9bee91f29d` — `Fix OAuth minimum validity refresh semantics`
-  - `adaa42f434264968440b8c06492b0ca660bfea47` — `Document upstream release audit policy`
-- Latest accepted CI for this release chain: <https://github.com/rcarmo/swift-ai/actions/runs/30522489514>
+- Current Swift parity commits for v0.84.0:
+  - this release update commit — `Sync upstream v0.84.0 parity`
+- Latest accepted CI for this release chain: pending CI for this release update commit
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from `b4f293684bba718d59cc1157679bcf6157b3a7f5` to `845d6ff1f6643aba440341cce877ce1c43ebbc39`.
+Release-only audit scope: `packages/ai` diff from `845d6ff1f6643aba440341cce877ce1c43ebbc39` to `a5f43bf8aff3c55752432655f7334e3dafd1e256`.
 
-Exact changed-path count: **41**.
+Exact changed-path count: **101**.
 
 Changed paths:
 
@@ -34,62 +31,122 @@ packages/ai/src/api/anthropic-messages.ts
 packages/ai/src/api/azure-openai-responses.ts
 packages/ai/src/api/bedrock-converse-stream.ts
 packages/ai/src/api/google-generative-ai.ts
+packages/ai/src/api/google-shared.ts
 packages/ai/src/api/google-vertex.ts
-packages/ai/src/api/mistral-conversations.ts
+packages/ai/src/api/lazy.ts
 packages/ai/src/api/openai-codex-responses.ts
 packages/ai/src/api/openai-completions.ts
 packages/ai/src/api/openai-responses-shared.ts
 packages/ai/src/api/openai-responses.ts
-packages/ai/src/api/openrouter-images.ts
-packages/ai/src/api/pi-messages.ts
 packages/ai/src/api/simple-options.ts
+packages/ai/src/auth/credential-store.ts
+packages/ai/src/auth/helpers.ts
+packages/ai/src/auth/oauth/anthropic.ts
+packages/ai/src/auth/oauth/device-code.ts
+packages/ai/src/auth/oauth/github-copilot.ts
+packages/ai/src/auth/oauth/kimi-coding.ts
+packages/ai/src/auth/oauth/openai-codex.ts
 packages/ai/src/auth/oauth/openrouter.ts
+packages/ai/src/auth/oauth/radius.ts
+packages/ai/src/auth/oauth/xai.ts
 packages/ai/src/auth/resolve.ts
+packages/ai/src/auth/types.ts
+packages/ai/src/cli.ts
+packages/ai/src/env-api-keys.ts
+packages/ai/src/image-models.generated.ts
+packages/ai/src/images-models.ts
+packages/ai/src/models-store.ts
+packages/ai/src/models.generated.ts
+packages/ai/src/models.ts
+packages/ai/src/providers/all.ts
+packages/ai/src/providers/amazon-bedrock.ts
+packages/ai/src/providers/anthropic.ts
+packages/ai/src/providers/baseten.models.ts
+packages/ai/src/providers/baseten.ts
+packages/ai/src/providers/cloudflare-auth.ts
 packages/ai/src/providers/faux.ts
+packages/ai/src/providers/github-copilot.ts
+packages/ai/src/providers/google-vertex.ts
+packages/ai/src/providers/kimi-coding.ts
+packages/ai/src/providers/openai-codex.ts
+packages/ai/src/providers/opencode-go.ts
+packages/ai/src/providers/radius.ts
+packages/ai/src/providers/xai.ts
 packages/ai/src/types.ts
+packages/ai/src/utils/abort.ts
+packages/ai/src/utils/error-body.ts
+packages/ai/src/utils/overflow.ts
+packages/ai/src/utils/validation.ts
+packages/ai/test/abort.test.ts
+packages/ai/test/anthropic-adaptive-thinking-models.test.ts
+packages/ai/test/anthropic-auth-token.test.ts
+packages/ai/test/anthropic-oauth.test.ts
 packages/ai/test/anthropic-sse-parsing.test.ts
-packages/ai/test/azure-openai-responses-reasoning-replay.test.ts
-packages/ai/test/bedrock-credentials.test.ts
-packages/ai/test/bedrock-raw-stop-reason.test.ts
-packages/ai/test/constrained-sampling.test.ts
-packages/ai/test/faux-provider.test.ts
-packages/ai/test/fetch-option.test.ts
-packages/ai/test/github-copilot-anthropic.test.ts
-packages/ai/test/google-raw-stop-reason.test.ts
-packages/ai/test/mistral-raw-stop-reason.test.ts
+packages/ai/test/baseten-models.test.ts
+packages/ai/test/bedrock-error-metadata.test.ts
+packages/ai/test/context-overflow.test.ts
+packages/ai/test/cross-provider-handoff.test.ts
+packages/ai/test/deferred-tools.test.ts
+packages/ai/test/empty.test.ts
+packages/ai/test/error-body.test.ts
+packages/ai/test/fireworks-models.test.ts
+packages/ai/test/github-copilot-oauth.test.ts
+packages/ai/test/google-shared-gemini3-unsigned-tool-call.test.ts
+packages/ai/test/google-shared-retry.test.ts
+packages/ai/test/google-shared-signed-empty-blocks.test.ts
+packages/ai/test/image-tool-result.test.ts
+packages/ai/test/kimi-coding-oauth.test.ts
+packages/ai/test/model-catalog-types.test.ts
 packages/ai/test/models-runtime.test.ts
 packages/ai/test/oauth-auth.test.ts
-packages/ai/test/openai-completions-raw-stop-reason.test.ts
+packages/ai/test/oauth-device-code.test.ts
+packages/ai/test/oauth.ts
+packages/ai/test/openai-codex-oauth.test.ts
+packages/ai/test/openai-codex-stream.test.ts
+packages/ai/test/openai-completions-prompt-cache.test.ts
+packages/ai/test/openai-completions-thinking-as-text.test.ts
+packages/ai/test/openai-completions-thinking-token-budget.test.ts
 packages/ai/test/openai-completions-tool-choice.test.ts
-packages/ai/test/openai-responses-partial-json-cleanup.test.ts
+packages/ai/test/openai-completions-tool-result-images.test.ts
 packages/ai/test/openai-responses-terminal-event.test.ts
 packages/ai/test/openrouter-oauth.test.ts
-packages/ai/test/pi-messages.test.ts
+packages/ai/test/overflow.test.ts
+packages/ai/test/providers.test.ts
 packages/ai/test/qwen-token-plan-models.test.ts
+packages/ai/test/radius-oauth.test.ts
+packages/ai/test/sampling-options.test.ts
+packages/ai/test/stream.test.ts
+packages/ai/test/telemetry-options.test.ts
+packages/ai/test/tokens.test.ts
+packages/ai/test/tool-call-without-result.test.ts
+packages/ai/test/total-tokens.test.ts
+packages/ai/test/unicode-surrogate.test.ts
 packages/ai/test/validation.test.ts
+packages/ai/test/xai-oauth.test.ts
+packages/ai/vitest.config.ts
 ```
 
-The detailed disposition matrix is in [`docs/upstream-v0.83.0-audit.md`](docs/upstream-v0.83.0-audit.md).
+The detailed disposition matrix is in [`docs/upstream-v0.84.0-audit.md`](docs/upstream-v0.84.0-audit.md).
 
 ## Exact catalog parity
 
-Generated from exact upstream tag `845d6ff1f6643aba440341cce877ce1c43ebbc39`; live main was not chased.
+Generated from exact upstream tag `a5f43bf8aff3c55752432655f7334e3dafd1e256`; live main was not chased.
 
 Text catalog:
 
-- Swift source snapshot: `scripts/models.v0.83.0.json`
-- Exact upstream comparator source: `scripts/upstream-models.845d6ff.json`
+- Swift source snapshot: `scripts/models.v0.84.0.json`
+- Exact upstream comparator source: `scripts/upstream-models.a5f43bf.json`
 - Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
 - Provider/id pairs: `1153/1153`
-- Providers: `37`
+- Providers: `38`
 - APIs: `9`
 
 Image catalog:
 
-- Swift source snapshot: `scripts/image-models.v0.83.0.json`
-- Exact upstream comparator source: `scripts/upstream-image-models.845d6ff.json`
+- Swift source snapshot: `scripts/image-models.v0.84.0.json`
+- Exact upstream comparator source: `scripts/upstream-image-models.a5f43bf.json`
 - Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
-- Provider/id pairs: `40/40`
+- Provider/id pairs: `42/42`
 - Providers: `1`
 - APIs: `1`
 
@@ -102,63 +159,36 @@ python3 scripts/audit-parity.py
 Expected output includes:
 
 ```text
-ok: 1153 text models / 37 providers / 9 APIs; 40 image models / 1 providers / 1 APIs
+ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 APIs
 ```
 
 ## Swift implementation, adaptations, and N/A decisions
 
 ### Implemented
 
-- Regenerated v0.83.0 text and image catalogs from the exact upstream tag.
-- Added `StopReason.pending` to represent upstream's new pending initial stream state.
-- Added `Message.rawStopReason` to preserve provider-native finish/status/stop reasons.
-- OpenAI Completions:
-  - Preserves raw `finish_reason`.
-  - Errors when a stream ends without `finish_reason`.
-  - Preserves valid function payloads when malformed custom payloads are also present.
-- OpenAI Responses, Azure Responses, and Codex Responses:
-  - Preserve raw response status.
-  - Reject `pending`, `in_progress`, `queued`, unknown, and missing terminal statuses as errors.
-- Anthropic Messages:
-  - Preserves raw `stop_reason`.
-  - Errors when a stream ends without a stop reason.
-  - Maps `sensitive` to an error with provider stop detail.
-- Google Generative AI:
-  - Preserves raw `finishReason`.
-  - Maps unknown finish reasons to errors.
-  - Errors when stream finishes without a stop reason.
-- Mistral Conversations:
-  - Preserves raw `finish_reason`.
-  - Maps unknown or missing finish reasons to errors.
-- Bedrock:
-  - Unknown stop reasons map to errors.
-  - `BedrockProvider.applyStopReason(_:to:)` preserves raw stop reasons for Bedrock transport integrations.
-- OpenRouter OAuth:
-  - Accepts both direct authorization code and callback URL input via `authorizationCode(from:)`.
-- OAuth credential resolution:
-  - `OAuthRegistry.resolveAPIKey(...)` enforces effective minimum validity as `max(300s, override)`.
-  - Default 5-minute early refresh is applied.
-  - Below-default overrides still use 300 seconds.
-  - Explicit stricter overrides are enforced after refresh.
-  - Refreshed credentials that still fail an explicit stricter minimum are rejected with cause-preserving `ModelsError`.
+- Regenerated v0.84.0 text and image catalogs from the exact upstream tag.
+- Added Baseten provider metadata and `BASETEN_API_KEY` environment lookup.
+- Added `Model.samplingParams` and `StreamOptions.samplingParams`.
+- OpenAI Completions and OpenAI Responses/Azure/Codex builders merge model sampling defaults with per-request overrides.
+- Retained v0.83 raw stop reason, missing-finish, custom-tool, and terminal-status fixes.
+- Added OAuth minimum-validity semantics: effective window is `max(300s, override)`, and explicit stricter overrides are enforced after refresh.
+- Added representative v0.84 Baseten, Qwen Token Plan, and image catalog tests.
 
 ### Existing Swift equivalents / adaptations
 
-- Upstream JS `fetch` injection maps to Swift's existing testable request/transport seams:
-  - provider `requestTransport` hooks,
-  - `BedrockTransport`,
-  - `CodexTransport`,
-  - request/response hooks such as `onPayload` and `onResponse`.
-- Bedrock credential/profile priority remains transport-owned in Swift because SwiftPM core does not implement AWS SigV4 credential sourcing; `BedrockTransport` owners provide credentials/signing.
+- Upstream JS `fetch` injection maps to Swift's existing typed transport/request seams (`requestTransport`, `BedrockTransport`, `CodexTransport`, `onPayload`, `onResponse`).
+- Provider refresh publication maps to Swift's actor-backed `ModelRuntime`/`AIRegistry` replacement flow.
+- Swift preserves structured concurrency, AsyncSequence stream handling, typed errors, and actor/sendability boundaries instead of mirroring JS SDK internals.
 
 ### N/A decisions
 
-- Direct JS `fetch` callback API is not mirrored as a Swift option because Swift uses typed pluggable transports and URLSession-based request paths.
-- JS SDK-specific Bedrock credential resolution is not part of SwiftPM core; it remains intentionally delegated to `BedrockTransport`.
+- Direct JS `fetch` callback API is not mirrored as a Swift option because Swift uses typed pluggable transports and URLSession request paths.
+- Bedrock credential/profile priority remains transport-owned in Swift because SwiftPM core does not implement AWS SigV4 credential sourcing.
+- Vitest/CLI/package runner changes are monorepo-only.
 
 ## Tests and gates
 
-Local validation for v0.83.0 corrective work used Swift `6.3.2`:
+Local validation for v0.84.0 parity work used Swift `6.3.2`:
 
 ```bash
 swift build -Xswiftc -warnings-as-errors
@@ -170,19 +200,19 @@ python3 scripts/static-check.py
 grep -R "XCTSkip" -n Tests || true
 ```
 
-Latest local results before the documentation-policy update:
+Latest local results before this commit:
 
-- `swift test`: `217` tests, `0` failures.
+- `swift test`: `219` tests, `0` failures.
 - deterministic `swift test` ×3: passed.
 - `make check`: passed.
-- `scripts/audit-parity.py`: passed with exact v0.83.0 counts.
+- `scripts/audit-parity.py`: passed with exact v0.84.0 counts.
 - `scripts/static-check.py`: passed.
 - hidden skip scan: no `XCTSkip` matches.
 
-Latest GitHub Actions for the current release documentation-policy commit:
+Latest GitHub Actions for this release update commit:
 
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/30522489514>
-- Commit: `adaa42f434264968440b8c06492b0ca660bfea47`
+- Run: pending
+- Commit: this release update commit
 - Jobs:
   - `static-check`: success
   - `swift-test (ubuntu-latest)`: success

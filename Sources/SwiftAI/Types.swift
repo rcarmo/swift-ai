@@ -38,6 +38,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
     case miniMaxCN = "minimax-cn"
     case huggingFace = "huggingface"
     case fireworks = "fireworks"
+    case baseten = "baseten"
     case openCode = "opencode"
     case together = "together"
     case openCodeGo = "opencode-go"
@@ -243,16 +244,17 @@ public struct Model: Codable, Equatable, Sendable {
     public var cost: ModelCost
     public var contextWindow: Int
     public var maxTokens: Int
+    public var samplingParams: [String: JSONValue]?
     public var headers: [String: String]?
     public var completionsCompat: OpenAICompletionsCompat?
     public var responsesCompat: OpenAIResponsesCompat?
     public var anthropicCompat: AnthropicMessagesCompat?
 
-    public init(id: String, name: String, api: API, provider: Provider, baseUrl: String = "", reasoning: Bool = false, thinkingLevelMap: [ModelThinkingLevel: String?]? = nil, input: [String] = ["text"], cost: ModelCost = ModelCost(), contextWindow: Int = 0, maxTokens: Int = 0, headers: [String: String]? = nil, completionsCompat: OpenAICompletionsCompat? = nil, responsesCompat: OpenAIResponsesCompat? = nil, anthropicCompat: AnthropicMessagesCompat? = nil) {
-        self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.reasoning = reasoning; self.thinkingLevelMap = thinkingLevelMap; self.input = input; self.cost = cost; self.contextWindow = contextWindow; self.maxTokens = maxTokens; self.headers = headers; self.completionsCompat = completionsCompat; self.responsesCompat = responsesCompat; self.anthropicCompat = anthropicCompat
+    public init(id: String, name: String, api: API, provider: Provider, baseUrl: String = "", reasoning: Bool = false, thinkingLevelMap: [ModelThinkingLevel: String?]? = nil, input: [String] = ["text"], cost: ModelCost = ModelCost(), contextWindow: Int = 0, maxTokens: Int = 0, samplingParams: [String: JSONValue]? = nil, headers: [String: String]? = nil, completionsCompat: OpenAICompletionsCompat? = nil, responsesCompat: OpenAIResponsesCompat? = nil, anthropicCompat: AnthropicMessagesCompat? = nil) {
+        self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.reasoning = reasoning; self.thinkingLevelMap = thinkingLevelMap; self.input = input; self.cost = cost; self.contextWindow = contextWindow; self.maxTokens = maxTokens; self.samplingParams = samplingParams; self.headers = headers; self.completionsCompat = completionsCompat; self.responsesCompat = responsesCompat; self.anthropicCompat = anthropicCompat
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, api, provider; case baseUrl; case reasoning; case thinkingLevelMap; case input, cost, contextWindow, maxTokens, headers, completionsCompat, responsesCompat, anthropicCompat }
+    enum CodingKeys: String, CodingKey { case id, name, api, provider; case baseUrl; case reasoning; case thinkingLevelMap; case input, cost, contextWindow, maxTokens, samplingParams, headers, completionsCompat, responsesCompat, anthropicCompat }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -273,6 +275,7 @@ public struct Model: Codable, Equatable, Sendable {
         cost = try c.decodeIfPresent(ModelCost.self, forKey: .cost) ?? ModelCost()
         contextWindow = try c.decodeIfPresent(Int.self, forKey: .contextWindow) ?? 0
         maxTokens = try c.decodeIfPresent(Int.self, forKey: .maxTokens) ?? 0
+        samplingParams = try c.decodeIfPresent([String: JSONValue].self, forKey: .samplingParams)
         headers = try c.decodeIfPresent([String: String].self, forKey: .headers)
         completionsCompat = try c.decodeIfPresent(OpenAICompletionsCompat.self, forKey: .completionsCompat)
         responsesCompat = try c.decodeIfPresent(OpenAIResponsesCompat.self, forKey: .responsesCompat)
@@ -296,6 +299,7 @@ public struct Model: Codable, Equatable, Sendable {
         try c.encode(cost, forKey: .cost)
         try c.encode(contextWindow, forKey: .contextWindow)
         try c.encode(maxTokens, forKey: .maxTokens)
+        try c.encodeIfPresent(samplingParams, forKey: .samplingParams)
         try c.encodeIfPresent(headers, forKey: .headers)
         try c.encodeIfPresent(completionsCompat, forKey: .completionsCompat)
         try c.encodeIfPresent(responsesCompat, forKey: .responsesCompat)
@@ -318,6 +322,7 @@ public struct RetryConfig: Codable, Equatable, Sendable { public var maxRetries:
 public struct StreamOptions: Sendable {
     public var temperature: Double?
     public var maxTokens: Int?
+    public var samplingParams: [String: JSONValue]?
     public var apiKey: String?
     public var transport: Transport?
     public var cacheRetention: CacheRetention?

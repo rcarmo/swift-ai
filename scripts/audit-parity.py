@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.83.0 counts, that every generated API/provider raw value is represented in
+v0.84.0 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,10 +15,10 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.83.0.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.845d6ff.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.83.0.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.845d6ff.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.84.0.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.a5f43bf.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.0.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.a5f43bf.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -28,8 +28,8 @@ IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.sw
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
 EXPECTED_TEXT_MODELS = 1153
-EXPECTED_TEXT_PROVIDERS = 37
-EXPECTED_IMAGE_MODELS = 40
+EXPECTED_TEXT_PROVIDERS = 38
+EXPECTED_IMAGE_MODELS = 42
 EXPECTED_IMAGE_PROVIDERS = 1
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
@@ -134,12 +134,13 @@ def main() -> int:
         ("moonshotai", "kimi-k3"),
         ("openrouter", "moonshotai/kimi-k3"),
         ("openrouter", "meta/muse-spark-1.1"),
-        ("vercel-ai-gateway", "anthropic/claude-opus-5-fast"),
+        ("vercel-ai-gateway", "anthropic/claude-opus-5"),
         ("vercel-ai-gateway", "moonshotai/kimi-k3"),
         ("vercel-ai-gateway", "thinkingmachines/inkling"),
-        ("qwen-token-plan", "qwen3.8-max-preview"),
-        ("qwen-token-plan-cn", "qwen3.8-max-preview"),
+        ("qwen-token-plan", "qwen3.8-max"),
+        ("qwen-token-plan-cn", "qwen3.8-max"),
         ("opencode-go", "grok-4.5"),
+        ("baseten", "moonshotai/Kimi-K2.5"),
         ("google", "gemini-2.5-computer-use-preview-10-2025"),
         ("openrouter", "inclusionai/ling-3.0-flash:free"),
     }
@@ -160,6 +161,7 @@ def main() -> int:
         ("openrouter", "krea/krea-2-large"),
         ("openrouter", "openrouter/auto-beta"),
         ("openrouter", "microsoft/mai-image-2.5-pro"),
+        ("openrouter", "qwen/qwen-image-3-pro"),
     }
     missing_image_representatives = sorted(representative_image_ids - upstream_image_ids)
     if missing_image_representatives:

@@ -30,6 +30,8 @@ public enum OpenAICompletionsProvider {
         ]
         if stream, compat.supportsUsageInStreaming != false { body["stream_options"] = .object(["include_usage": .bool(true)]) }
         if compat.supportsStore != false { body["store"] = .bool(false) }
+        for (key, value) in model.samplingParams ?? [:] { body[key] = value }
+        for (key, value) in options?.samplingParams ?? [:] { body[key] = value }
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
         if let maxTokens = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body[maxTokensField] = .number(Double(maxTokens)) }
@@ -56,7 +58,8 @@ public enum OpenAICompletionsProvider {
         case "zai": body["thinking"] = .object(["type": .string("enabled")]); if compat.zaiToolStream == true { body["tool_stream"] = .bool(true) }
         case "qwen": body["enable_thinking"] = .bool(true)
         case "qwen-chat-template": body["chat_template_kwargs"] = .object(["enable_thinking": .bool(true), "preserve_thinking": .bool(true)])
-        case "chat-template": if let kwargs = buildChatTemplateKwargs(model: model, compat: compat, effort: effort) { body["chat_template_kwargs"] = .object(kwargs) }
+        case "chat-template": if let kwargs = buildChatTemplateValues(model: model, source: compat.chatTemplateKwargs, effort: effort) { body["chat_template_kwargs"] = .object(kwargs) }
+        case "baseten": if let args = buildChatTemplateValues(model: model, source: compat.chatTemplateArgs, effort: effort) { body["chat_template_args"] = .object(args) }; if compat.supportsReasoningEffort == true { body["reasoning_effort"] = .string(mapped) }
         case "string-thinking": body["thinking"] = .object(["type": .string(mapped)])
         default: break
         }
@@ -66,8 +69,8 @@ public enum OpenAICompletionsProvider {
         AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort
     }
 
-    private static func buildChatTemplateKwargs(model: Model, compat: OpenAICompletionsCompat, effort: String?) -> [String: JSONValue]? {
-        guard let source = compat.chatTemplateKwargs else { return nil }
+    private static func buildChatTemplateValues(model: Model, source: [String: ChatTemplateKwargValue]?, effort: String?) -> [String: JSONValue]? {
+        guard let source else { return nil }
         var out: [String: JSONValue] = [:]
         for (key, value) in source {
             if let variable = value.variable {

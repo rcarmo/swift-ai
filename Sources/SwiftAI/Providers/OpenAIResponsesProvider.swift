@@ -41,6 +41,8 @@ public enum OpenAIResponsesProvider {
         var input = convertInput(model: model, context: context, deferredMarkers: plan.markers)
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
+        for (key, value) in model.samplingParams ?? [:] { body[key] = value }
+        for (key, value) in options?.samplingParams ?? [:] { body[key] = value }
         let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
         if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0, supportsOpenAIGrammarTools: supportsGrammar) }) }
         if let t = options?.temperature { body["temperature"] = .number(t) }

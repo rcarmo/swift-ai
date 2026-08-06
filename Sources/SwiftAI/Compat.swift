@@ -21,6 +21,7 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
     public var requiresReasoningContentOnAssistantMessages: Bool?
     public var thinkingFormat: String?
     public var chatTemplateKwargs: [String: ChatTemplateKwargValue]?
+    public var chatTemplateArgs: [String: ChatTemplateKwargValue]?
     public var openRouterRouting: [String: JSONValue]?
     public var vercelGatewayRouting: [String: JSONValue]?
     public var zaiToolStream: Bool?
@@ -83,6 +84,7 @@ public enum Compat {
         if override.requiresReasoningContentOnAssistantMessages != nil { detected.requiresReasoningContentOnAssistantMessages = override.requiresReasoningContentOnAssistantMessages }
         if override.thinkingFormat != nil { detected.thinkingFormat = override.thinkingFormat }
         if override.chatTemplateKwargs != nil { detected.chatTemplateKwargs = override.chatTemplateKwargs }
+        if override.chatTemplateArgs != nil { detected.chatTemplateArgs = override.chatTemplateArgs }
         if override.openRouterRouting != nil { detected.openRouterRouting = override.openRouterRouting }
         if override.vercelGatewayRouting != nil { detected.vercelGatewayRouting = override.vercelGatewayRouting }
         if override.zaiToolStream != nil { detected.zaiToolStream = override.zaiToolStream }

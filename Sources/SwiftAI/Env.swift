@@ -20,6 +20,7 @@ public enum ProviderEnvironment {
         .miniMaxCN: ["MINIMAX_CN_API_KEY"],
         .huggingFace: ["HF_TOKEN"],
         .fireworks: ["FIREWORKS_API_KEY"],
+        .baseten: ["BASETEN_API_KEY"],
         .openCode: ["OPENCODE_API_KEY"],
         .openCodeGo: ["OPENCODE_API_KEY"],
         .kimiCoding: ["KIMI_API_KEY"],

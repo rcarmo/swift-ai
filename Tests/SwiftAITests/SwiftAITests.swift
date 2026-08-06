@@ -123,17 +123,17 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.83.0")
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.0")
         XCTAssertEqual(SwiftAIStatus.textModelCount, 1153)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 40)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 42)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.83.0")
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.0")
         XCTAssertEqual(BuiltinModels.modelCount, 1153)
-        XCTAssertEqual(BuiltinModels.providerCount, 37)
+        XCTAssertEqual(BuiltinModels.providerCount, 38)
         let models = try BuiltinModels.all()
         XCTAssertEqual(models.count, 1153)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
@@ -142,12 +142,37 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "moonshotai/kimi-k3" })
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "meta/muse-spark-1.1" })
         XCTAssertTrue(models.contains { $0.provider == .vercelAIGateway && $0.id == "thinkingmachines/inkling" && $0.api == .anthropicMessages })
-        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlan && $0.id == "qwen3.8-max-preview" && $0.api == .openAICompletions })
-        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanCN && $0.id == "qwen3.8-max-preview" && $0.api == .openAICompletions })
+        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlan && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
+        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanCN && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .openCodeGo && $0.id == "grok-4.5" && $0.api == .openAIResponses })
         XCTAssertTrue(models.contains { $0.provider == .google && $0.id == "gemini-2.5-computer-use-preview-10-2025" })
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "inclusionai/ling-3.0-flash:free" })
+        XCTAssertTrue(models.contains { $0.provider == .baseten && $0.id == "moonshotai/Kimi-K2.5" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
+    }
+
+    func testBasetenSamplingAndChatTemplateArgs() throws {
+        let models = try BuiltinModels.all()
+        let kimi = try XCTUnwrap(models.first { $0.provider == .baseten && $0.id == "moonshotai/Kimi-K2.5" })
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .baseten, env: ["BASETEN_API_KEY": "base-key"]), "base-key")
+        var options = StreamOptions(); options.reasoning = .high; options.samplingParams = ["top_k": .number(40), "min_p": .number(0.1)]
+        let body = OpenAICompletionsProvider.buildRequestBody(model: kimi, context: AIContext(messages: [.user("hi")]), options: options)
+        guard case .object(let args)? = body["chat_template_args"] else { return XCTFail("missing baseten chat template args") }
+        XCTAssertEqual(args["enable_thinking"], .bool(true))
+        XCTAssertEqual(body["top_k"], .number(40))
+        XCTAssertEqual(body["min_p"], .number(0.1))
+    }
+
+    func testOpenAICompatibleSamplingParamMerge() {
+        let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, samplingParams: ["top_p": .number(0.8), "top_k": .number(20)])
+        var options = StreamOptions(); options.samplingParams = ["top_k": .number(40), "min_p": .number(0.1)]
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["top_p"], .number(0.8))
+        XCTAssertEqual(body["top_k"], .number(40))
+        XCTAssertEqual(body["min_p"], .number(0.1))
+        let responses = OpenAIResponsesProvider.buildRequestBody(model: Model(id: "r", name: "R", api: .openAIResponses, provider: .openAI, samplingParams: ["top_p": .number(0.7)]), context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(responses["top_p"], .number(0.7))
+        XCTAssertEqual(responses["top_k"], .number(40))
     }
 
     func testXiaomiMiMoModelPlacement() throws {
@@ -159,15 +184,16 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.83.0")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 40)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.0")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 42)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 40)
+        XCTAssertEqual(models.count, 42)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
         XCTAssertTrue(models.contains { $0.id == "microsoft/mai-image-2.5-pro" })
+        XCTAssertTrue(models.contains { $0.id == "qwen/qwen-image-3-pro" })
     }
 
     func testOpenRouterImageResponseParser() throws {

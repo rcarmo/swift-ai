@@ -58,24 +58,64 @@ public enum ContextUtilities {
     }
 
     private static func validateAndCoerce(name: String, value: JSONValue, schema: [String: JSONValue], toolName: String) throws -> JSONValue {
-        let expectedTypes: [String]
-        switch schema["type"] {
-        case .string(let expected)?: expectedTypes = [expected]
-        case .array(let values)?: expectedTypes = values.compactMap(\.stringValue)
-        default: return value
+        var next = value
+        if case .array(let allOf)? = schema["allOf"] {
+            for item in allOf {
+                if case .object(let nested) = item { next = try validateAndCoerce(name: name, value: next, schema: nested, toolName: toolName) }
+            }
         }
-        if let actual = jsonType(value), expectedTypes.contains(actual) {
-            return try coerce(name: name, value: value, expected: actual, schema: schema, toolName: toolName)
-        }
+        if case .array(let anyOf)? = schema["anyOf"] { next = try coerceUnion(name: name, value: next, schemas: anyOf, toolName: toolName) }
+        if case .array(let oneOf)? = schema["oneOf"] { next = try coerceUnion(name: name, value: next, schemas: oneOf, toolName: toolName) }
+        let expectedTypes = schemaTypes(schema)
+        guard !expectedTypes.isEmpty else { return next }
+        if let actual = jsonType(next), expectedTypes.contains(actual) { return try coerce(name: name, value: next, expected: actual, schema: schema, toolName: toolName) }
         var lastError: Error?
         for expected in expectedTypes {
-            do { return try coerce(name: name, value: value, expected: expected, schema: schema, toolName: toolName) } catch { lastError = error }
+            do { return try coerce(name: name, value: next, expected: expected, schema: schema, toolName: toolName) } catch { lastError = error }
         }
-        throw lastError ?? typeError(toolName: toolName, field: name, expected: expectedTypes.joined(separator: "/"), actual: value)
+        throw lastError ?? typeError(toolName: toolName, field: name, expected: expectedTypes.joined(separator: "/"), actual: next)
     }
 
-    private static func jsonType(_ value: JSONValue) -> String? {
-        switch value { case .string: return "string"; case .number(let n): return n.rounded() == n ? "integer" : "number"; case .bool: return "boolean"; case .array: return "array"; case .object: return "object"; case .null: return "null" }
+    private static func schemaTypes(_ schema: [String: JSONValue]) -> [String] {
+        switch schema["type"] {
+        case .string(let expected)?: return [expected]
+        case .array(let values)?: return values.compactMap(\.stringValue)
+        default: return []
+        }
+    }
+
+    private static func coerceUnion(name: String, value: JSONValue, schemas: [JSONValue], toolName: String) throws -> JSONValue {
+        let schemaObjects = schemas.compactMap { item -> [String: JSONValue]? in if case .object(let schema) = item { return schema }; return nil }
+        for schema in schemaObjects where matchesSchema(value, schema: schema) { return value }
+        var lastError: Error?
+        for schema in schemaObjects {
+            do {
+                let candidate = try validateAndCoerce(name: name, value: value, schema: schema, toolName: toolName)
+                if matchesSchema(candidate, schema: schema) { return candidate }
+            } catch { lastError = error }
+        }
+        throw lastError ?? typeError(toolName: toolName, field: name, expected: "union", actual: value)
+    }
+
+    private static func matchesSchema(_ value: JSONValue, schema: [String: JSONValue]) -> Bool {
+        let expectedTypes = schemaTypes(schema)
+        if !expectedTypes.isEmpty { return jsonTypes(value).contains { expectedTypes.contains($0) } }
+        if case .array(let anyOf)? = schema["anyOf"] {
+            return anyOf.contains { item in if case .object(let nested) = item { return matchesSchema(value, schema: nested) }; return false }
+        }
+        if case .array(let oneOf)? = schema["oneOf"] {
+            return oneOf.contains { item in if case .object(let nested) = item { return matchesSchema(value, schema: nested) }; return false }
+        }
+        if case .array(let allOf)? = schema["allOf"] {
+            return allOf.allSatisfy { item in if case .object(let nested) = item { return matchesSchema(value, schema: nested) }; return true }
+        }
+        return true
+    }
+
+    private static func jsonType(_ value: JSONValue) -> String? { jsonTypes(value).first }
+
+    private static func jsonTypes(_ value: JSONValue) -> [String] {
+        switch value { case .string: return ["string"]; case .number(let n): return n.rounded() == n ? ["integer", "number"] : ["number"]; case .bool: return ["boolean"]; case .array: return ["array"]; case .object: return ["object"]; case .null: return ["null"] }
     }
 
     private static func coerce(name: String, value: JSONValue, expected: String, schema: [String: JSONValue], toolName: String) throws -> JSONValue {

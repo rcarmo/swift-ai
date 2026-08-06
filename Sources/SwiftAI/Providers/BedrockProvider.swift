@@ -4,6 +4,13 @@ public protocol BedrockTransport: Sendable {
     func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent>
 }
 
+public struct BedrockFailureMetadata: Equatable, Sendable {
+    public var status: Int?
+    public var errorCode: String?
+    public var requestId: String?
+    public init(status: Int? = nil, errorCode: String? = nil, requestId: String? = nil) { self.status = status; self.errorCode = errorCode; self.requestId = requestId }
+}
+
 public actor BedrockTransportRegistry {
     public static let shared = BedrockTransportRegistry()
     private var transport: (any BedrockTransport)?
@@ -12,6 +19,9 @@ public actor BedrockTransportRegistry {
 }
 
 public enum BedrockProvider {
+    public static let responseFailureDiagnosticType = "bedrock_response_failure"
+    private static let diagnosticValueLimit = 1024
+
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
@@ -25,6 +35,43 @@ public enum BedrockProvider {
                 continuation.finish()
             }
         }
+    }
+
+    public static func failureMessage(model: Model, errorMessage: String, metadata: BedrockFailureMetadata? = nil, aborted: Bool = false) -> Message {
+        var message = Message(role: .assistant, content: [])
+        message.api = model.api
+        message.provider = model.provider
+        message.model = model.id
+        message.usage = Usage()
+        message.stopReason = aborted ? .aborted : .error
+        message.errorMessage = errorMessage
+        guard !aborted, let details = diagnosticDetails(metadata), !details.isEmpty else { return message }
+        message.diagnostics = [AssistantMessageDiagnostic(type: responseFailureDiagnosticType, timestamp: 0, error: DiagnosticError(message: responseFailureDiagnosticType), details: details)]
+        return message
+    }
+
+    public static func failureEvent(model: Model, errorMessage: String, metadata: BedrockFailureMetadata? = nil, aborted: Bool = false, error: Error? = nil) -> AIEvent {
+        let message = failureMessage(model: model, errorMessage: errorMessage, metadata: metadata, aborted: aborted)
+        return .error(reason: message.stopReason ?? .error, message: message, error: error)
+    }
+
+    public static func diagnosticDetails(_ metadata: BedrockFailureMetadata?) -> [String: JSONValue]? {
+        guard let metadata else { return nil }
+        var details: [String: JSONValue] = [:]
+        if let status = metadata.status { details["status"] = .number(Double(status)) }
+        if let errorCode = boundedProviderErrorCode(metadata.errorCode) { details["errorCode"] = .string(errorCode) }
+        if let requestId = boundedHeaderValue(metadata.requestId) { details["requestId"] = .string(requestId) }
+        return details.isEmpty ? nil : details
+    }
+
+    private static func boundedHeaderValue(_ value: String?) -> String? {
+        guard let value, !value.isEmpty, value.count <= diagnosticValueLimit else { return nil }
+        return value
+    }
+
+    private static func boundedProviderErrorCode(_ value: String?) -> String? {
+        guard let value = boundedHeaderValue(value), value != "Unknown", value.hasSuffix("Exception") else { return nil }
+        return value
     }
 
     public static func configuredRegion(model: Model, options: StreamOptions?, env: ProviderEnv? = nil) -> String {

@@ -390,6 +390,9 @@ final class SwiftAITests: XCTestCase {
             (.object(["type": .string("null")]), .string(""), .null),
             (.object(["type": .string("null")]), .number(0), .null),
             (.object(["type": .string("null")]), .bool(false), .null),
+            (.object(["type": .array([.string("number"), .string("null")])]), .null, .null),
+            (.object(["oneOf": .array([.object(["type": .string("number")]), .object(["type": .string("null")])])]), .null, .null),
+            (.object(["anyOf": .array([.object(["type": .string("number")]), .object(["type": .string("null")])])]), .string("42"), .number(42)),
             (.object(["type": .array([.string("number"), .string("string")])]), .string("1"), .string("1")),
             (.object(["type": .array([.string("boolean"), .string("number")])]), .string("1"), .number(1))
         ]
@@ -2352,11 +2355,29 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testBedrockPluggableTransport() async throws {
+        await SwiftAI.bootstrap()
         await BedrockTransportRegistry.shared.setTransport(FakeBedrockTransport())
         defer { Task { await BedrockTransportRegistry.shared.setTransport(nil) } }
         let model = Model(id: "bedrock", name: "Bedrock", api: .bedrockConverseStream, provider: .amazonBedrock)
         let message = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]))
         XCTAssertEqual(message.content.first?.text, "bedrock ok")
+    }
+
+    func testBedrockFailureMetadataDiagnostics() {
+        let model = Model(id: "bedrock", name: "Bedrock", api: .bedrockConverseStream, provider: .amazonBedrock)
+        let requestId = "11111111-2222-3333-4444-555555555555"
+        let message = BedrockProvider.failureMessage(model: model, errorMessage: "Validation error: The provided model identifier is invalid.", metadata: BedrockFailureMetadata(status: 400, errorCode: "ValidationException", requestId: requestId))
+        XCTAssertEqual(message.stopReason, .error)
+        XCTAssertEqual(message.errorMessage, "Validation error: The provided model identifier is invalid.")
+        XCTAssertEqual(message.diagnostics?.first?.type, "bedrock_response_failure")
+        XCTAssertEqual(message.diagnostics?.first?.details, ["status": .number(400), "errorCode": .string("ValidationException"), "requestId": .string(requestId)])
+        XCTAssertEqual(BedrockProvider.failureMessage(model: model, errorMessage: "Too many requests", metadata: BedrockFailureMetadata(requestId: requestId)).diagnostics?.first?.details, ["requestId": .string(requestId)])
+        XCTAssertEqual(BedrockProvider.failureMessage(model: model, errorMessage: "Model stream terminated unexpectedly.", metadata: BedrockFailureMetadata(errorCode: "ModelStreamErrorException", requestId: requestId)).diagnostics?.first?.details, ["errorCode": .string("ModelStreamErrorException"), "requestId": .string(requestId)])
+        XCTAssertEqual(BedrockProvider.failureMessage(model: model, errorMessage: "Connection timed out", metadata: BedrockFailureMetadata(errorCode: "TimeoutError", requestId: requestId)).diagnostics?.first?.details, ["requestId": .string(requestId)])
+        XCTAssertNil(BedrockProvider.failureMessage(model: model, errorMessage: "socket hang up").diagnostics)
+        XCTAssertNil(BedrockProvider.failureMessage(model: model, errorMessage: "Validation error", metadata: BedrockFailureMetadata(status: 400, errorCode: "ValidationException", requestId: requestId), aborted: true).diagnostics)
+        XCTAssertEqual(BedrockProvider.failureMessage(model: model, errorMessage: "Validation error", metadata: BedrockFailureMetadata(status: 400, errorCode: String(repeating: "E", count: 5000) + "Exception", requestId: String(repeating: "R", count: 5000))).diagnostics?.first?.details, ["status": .number(400)])
+        XCTAssertEqual(BedrockProvider.failureMessage(model: model, errorMessage: "unknown", metadata: BedrockFailureMetadata(status: 403, errorCode: "Unknown", requestId: requestId)).diagnostics?.first?.details, ["status": .number(403), "requestId": .string(requestId)])
     }
 
     func testBedrockRequestAndRegionHelpers() {

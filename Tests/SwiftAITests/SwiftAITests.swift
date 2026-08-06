@@ -1479,13 +1479,14 @@ final class SwiftAITests: XCTestCase {
             return (stream, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         defer { OpenAIResponsesProvider.requestTransport = nil }
-        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, baseUrl: "https://example.test/v1", headers: ["Authorization": "Bearer model-default", "X-Keep": "model", "X-Delete": "model"])
-        var options = StreamOptions(); options.apiKey = "runtime-key"; options.headers = ["authorization": nil, "x-delete": nil, "X-Request": "request"]
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, baseUrl: "https://example.test/v1", headers: ["X-Auth-Default": "Bearer model-default", "X-Keep": "model", "X-Delete": "model"])
+        var options = StreamOptions(); options.apiKey = "runtime-key"; options.headers = ["x-auth-default": nil, "x-delete": nil, "X-Request": "request"]
         let events = OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options)
         var sawDone = false
         for await event in events { if case .done = event { sawDone = true } }
         XCTAssertTrue(sawDone)
-        XCTAssertNil(captured.headers["authorization"])
+        XCTAssertEqual(captured.headers["authorization"], "Bearer runtime-key")
+        XCTAssertNil(captured.headers["x-auth-default"])
         XCTAssertNil(captured.headers["x-delete"])
         XCTAssertEqual(captured.headers["x-keep"], "model")
         XCTAssertEqual(captured.headers["x-request"], "request")

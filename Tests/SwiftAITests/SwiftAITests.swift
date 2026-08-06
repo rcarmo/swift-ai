@@ -163,6 +163,32 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(body["min_p"], .number(0.1))
     }
 
+    func testOpenAICompletionsThinkingTokenBudgetEdges() {
+        var compat = OpenAICompletionsCompat(); compat.supportsThinkingTokenBudget = true
+        let model = Model(id: "vllm", name: "vLLM", api: .openAICompletions, provider: .openAI, reasoning: true, contextWindow: 32_000, maxTokens: 20_000, completionsCompat: compat)
+        var options = StreamOptions()
+        let off = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(off["thinking_token_budget"])
+        options.reasoning = .minimal
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(1024))
+        options.reasoning = .low
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(2048))
+        options.reasoning = .medium
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(8192))
+        options.reasoning = .high
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(16_384))
+        options.reasoning = .xhigh
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(16_384))
+        options.reasoning = .high; options.thinkingBudgets = ThinkingBudgets(high: 12_345)
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(12_345))
+        options.maxTokens = 1500
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"], .number(476))
+        var disabled = OpenAICompletionsCompat(); disabled.supportsThinkingTokenBudget = false
+        let disabledModel = Model(id: "plain", name: "Plain", api: .openAICompletions, provider: .openAI, reasoning: true, maxTokens: 20_000, completionsCompat: disabled)
+        options.maxTokens = nil; options.thinkingBudgets = nil
+        XCTAssertNil(OpenAICompletionsProvider.buildRequestBody(model: disabledModel, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"])
+    }
+
     func testOpenAICompatibleSamplingParamMerge() {
         let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, samplingParams: ["top_p": .number(0.8), "top_k": .number(20)])
         var options = StreamOptions(); options.samplingParams = ["top_k": .number(40), "min_p": .number(0.1)]

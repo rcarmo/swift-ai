@@ -170,6 +170,7 @@ ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 
 - Added Baseten provider metadata and `BASETEN_API_KEY` environment lookup.
 - Added `Model.samplingParams` and `StreamOptions.samplingParams`.
 - OpenAI Completions and OpenAI Responses/Azure/Codex builders merge model sampling defaults with per-request overrides.
+- Added `OpenAICompletionsCompat.supportsThinkingTokenBudget` and OpenAI Completions `thinking_token_budget` emission/clamping for vLLM-compatible providers.
 - Retained v0.83 raw stop reason, missing-finish, custom-tool, and terminal-status fixes.
 - Added OAuth minimum-validity semantics: effective window is `max(300s, override)`, and explicit stricter overrides are enforced after refresh.
 - Added representative v0.84 Baseten, Qwen Token Plan, and image catalog tests.

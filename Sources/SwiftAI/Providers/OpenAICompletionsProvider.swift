@@ -4,6 +4,7 @@ import FoundationNetworking
 #endif
 
 public enum OpenAICompletionsProvider {
+    public static let minAnswerTokens = 1024
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
@@ -44,7 +45,7 @@ public enum OpenAICompletionsProvider {
         if let session = options?.sessionId, !session.isEmpty, shouldSendCacheKey { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if cacheRetention == .long, compat.supportsLongCacheRetention == true { body["prompt_cache_retention"] = .string("24h") }
         if let toolChoice = options?.toolChoice { body["tool_choice"] = toolChoice }
-        if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body) }
+        if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body); applyThinkingTokenBudget(model: model, options: options, compat: compat, body: &body) }
         return body
     }
 
@@ -63,6 +64,23 @@ public enum OpenAICompletionsProvider {
         case "string-thinking": body["thinking"] = .object(["type": .string(mapped)])
         default: break
         }
+    }
+
+    private static func applyThinkingTokenBudget(model: Model, options: StreamOptions?, compat: OpenAICompletionsCompat, body: inout [String: JSONValue]) {
+        guard compat.supportsThinkingTokenBudget == true, let reasoning = options?.reasoning, model.reasoning else { return }
+        let defaults = AIUtilities.defaultThinkingBudgets()
+        let custom = options?.thinkingBudgets
+        let budget: Int
+        switch AIUtilities.clampReasoning(reasoning) {
+        case .minimal: budget = custom?.minimal ?? defaults.minimal ?? 1024
+        case .low: budget = custom?.low ?? defaults.low ?? 2048
+        case .medium: budget = custom?.medium ?? defaults.medium ?? 8192
+        case .high, .xhigh, .max: budget = custom?.high ?? defaults.high ?? 16_384
+        }
+        let maxTokensField = compat.maxTokensField ?? "max_tokens"
+        let ceiling = Int(body[maxTokensField]?.doubleValue ?? body["max_completion_tokens"]?.doubleValue ?? Double(model.maxTokens))
+        let clamped = min(budget, max(0, ceiling - minAnswerTokens))
+        if clamped > 0 { body["thinking_token_budget"] = .number(Double(clamped)) }
     }
 
     private static func mappedThinkingEffort(model: Model, effort: String) -> String {

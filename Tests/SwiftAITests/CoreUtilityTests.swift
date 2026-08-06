@@ -72,7 +72,16 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(AIUtilities.estimateTextAndImageContentTokens([.text("abcd"), .image(data: "x", mimeType: "image/png")]), 1201)
         XCTAssertEqual(AIUtilities.contentText([.text("a"), .thinking("hidden"), .text("b")]), "ab")
         XCTAssertEqual(AIUtilities.contentText([.text("a"), .thinking("hidden"), .text("b")], includeThinking: true, separator: "|"), "a|hidden|b")
-        XCTAssertEqual(AIUtilities.uuidv7(timestampMs: 0x018bcfe56800, randomBytes: [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x11, 0x22]), "018bcfe5-6800-7234-9678-9abcdef01122")
+        let uuidBase: UInt64 = 0x7fff_cfe5_6800
+        let firstUUID = AIUtilities.uuidv7(timestampMs: uuidBase, randomBytes: [0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xfe, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55])
+        let secondUUID = AIUtilities.uuidv7(timestampMs: uuidBase, randomBytes: Array(repeating: 0, count: 16))
+        let thirdUUID = AIUtilities.uuidv7(timestampMs: uuidBase, randomBytes: Array(repeating: 0, count: 16))
+        XCTAssertEqual(firstUUID, "7fffcfe5-6800-7fff-bfff-f91122334455")
+        XCTAssertEqual(secondUUID, "7fffcfe5-6800-7fff-bfff-fc0000000000")
+        XCTAssertEqual(thirdUUID, "7fffcfe5-6801-7000-8000-000000000000")
+        XCTAssertTrue(firstUUID < secondUUID)
+        XCTAssertTrue(secondUUID < thirdUUID)
+        XCTAssertTrue(firstUUID.range(of: #"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#, options: .regularExpression) != nil)
         var assistant = Message(role: .assistant, content: [.text("answer")])
         var usage = Usage(); usage.input = 100; usage.output = 20; usage.cacheRead = 3; usage.cacheWrite = 2; usage.totalTokens = 125
         assistant.usage = usage; assistant.stopReason = .stop

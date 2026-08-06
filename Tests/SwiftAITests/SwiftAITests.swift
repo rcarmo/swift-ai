@@ -2486,26 +2486,49 @@ final class SwiftAITests: XCTestCase {
         do { _ = try await provider.requestDeviceCode(); XCTFail("expected untrusted complete uri") } catch XAIOAuthError.untrustedVerificationURI {}
     }
 
-    func testGrok45RoutesThroughActualResponsesRequest() async throws {
-        final class CapturedGrokRequest: @unchecked Sendable { var url = ""; var headers: [String: String] = [:]; var body = "" }
+    func testGrok45ResponsesCatalogAndActualRequestMatrix() async throws {
+        let models = try BuiltinModels.all()
+        let xaiIDs = Set(models.filter { $0.provider == .xai }.map(\.id))
+        for retired in ["grok-3", "grok-3-fast", "grok-4.20-0309-non-reasoning", "grok-4.20-0309-reasoning", "grok-code-fast-1"] { XCTAssertFalse(xaiIDs.contains(retired), retired) }
+        let model = try XCTUnwrap(models.first { $0.provider == .xai && $0.id == "grok-4.5" })
+        XCTAssertEqual(model.api, .openAIResponses)
+        XCTAssertEqual(Set(AIUtilities.supportedThinkingLevels(model: model)), Set([.low, .medium, .high]))
+        XCTAssertEqual(model.thinkingLevelMap?[.low]!, "low")
+        XCTAssertEqual(model.thinkingLevelMap?[.medium]!, "medium")
+        XCTAssertEqual(model.thinkingLevelMap?[.high]!, "high")
+        XCTAssertNil(model.thinkingLevelMap?[.off]!)
+        XCTAssertNil(model.thinkingLevelMap?[.minimal]!)
+        XCTAssertNil(model.thinkingLevelMap?[.xhigh]!)
+        XCTAssertNil(model.thinkingLevelMap?[.max]!)
+        XCTAssertEqual(models.first { $0.provider == .xai && $0.id == "grok-4.3" }?.api, .openAICompletions)
+
+        final class CapturedGrokRequest: @unchecked Sendable { var url = ""; var headers: [String: String] = [:]; var body: [String: JSONValue] = [:] }
         let captured = CapturedGrokRequest()
         OpenAIResponsesProvider.requestTransport = { request, _ in
             captured.url = request.url?.absoluteString ?? ""
             captured.headers = (request.allHTTPHeaderFields ?? [:]).reduce(into: [String: String]()) { $0[$1.key.lowercased()] = $1.value }
-            captured.body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-            let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"resp_grok\",\"status\":\"completed\"}}\n\n"
+            if let data = request.httpBody { captured.body = (try? JSONDecoder().decode([String: JSONValue].self, from: data)) ?? [:] }
+            let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"resp_grok\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2,\"input_tokens_details\":{\"cached_tokens\":0}}}}\n\n"
             let bytes = AsyncThrowingStream<UInt8, Error> { continuation in for byte in sse.utf8 { continuation.yield(byte) }; continuation.finish() }
             return (bytes, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         defer { OpenAIResponsesProvider.requestTransport = nil }
-        let model = Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1")
-        var options = StreamOptions(); options.apiKey = "xai-key"
+        var options = StreamOptions(); options.apiKey = "xai-key"; options.sessionId = "pi-session-123"; options.cacheRetention = .long; options.reasoning = .medium
         var last: AIEvent?
-        for await event in OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) { last = event }
+        for await event in OpenAIResponsesProvider.stream(model: model, context: AIContext(systemPrompt: "You are a careful coding assistant.", messages: [.user("hello")]), options: options) { last = event }
         guard case .done = last else { return XCTFail("missing grok done event") }
         XCTAssertEqual(captured.url, "https://api.x.ai/v1/responses")
         XCTAssertEqual(captured.headers["authorization"], "Bearer xai-key")
-        XCTAssertTrue(captured.body.contains("\"model\":\"grok-4.5\""))
+        XCTAssertEqual(captured.headers["session_id"], "pi-session-123")
+        XCTAssertEqual(captured.body["model"], .string("grok-4.5"))
+        XCTAssertEqual(captured.body["store"], .bool(false))
+        XCTAssertEqual(captured.body["stream"], .bool(true))
+        XCTAssertEqual(captured.body["prompt_cache_key"], .string("pi-session-123"))
+        XCTAssertEqual(captured.body["reasoning"], .object(["effort": .string("medium")]))
+        XCTAssertEqual(captured.body["include"], .array([.string("reasoning.encrypted_content")]))
+        XCTAssertNil(captured.body["prompt_cache_retention"])
+        guard case .array(let input)? = captured.body["input"] else { return XCTFail("missing input") }
+        XCTAssertTrue(input.contains { if case .object(let item) = $0 { return item["role"] == .string("developer") && item["content"] == .string("You are a careful coding assistant.") }; return false })
     }
 
     func testCodexResponsesActualRequestClampsUnicodeSessionHeaders() async throws {

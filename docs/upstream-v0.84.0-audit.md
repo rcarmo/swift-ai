@@ -4,7 +4,7 @@ Baseline: accepted official release `v0.83.0` / `845d6ff1f6643aba440341cce877ce1
 Target: official release `v0.84.0` / `a5f43bf8aff3c55752432655f7334e3dafd1e256`.
 Scope: release-only audit pinned to `a5f43bf8`; no commits beyond the tag were considered.
 
-The final `packages/ai` delta is exactly 101 changed paths. The cumulative whole-corpus test crosswalk covers exactly 127 upstream `packages/ai/test/*.test.ts` files in [`upstream-v0.84.0-test-crosswalk.md`](upstream-v0.84.0-test-crosswalk.md).
+The final `packages/ai` delta is exactly 101 changed paths. The cumulative whole-corpus test crosswalk covers exactly 127 upstream `packages/ai/test/*.test.ts` files in [`upstream-v0.84.0-test-crosswalk.md`](upstream-v0.84.0-test-crosswalk.md), with disposition counts `ported: 111`, `adapted: 9`, `live-only: 7`, and open items `0`.
 
 ## Exact changed-path disposition matrix
 
@@ -97,7 +97,7 @@ Every row below is path-addressable to the exact `packages/ai` diff. Rows name t
 | 46 | `packages/ai/src/providers/openai-codex.ts` | OpenAI Codex provider OAuth and Responses routing covered by Codex OAuth, stream, zstd, and terminal tests. |
 | 47 | `packages/ai/src/providers/opencode-go.ts` | OpenCode Go provider catalog/disposition covered by generated catalog tests and Responses routing/model selection tests. |
 | 48 | `packages/ai/src/providers/radius.ts` | Radius provider OAuth/model injection/runtime refresh covered by Radius OAuth and runtime provider tests. |
-| 49 | `packages/ai/src/providers/xai.ts` | xAI provider catalog, OAuth, and Responses routing covered by xAI OAuth tests and `testXAIResponsesRouting`. |
+| 49 | `packages/ai/src/providers/xai.ts` | xAI provider catalog, OAuth, and exact Responses routing/request matrix covered by xAI OAuth tests and `testGrok45ResponsesCatalogAndActualRequestMatrix`. |
 | 50 | `packages/ai/src/types.ts` | Types/options covered by Codable shape tests, `samplingParams`, `supportsThinkingTokenBudget`, `ProviderHeaders` nullable deletion markers, `DeferredHandle`, `DeferredRequestOptions`, `TelemetryContext`, `StopReason.deferred`, stop reason, usage, diagnostics, and request option assertions. |
 | 51 | `packages/ai/src/utils/abort.ts` | Abort utility maps to Swift structured cancellation; covered by OAuth polling cancellation, ProviderRetry cancellation, retry-aborted test, and Bedrock abort diagnostic suppression. |
 | 52 | `packages/ai/src/utils/error-body.ts` | Provider error body normalization maps to Swift `AIUtilities.normalizeProviderError`/error-body tests and PiMessages response-failure diagnostics. |

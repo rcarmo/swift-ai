@@ -65,19 +65,35 @@ public enum AIUtilities {
         }.joined(separator: separator)
     }
 
+    nonisolated(unsafe) private static var uuidLastTimestamp: UInt64 = 0
+    nonisolated(unsafe) private static var uuidSequence: UInt32 = 0
+
     public static func uuidv7(timestampMs: UInt64? = nil, randomBytes: [UInt8]? = nil) -> String {
         let timestamp = timestampMs ?? UInt64(Date().timeIntervalSince1970 * 1000)
+        let random = randomBytes ?? (0..<16).map { _ in UInt8.random(in: 0...255) }
+        let paddedRandom = random + Array(repeating: UInt8(0), count: max(0, 16 - random.count))
+        if timestamp > uuidLastTimestamp {
+            uuidSequence = UInt32(paddedRandom[6]) << 24 | UInt32(paddedRandom[7]) << 16 | UInt32(paddedRandom[8]) << 8 | UInt32(paddedRandom[9])
+            uuidLastTimestamp = timestamp
+        } else {
+            uuidSequence &+= 1
+            if uuidSequence == 0 { uuidLastTimestamp &+= 1 }
+        }
+        let sequence = uuidSequence
+        let encodedTimestamp = uuidLastTimestamp
         var bytes = Array(repeating: UInt8(0), count: 16)
-        bytes[0] = UInt8((timestamp >> 40) & 0xff)
-        bytes[1] = UInt8((timestamp >> 32) & 0xff)
-        bytes[2] = UInt8((timestamp >> 24) & 0xff)
-        bytes[3] = UInt8((timestamp >> 16) & 0xff)
-        bytes[4] = UInt8((timestamp >> 8) & 0xff)
-        bytes[5] = UInt8(timestamp & 0xff)
-        let random = randomBytes ?? (0..<10).map { _ in UInt8.random(in: 0...255) }
-        for i in 0..<min(10, random.count) { bytes[6 + i] = random[i] }
-        bytes[6] = (bytes[6] & 0x0f) | 0x70
-        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        bytes[0] = UInt8((encodedTimestamp >> 40) & 0xff)
+        bytes[1] = UInt8((encodedTimestamp >> 32) & 0xff)
+        bytes[2] = UInt8((encodedTimestamp >> 24) & 0xff)
+        bytes[3] = UInt8((encodedTimestamp >> 16) & 0xff)
+        bytes[4] = UInt8((encodedTimestamp >> 8) & 0xff)
+        bytes[5] = UInt8(encodedTimestamp & 0xff)
+        bytes[6] = 0x70 | UInt8((sequence >> 28) & 0x0f)
+        bytes[7] = UInt8((sequence >> 20) & 0xff)
+        bytes[8] = 0x80 | UInt8((sequence >> 14) & 0x3f)
+        bytes[9] = UInt8((sequence >> 6) & 0xff)
+        bytes[10] = UInt8((sequence & 0x3f) << 2) | (paddedRandom[10] & 0x03)
+        for i in 11...15 { bytes[i] = paddedRandom[i] }
         let hex = bytes.map { String(format: "%02x", $0) }.joined()
         return "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20))"
     }

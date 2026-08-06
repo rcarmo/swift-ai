@@ -53,9 +53,9 @@ public enum OpenAIResponsesProvider {
             else if model.provider == .githubCopilot { effort = "" }
             else if let off = model.thinkingLevelMap?[.off] { effort = off ?? "" }
             else { effort = "medium" }
-            if !effort.isEmpty { body["reasoning"] = .object(["effort": .string(effort), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")]) }
+            if !effort.isEmpty { body["reasoning"] = reasoningPayload(model: model, effort: effort, options: options); body["include"] = .array([.string("reasoning.encrypted_content")]) }
         } else if let reasoning = options?.reasoning {
-            body["reasoning"] = .object(["effort": .string(mappedThinkingEffort(model: model, effort: reasoning.rawValue)), "summary": .string(options?.reasoningSummary ?? "auto")]); body["include"] = .array([.string("reasoning.encrypted_content")])
+            body["reasoning"] = reasoningPayload(model: model, effort: mappedThinkingEffort(model: model, effort: reasoning.rawValue), options: options); body["include"] = .array([.string("reasoning.encrypted_content")])
         }
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
@@ -407,6 +407,11 @@ public enum OpenAIResponsesProvider {
     }
     private static func supportsToolSearch(_ model: Model) -> Bool { if let forced = model.responsesCompat?.supportsToolSearch { return forced }; guard model.api == .openAIResponses || model.api == .openAICodexResponses else { return false }; return model.id == "gpt-5.4" || model.id.hasPrefix("gpt-5.4-") == false && model.id == "gpt-5.4" }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
+    private static func reasoningPayload(model: Model, effort: String, options: StreamOptions?) -> JSONValue {
+        var payload: [String: JSONValue] = ["effort": .string(effort)]
+        if model.provider != .xai { payload["summary"] = .string(options?.reasoningSummary ?? "auto") }
+        return .object(payload)
+    }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func mapStatus(_ status: String?) -> StopReason { switch status { case "completed": return .stop; case "incomplete": return .length; case "failed", "cancelled": return .error; case nil: return .error; default: return .error } }
     private static func responsesSupportsLongCacheRetention(_ model: Model) -> Bool {

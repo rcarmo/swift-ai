@@ -185,7 +185,9 @@ ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 
 - Added cancellation-aware OAuth refresh protocol and registry path (`refreshToken(credentials:cancellation:)`), provider `Task.checkCancellation()` pre/post network awaits, pre-cancel and mid-refresh tests, and preserved typed/cause errors for non-cancellation failures.
 - Added `ModelRuntime.refresh(force:)` cancellation/supersession test and documented runtime API-key refresh separation from OAuth token refresh.
 - Hardened whole-corpus test parity evidence for the seven previously absent v0.84.0 filenames: Cloudflare stream placeholder preservation, OpenRouter Anthropic latest cache-control metadata, Bedrock/Google/Mistral/OpenAI Completions raw stop reason cases, and reasoning-options generator architecture evidence.
-- Added `docs/upstream-v0.84.0-test-crosswalk.md` with the exact cumulative 127-file upstream test manifest and Swift evidence/N/A disposition for every row.
+- Ported upstream `uuid.test.ts` behavior into production `AIUtilities.uuidv7`: RFC version/variant layout, monotonic lexical ordering within a fixed millisecond, and counter-overflow timestamp advancement with deterministic fixed-time/random tests.
+- Strengthened xAI Responses parity: retired catalog exclusions, exact low/medium/high-only Grok 4.5 thinking levels, and actual request assertions for developer prompt, session/cache fields, store=false, medium reasoning without summary, encrypted include, and no long retention.
+- Added `docs/upstream-v0.84.0-test-crosswalk.md` with the exact cumulative 127-file upstream test manifest, disposition counts (`ported: 111`, `adapted: 9`, `live-only: 7`, open items: 0), and row-specific Swift evidence/N/A disposition for every row.
 - Replaced the v0.84 audit appendix with path-addressable evidence for all 101 changed paths and added/updated the exact 46 changed-test assertion matrix.
 - Retained v0.83 raw stop reason, missing-finish, custom-tool, and terminal-status fixes.
 - Added OAuth minimum-validity semantics: effective window is `max(300s, override)`, and explicit stricter overrides are enforced after refresh.

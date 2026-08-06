@@ -102,7 +102,7 @@ public enum PiMessagesProvider {
             switch error {
             case .nilModel: return "Nil model"
             case .noProvider(let api): return "No provider registered for \(api.rawValue)"
-            case .provider(let message), .invalidResponse(let message): return message
+            case .provider(let message), .invalidResponse(let message), .unsupported(let message): return message
             case .apiError(let status, let body): return "API error \(status): \(body)"
             }
         }

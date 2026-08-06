@@ -63,7 +63,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
 public enum ThinkingLevel: String, Codable, Sendable { case minimal, low, medium, high, xhigh, max }
 public enum ModelThinkingLevel: String, Codable, Hashable, Sendable { case off, minimal, low, medium, high, xhigh, max }
 public enum Role: String, Codable, Sendable { case user, assistant, toolResult }
-public enum StopReason: String, Codable, Sendable { case pending, stop, length, toolUse, error, aborted }
+public enum StopReason: String, Codable, Sendable { case pending, stop, length, toolUse, error, aborted, deferred }
 public enum CacheRetention: String, Codable, Sendable { case none, short, long }
 public enum Transport: String, Codable, Sendable { case sse, websocket, webSocketCached = "websocket-cached", auto }
 
@@ -134,6 +134,20 @@ public struct Usage: Codable, Equatable, Sendable { public var input = 0; public
 public struct DiagnosticError: Codable, Equatable, Sendable { public var name: String?; public var message: String; public var stack: String?; public var code: JSONValue?; public init(message: String, name: String? = nil, stack: String? = nil, code: JSONValue? = nil) { self.message = message; self.name = name; self.stack = stack; self.code = code } }
 public struct AssistantMessageDiagnostic: Codable, Equatable, Sendable { public var type: String; public var timestamp: Int64; public var error: DiagnosticError; public var details: [String: JSONValue]?; public init(type: String, timestamp: Int64, error: DiagnosticError, details: [String: JSONValue]? = nil) { self.type = type; self.timestamp = timestamp; self.error = error; self.details = details } }
 
+public struct DeferredHandle: Codable, Equatable, Sendable {
+    public var provider: String
+    public var modelId: String
+    public var api: String
+    public var id: String
+    public var expiresAt: Int64?
+    public var pollAfterMs: Int?
+    public var data: JSONValue?
+    public init(provider: String, modelId: String, api: String, id: String, expiresAt: Int64? = nil, pollAfterMs: Int? = nil, data: JSONValue? = nil) { self.provider = provider; self.modelId = modelId; self.api = api; self.id = id; self.expiresAt = expiresAt; self.pollAfterMs = pollAfterMs; self.data = data }
+}
+
+public struct DeferredRequestOptions: Codable, Equatable, Sendable { public var window: String?; public init(window: String? = nil) { self.window = window } }
+public struct TelemetryContext: Codable, Equatable, Sendable { public var traceId: String?; public var spanId: String?; public var attributes: [String: JSONValue]?; public init(traceId: String? = nil, spanId: String? = nil, attributes: [String: JSONValue]? = nil) { self.traceId = traceId; self.spanId = spanId; self.attributes = attributes } }
+
 public struct Message: Codable, Equatable, Sendable {
     public var role: Role
     public var content: [ContentBlock]
@@ -147,6 +161,7 @@ public struct Message: Codable, Equatable, Sendable {
     public var usage: Usage?
     public var stopReason: StopReason?
     public var errorMessage: String?
+    public var deferred: DeferredHandle?
     public var rawStopReason: String?
     public var toolCallId: String?
     public var toolName: String?
@@ -154,7 +169,7 @@ public struct Message: Codable, Equatable, Sendable {
     public var details: JSONValue?
     public var addedToolNames: [String]?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, rawStopReason, toolCallId, toolName, isError, details, addedToolNames }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -172,6 +187,7 @@ public struct Message: Codable, Equatable, Sendable {
         usage = try c.decodeIfPresent(Usage.self, forKey: .usage)
         stopReason = try c.decodeIfPresent(StopReason.self, forKey: .stopReason)
         errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
+        deferred = try c.decodeIfPresent(DeferredHandle.self, forKey: .deferred)
         rawStopReason = try c.decodeIfPresent(String.self, forKey: .rawStopReason)
         toolCallId = try c.decodeIfPresent(String.self, forKey: .toolCallId)
         toolName = try c.decodeIfPresent(String.self, forKey: .toolName)
@@ -194,6 +210,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(usage, forKey: .usage)
         try c.encodeIfPresent(stopReason, forKey: .stopReason)
         try c.encodeIfPresent(errorMessage, forKey: .errorMessage)
+        try c.encodeIfPresent(deferred, forKey: .deferred)
         try c.encodeIfPresent(rawStopReason, forKey: .rawStopReason)
         try c.encodeIfPresent(toolCallId, forKey: .toolCallId)
         try c.encodeIfPresent(toolName, forKey: .toolName)
@@ -352,6 +369,9 @@ public struct StreamOptions: Sendable {
     public var reasoningSummary: String?
     public var serviceTier: String?
     public var toolChoice: JSONValue?
+    public var deferred: DeferredRequestOptions?
+    public var wait: Int?
+    public var telemetryContext: TelemetryContext?
 
     public var onPayload: (@Sendable ([String: JSONValue], Model) async throws -> [String: JSONValue])?
     public var onResponse: (@Sendable (HTTPResponseMetadata, Model) async -> Void)?

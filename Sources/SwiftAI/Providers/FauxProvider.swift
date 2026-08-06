@@ -5,21 +5,28 @@ public typealias FauxResponseFactory = @Sendable (AIContext, StreamOptions?, Fau
 public enum FauxResponseStep: Sendable {
     case message(Message)
     case factory(FauxResponseFactory)
+    case failure(String)
 }
 
-public struct FauxState: Equatable, Sendable { public var callCount: Int64; public init(callCount: Int64 = 0) { self.callCount = callCount } }
+public struct FauxState: Equatable, Sendable { public var callCount: Int64; public var deferredFetchCount: Int64; public var cancelledDeferred: [DeferredHandle]; public init(callCount: Int64 = 0, deferredFetchCount: Int64 = 0, cancelledDeferred: [DeferredHandle] = []) { self.callCount = callCount; self.deferredFetchCount = deferredFetchCount; self.cancelledDeferred = cancelledDeferred } }
 public struct FauxModelDef: Equatable, Sendable { public var id: String; public var name: String; public var reasoning: Bool; public var input: [String]; public var cost: ModelCost; public var contextWindow: Int; public var maxTokens: Int; public init(id: String = "faux-model", name: String = "Faux Model", reasoning: Bool = false, input: [String] = ["text"], cost: ModelCost = ModelCost(), contextWindow: Int = 128_000, maxTokens: Int = 4096) { self.id = id; self.name = name; self.reasoning = reasoning; self.input = input; self.cost = cost; self.contextWindow = contextWindow; self.maxTokens = maxTokens } }
-public struct FauxOptions: Equatable, Sendable { public var models: [FauxModelDef]; public var tokensPerSecond: Int; public init(models: [FauxModelDef] = [FauxModelDef()], tokensPerSecond: Int = 1000) { self.models = models; self.tokensPerSecond = tokensPerSecond } }
+public struct FauxDeferredOptions: Equatable, Sendable { public var pendingFetches: Int; public var pollAfterMs: Int?; public init(pendingFetches: Int = 0, pollAfterMs: Int? = nil) { self.pendingFetches = pendingFetches; self.pollAfterMs = pollAfterMs } }
+public struct FauxOptions: Equatable, Sendable { public var models: [FauxModelDef]; public var tokensPerSecond: Int; public var deferred: FauxDeferredOptions; public init(models: [FauxModelDef] = [FauxModelDef()], tokensPerSecond: Int = 1000, deferred: FauxDeferredOptions = FauxDeferredOptions()) { self.models = models; self.tokensPerSecond = tokensPerSecond; self.deferred = deferred } }
+
+private struct FauxDeferredEntry: Sendable { var handle: DeferredHandle; var step: FauxResponseStep?; var context: AIContext; var options: StreamOptions?; var model: Model; var pendingFetches: Int; var cancelled: Bool; var final: Message? }
 
 public actor FauxRegistration {
     public nonisolated let models: [Model]
     public private(set) var state = FauxState()
     private var responses: [FauxResponseStep] = []
     private var promptCache: [String: Int] = [:]
+    private var deferredResponses: [String: FauxDeferredEntry] = [:]
     private let tokensPerSecond: Int
+    private let deferredOptions: FauxDeferredOptions
 
     public init(options: FauxOptions = FauxOptions()) {
         self.tokensPerSecond = options.tokensPerSecond
+        self.deferredOptions = options.deferred
         self.models = options.models.map { def in Model(id: def.id, name: def.name.isEmpty ? def.id : def.name, api: .faux, provider: .faux, reasoning: def.reasoning, input: def.input.isEmpty ? ["text"] : def.input, cost: def.cost, contextWindow: def.contextWindow, maxTokens: def.maxTokens) }
     }
 
@@ -29,13 +36,53 @@ public actor FauxRegistration {
     public func model(id: String? = nil) -> Model? { guard let id, !id.isEmpty else { return models.first }; return models.first { $0.id == id } }
 
     fileprivate func nextResponse(context: AIContext, options: StreamOptions?) -> Message {
+        resolve(step: responses.isEmpty ? nil : responses.removeFirst(), context: context, options: options)
+    }
+
+    fileprivate func submitDeferred(model: Model, context: AIContext, options: StreamOptions?) -> Message {
+        let step = responses.isEmpty ? nil : responses.removeFirst()
+        var handle = DeferredHandle(provider: model.provider.rawValue, modelId: model.id, api: model.api.rawValue, id: "deferred_\(AIUtilities.uuidv7())", pollAfterMs: deferredOptions.pollAfterMs)
+        if let window = options?.deferred?.window { handle.data = .object(["window": .string(window)]) }
+        let pending = max(0, deferredOptions.pendingFetches)
+        deferredResponses[handle.id] = FauxDeferredEntry(handle: handle, step: step, context: context, options: options, model: model, pendingFetches: pending, cancelled: false, final: nil)
+        return FauxProvider.deferredMessage(model: model, handle: handle)
+    }
+
+    fileprivate func fetchDeferred(model: Model, handle: DeferredHandle, options: StreamOptions?) async throws -> Message {
+        try Task.checkCancellation()
+        state.deferredFetchCount += 1
+        guard var entry = deferredResponses[handle.id], entry.handle == handle, entry.model.id == model.id, entry.model.api == model.api, entry.model.provider == model.provider else { throw AIError.provider("Unknown faux deferred response: \(handle.id)") }
+        if entry.cancelled { return FauxProvider.errorMessage("Faux deferred response was cancelled: \(handle.id)") }
+        if entry.pendingFetches > 0 {
+            entry.pendingFetches -= 1
+            deferredResponses[handle.id] = entry
+            return FauxProvider.deferredMessage(model: model, handle: handle)
+        }
+        if let final = entry.final { return final }
+        var final = resolve(step: entry.step, context: entry.context, options: options ?? entry.options)
+        final.deferred = handle
+        final.api = model.api; final.provider = model.provider; final.model = model.id
+        entry.final = final
+        deferredResponses[handle.id] = entry
+        return final
+    }
+
+    fileprivate func cancelDeferred(model: Model, handle: DeferredHandle, options: StreamOptions?) async throws {
+        try Task.checkCancellation()
+        guard var entry = deferredResponses[handle.id], entry.handle == handle, entry.model.id == model.id, entry.model.api == model.api, entry.model.provider == model.provider else { throw AIError.provider("Unknown faux deferred response: \(handle.id)") }
+        entry.cancelled = true
+        deferredResponses[handle.id] = entry
+        state.cancelledDeferred.append(handle)
+    }
+
+    private func resolve(step: FauxResponseStep?, context: AIContext, options: StreamOptions?) -> Message {
         state.callCount += 1
         let callState = state
-        let step = responses.isEmpty ? nil : responses.removeFirst()
         var msg: Message
         switch step {
         case .message(let message): msg = message
         case .factory(let factory): msg = factory(context, options, callState)
+        case .failure(let error): msg = FauxProvider.errorMessage(error)
         case nil: msg = FauxProvider.errorMessage("No more faux responses queued")
         }
         msg.usage = usage(for: msg, context: context, options: options)
@@ -107,7 +154,7 @@ public enum FauxProvider {
     public static func register(options: FauxOptions = FauxOptions()) async -> FauxRegistration {
         let registration = FauxRegistration(options: options)
         for model in registration.models { await AIRegistry.shared.register(model) }
-        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, context, options in stream(registration: registration, model: model, context: context, options: options) }))
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, context, options in stream(registration: registration, model: model, context: context, options: options) }, streamSimple: { model, context, options in stream(registration: registration, model: model, context: context, options: options) }, fetchDeferred: { model, handle, options in try await registration.fetchDeferred(model: model, handle: handle, options: options) }, cancelDeferred: { model, handle, options in try await registration.cancelDeferred(model: model, handle: handle, options: options) }))
         return registration
     }
 
@@ -136,11 +183,12 @@ public enum FauxProvider {
     }
 
     public static func errorMessage(_ error: String) -> Message { var msg = Message(role: .assistant, content: []); msg.stopReason = .error; msg.errorMessage = error; msg.usage = Usage(); msg.timestamp = Int64(Date().timeIntervalSince1970 * 1000); return msg }
+    public static func deferredMessage(model: Model, handle: DeferredHandle) -> Message { var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.stopReason = .deferred; msg.deferred = handle; msg.usage = Usage(); msg.timestamp = Int64(Date().timeIntervalSince1970 * 1000); return msg }
 
     private static func stream(registration: FauxRegistration, model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
-                var msg = await registration.nextResponse(context: context, options: options)
+                var msg = options?.deferred != nil ? await registration.submitDeferred(model: model, context: context, options: options) : await registration.nextResponse(context: context, options: options)
                 msg.api = model.api; msg.provider = model.provider; msg.model = model.id
                 continuation.yield(.start(partial: msg))
                 for (idx, block) in msg.content.enumerated() {

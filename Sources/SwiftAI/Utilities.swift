@@ -171,6 +171,18 @@ public enum AIUtilities {
         text.count <= maxChars ? text : String(text.prefix(maxChars)) + "... [truncated \(text.count - maxChars) chars]"
     }
 
+    public static func mergeProviderHeaders(_ base: [String: String?]? = nil, override: [String: String?]? = nil) -> [String: String]? {
+        var out: [String: String] = [:]
+        for source in [base, override] {
+            guard let source else { continue }
+            for (key, value) in source {
+                if let value { out[key] = value }
+                else { out.removeValue(forKey: key) }
+            }
+        }
+        return out.isEmpty ? nil : out
+    }
+
     public static func safeJsonStringify(_ value: Any) -> String {
         if let value = value as? JSONValue, let data = try? JSONEncoder().encode(value), let text = String(data: data, encoding: .utf8) { return text }
         if let encodable = value as? [Tool], let data = try? JSONEncoder().encode(encodable), let text = String(data: data, encoding: .utf8) { return text }

@@ -59,6 +59,7 @@ public struct ImagesOptions: Sendable {
     public var maxRetryDelayMs: Int?
     public var metadata: [String: JSONValue]?
     public var env: ProviderEnv?
+    public var telemetryContext: TelemetryContext?
     public var onPayload: (@Sendable ([String: JSONValue], ImagesModel) async throws -> [String: JSONValue])?
     public var onResponse: (@Sendable (ImagesResponseMetadata, ImagesModel) async -> Void)?
     public init() {}

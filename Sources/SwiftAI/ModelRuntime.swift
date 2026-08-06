@@ -103,10 +103,13 @@ public actor ModelRuntime {
 
     public func refresh(provider providerId: Provider, apiKey: String? = nil, allowNetwork: Bool = true, force: Bool = false) async -> ModelRefreshResult {
         guard let provider = providers[providerId] else { return ModelRefreshResult(errors: [providerId.rawValue: "unknown provider"]) }
-        if let task = inFlight[providerId], !force {
-            do { let models = try await task.value; await replaceModels(provider: providerId, models: models); return ModelRefreshResult() }
-            catch is CancellationError { return ModelRefreshResult(aborted: true) }
-            catch { return ModelRefreshResult(errors: [providerId.rawValue: String(describing: ModelsError("Model refresh failed for \(providerId.rawValue)", cause: error))]) }
+        if let task = inFlight[providerId] {
+            if !force {
+                do { let models = try await task.value; await replaceModels(provider: providerId, models: models); return ModelRefreshResult() }
+                catch is CancellationError { return ModelRefreshResult(aborted: true) }
+                catch { return ModelRefreshResult(errors: [providerId.rawValue: String(describing: ModelsError("Model refresh failed for \(providerId.rawValue)", cause: error))]) }
+            }
+            task.cancel()
         }
         let store = self.store
         let task = Task<[Model], Error> {

@@ -21,4 +21,5 @@ public enum AIError: Error, Equatable, Sendable {
     case provider(String)
     case invalidResponse(String)
     case apiError(status: Int, body: String)
+    case unsupported(String)
 }

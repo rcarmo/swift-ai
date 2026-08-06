@@ -774,6 +774,147 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(pendingAfterError, 0)
     }
 
+    func testFauxProviderDeferredLifecycle() async throws {
+        let registration = await FauxProvider.register(options: FauxOptions(deferred: FauxDeferredOptions(pendingFetches: 1, pollAfterMs: 25)))
+        await registration.setResponses([.message(FauxProvider.textMessage("ready"))])
+        guard let model = await registration.model() else { return XCTFail("missing faux model") }
+        var options = StreamOptions(); options.deferred = DeferredRequestOptions(window: "1h")
+        let submission = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(submission.stopReason, .deferred)
+        XCTAssertEqual(submission.content, [])
+        let handle = try XCTUnwrap(submission.deferred)
+        XCTAssertEqual(handle.provider, model.provider.rawValue)
+        XCTAssertEqual(handle.modelId, model.id)
+        XCTAssertEqual(handle.api, model.api.rawValue)
+        XCTAssertEqual(handle.pollAfterMs, 25)
+        XCTAssertEqual(handle.data, .object(["window": .string("1h")]))
+
+        let pending = try await SwiftAI.fetchDeferred(model: model, handle: handle)
+        XCTAssertEqual(pending.stopReason, .deferred)
+        XCTAssertEqual(pending.deferred, handle)
+        var fetchOptions = StreamOptions(); fetchOptions.wait = 0
+        let ready = try await SwiftAI.fetchDeferred(model: model, handle: handle, options: fetchOptions)
+        XCTAssertEqual(ready.stopReason, .stop)
+        XCTAssertEqual(ready.content, [.text("ready")])
+        XCTAssertGreaterThan(ready.usage?.totalTokens ?? 0, 0)
+        let state = await registration.state
+        XCTAssertEqual(state.callCount, 1)
+        XCTAssertEqual(state.deferredFetchCount, 2)
+    }
+
+    func testFauxProviderDeferredFailureAndCancel() async throws {
+        let registration = await FauxProvider.register()
+        await registration.setResponses([.failure("deferred failed"), .message(FauxProvider.textMessage("cancelled"))])
+        guard let model = await registration.model() else { return XCTFail("missing faux model") }
+        var options = StreamOptions(); options.deferred = DeferredRequestOptions()
+
+        let failedSubmission = try await SwiftAI.complete(model: model, context: AIContext(), options: options)
+        let failedHandle = try XCTUnwrap(failedSubmission.deferred)
+        let failed = try await SwiftAI.fetchDeferred(model: model, handle: failedHandle)
+        XCTAssertEqual(failed.stopReason, .error)
+        XCTAssertEqual(failed.errorMessage, "deferred failed")
+
+        let cancelledSubmission = try await SwiftAI.complete(model: model, context: AIContext(), options: options)
+        let cancelledHandle = try XCTUnwrap(cancelledSubmission.deferred)
+        try await SwiftAI.cancelDeferred(model: model, handle: cancelledHandle)
+        let state = await registration.state
+        XCTAssertEqual(state.cancelledDeferred, [cancelledHandle])
+        let cancelled = try await SwiftAI.fetchDeferred(model: model, handle: cancelledHandle)
+        XCTAssertEqual(cancelled.stopReason, .error)
+        XCTAssertTrue(cancelled.errorMessage?.contains("was cancelled") == true)
+    }
+
+    func testDeferredProviderCapabilitiesAndAuthenticatedDispatch() async throws {
+        await AIRegistry.shared.clearProviders()
+        defer { Task { await SwiftAI.bootstrap() } }
+        let model = Model(id: "deferred-model", name: "Deferred", api: .faux, provider: .faux)
+        let handle = DeferredHandle(provider: "faux", modelId: "deferred-model", api: "faux", id: "deferred-1")
+        await AIRegistry.shared.register(model)
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { _, _, _ in AsyncStream { $0.finish() } }))
+        do { _ = try await SwiftAI.fetchDeferred(model: model, handle: handle); XCTFail("expected unsupported fetch") } catch AIError.unsupported(let message) { XCTAssertTrue(message.contains("does not support deferred fetch")) }
+        do { try await SwiftAI.cancelDeferred(model: model, handle: handle); XCTFail("expected unsupported cancel") } catch AIError.unsupported(let message) { XCTAssertTrue(message.contains("does not support deferred cancel")) }
+
+        final class DeferredCapture: @unchecked Sendable { var fetchKey: String?; var cancelKey: String? }
+        let capture = DeferredCapture()
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { _, _, _ in AsyncStream { $0.finish() } }, fetchDeferred: { model, _, options in
+            capture.fetchKey = options?.apiKey
+            return FauxProvider.textMessage("fetched \(model.id)")
+        }, cancelDeferred: { _, _, options in
+            capture.cancelKey = options?.apiKey
+        }))
+        var options = StreamOptions(); options.env = ["FAUX_API_KEY": "env-key"]
+        let fetched = try await SwiftAI.fetchDeferred(model: model, handle: handle, options: options)
+        try await SwiftAI.cancelDeferred(model: model, handle: handle, options: options)
+        XCTAssertEqual(fetched.content.first?.text, "fetched deferred-model")
+        XCTAssertEqual(capture.fetchKey, "env-key")
+        XCTAssertEqual(capture.cancelKey, "env-key")
+        let bad = DeferredHandle(provider: "other", modelId: model.id, api: model.api.rawValue, id: "bad")
+        do { _ = try await SwiftAI.fetchDeferred(model: model, handle: bad); XCTFail("expected handle mismatch") } catch AIError.provider(let message) { XCTAssertTrue(message.contains("deferred handle does not match")) }
+    }
+
+    func testTelemetryContextPropagatesThroughStreamDeferredAndImages() async throws {
+        final class TelemetryBox: @unchecked Sendable { var values: [TelemetryContext?] = [] }
+        let box = TelemetryBox()
+        let telemetry = TelemetryContext(traceId: "trace", spanId: "span", attributes: ["k": .string("v")])
+        let model = Model(id: "telemetry", name: "Telemetry", api: .faux, provider: .faux)
+        let handle = DeferredHandle(provider: "faux", modelId: "telemetry", api: "faux", id: "deferred-telemetry")
+        await AIRegistry.shared.clearProviders()
+        await AIRegistry.shared.register(model)
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, _, options in
+            box.values.append(options?.telemetryContext)
+            return AsyncStream { continuation in var message = FauxProvider.textMessage("stream"); message.api = model.api; message.provider = model.provider; message.model = model.id; continuation.yield(.done(reason: .stop, message: message)); continuation.finish() }
+        }, streamSimple: { model, _, options in
+            box.values.append(options?.telemetryContext)
+            return AsyncStream { continuation in var message = FauxProvider.textMessage("simple"); message.api = model.api; message.provider = model.provider; message.model = model.id; continuation.yield(.done(reason: .stop, message: message)); continuation.finish() }
+        }, fetchDeferred: { _, _, options in
+            box.values.append(options?.telemetryContext)
+            return FauxProvider.textMessage("deferred")
+        }, cancelDeferred: { _, _, options in
+            box.values.append(options?.telemetryContext)
+        }))
+        await ImagesRegistry.shared.clearProviders()
+        await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: { model, _, options in
+            box.values.append(options?.telemetryContext)
+            return AssistantImages(api: model.api, provider: model.provider, model: model.id, output: [], stopReason: .stop)
+        }))
+        defer { Task { await SwiftAI.bootstrap() } }
+
+        var options = StreamOptions(); options.telemetryContext = telemetry
+        _ = try await SwiftAI.complete(model: model, context: AIContext(), options: options)
+        options.reasoning = .low
+        _ = try await SwiftAI.complete(model: model, context: AIContext(), options: options)
+        _ = try await SwiftAI.fetchDeferred(model: model, handle: handle, options: options)
+        try await SwiftAI.cancelDeferred(model: model, handle: handle, options: options)
+        let imageModel = ImagesModel(id: "image", name: "Image", api: .openRouterImages, provider: .openRouter)
+        var imageOptions = ImagesOptions(); imageOptions.telemetryContext = telemetry
+        _ = await SwiftAI.generateImages(model: imageModel, context: ImagesContext(input: [.text("circle")]), options: imageOptions)
+        XCTAssertEqual(box.values.count, 5)
+        XCTAssertTrue(box.values.allSatisfy { $0 == telemetry })
+    }
+
+    func testProviderHeadersNullDeletionAndRefreshCancellation() async throws {
+        XCTAssertEqual(AIUtilities.mergeProviderHeaders(["Authorization": "Bearer provider", "X-Shared": "provider"], override: ["Authorization": nil, "X-Request": "request"]), ["X-Shared": "provider", "X-Request": "request"])
+        let store = InMemoryProviderModelsStore()
+        let runtime = ModelRuntime(store: store)
+        final class RefreshBox: @unchecked Sendable { var starts = 0; var release: (() -> Void)? }
+        let box = RefreshBox()
+        await runtime.register(RuntimeProvider(id: .faux, name: "faux", fallbackModels: [], refresh: { context in
+            box.starts += 1
+            if box.starts == 1 { try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in box.release = { continuation.resume() } } }
+            try Task.checkCancellation()
+            return ModelRefreshResponse(models: [Model(id: "m\(box.starts)", name: "M", api: .faux, provider: .faux)])
+        }))
+        let first = Task { await runtime.refresh(provider: .faux, apiKey: "old") }
+        while box.starts == 0 { try await Task.sleep(nanoseconds: 1_000_000) }
+        let second = await runtime.refresh(provider: .faux, apiKey: "new", force: true)
+        box.release?()
+        let firstResult = await first.value
+        XCTAssertFalse(second.aborted)
+        XCTAssertTrue(firstResult.aborted || firstResult.errors["faux"] != nil)
+        let refreshedModel = await runtime.model(provider: .faux, id: "m2")
+        XCTAssertEqual(refreshedModel?.id, "m2")
+    }
+
     func testFauxProviderTokenCacheAndToolDeltas() async throws {
         let registration = await FauxProvider.register()
         await registration.setResponses([

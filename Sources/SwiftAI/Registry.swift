@@ -1,12 +1,16 @@
 import Foundation
 
 public typealias ProviderStream = @Sendable (Model, AIContext, StreamOptions?) -> AsyncStream<AIEvent>
+public typealias ProviderDeferredFetch = @Sendable (Model, DeferredHandle, StreamOptions?) async throws -> Message
+public typealias ProviderDeferredCancel = @Sendable (Model, DeferredHandle, StreamOptions?) async throws -> Void
 
 public struct APIProvider: Sendable {
     public var api: API
     public var stream: ProviderStream
     public var streamSimple: ProviderStream?
-    public init(api: API, stream: @escaping ProviderStream, streamSimple: ProviderStream? = nil) { self.api = api; self.stream = stream; self.streamSimple = streamSimple }
+    public var fetchDeferred: ProviderDeferredFetch?
+    public var cancelDeferred: ProviderDeferredCancel?
+    public init(api: API, stream: @escaping ProviderStream, streamSimple: ProviderStream? = nil, fetchDeferred: ProviderDeferredFetch? = nil, cancelDeferred: ProviderDeferredCancel? = nil) { self.api = api; self.stream = stream; self.streamSimple = streamSimple; self.fetchDeferred = fetchDeferred; self.cancelDeferred = cancelDeferred }
 }
 
 public actor AIRegistry {
@@ -82,6 +86,31 @@ public enum SwiftAI {
         }
         if options?.reasoning != nil, let simple = provider.streamSimple { return simple(model, context, options) }
         return provider.stream(model, context, options)
+    }
+
+    private static func authenticatedOptions(model: Model, options: StreamOptions?) -> StreamOptions? {
+        var resolved = options ?? StreamOptions()
+        if (resolved.apiKey ?? "").isEmpty, let apiKey = ProviderEnvironment.apiKey(for: model.provider, env: resolved.env) { resolved.apiKey = apiKey }
+        return resolved
+    }
+
+    public static func fetchDeferred(model: Model?, handle: DeferredHandle, options: StreamOptions? = nil) async throws -> Message {
+        guard let model else { throw AIError.nilModel }
+        try Task.checkCancellation()
+        guard handle.provider == model.provider.rawValue, handle.modelId == model.id, handle.api == model.api.rawValue else { throw AIError.provider("deferred handle does not match model \(model.provider.rawValue)/\(model.id)") }
+        guard let provider = await AIRegistry.shared.apiProvider(for: model.api), let fetch = provider.fetchDeferred else { throw AIError.unsupported("provider \(model.provider.rawValue) does not support deferred fetch for \(model.api.rawValue)") }
+        let message = try await fetch(model, handle, authenticatedOptions(model: model, options: options))
+        try Task.checkCancellation()
+        return message
+    }
+
+    public static func cancelDeferred(model: Model?, handle: DeferredHandle, options: StreamOptions? = nil) async throws {
+        guard let model else { throw AIError.nilModel }
+        try Task.checkCancellation()
+        guard handle.provider == model.provider.rawValue, handle.modelId == model.id, handle.api == model.api.rawValue else { throw AIError.provider("deferred handle does not match model \(model.provider.rawValue)/\(model.id)") }
+        guard let provider = await AIRegistry.shared.apiProvider(for: model.api), let cancel = provider.cancelDeferred else { throw AIError.unsupported("provider \(model.provider.rawValue) does not support deferred cancel for \(model.api.rawValue)") }
+        try await cancel(model, handle, authenticatedOptions(model: model, options: options))
+        try Task.checkCancellation()
     }
 
     public static func complete(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async throws -> Message {

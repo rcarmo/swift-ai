@@ -316,7 +316,7 @@ public enum AIUtilities {
         var result = model.baseUrl
         while let start = result.firstIndex(of: "{"), let end = result[start...].firstIndex(of: "}") {
             let name = String(result[result.index(after: start)..<end])
-            let value = ProviderEnvironment.value(name, env: env) ?? ""
+            guard let value = ProviderEnvironment.value(name, env: env), !value.isEmpty else { break }
             result.replaceSubrange(start...end, with: value)
         }
         return result

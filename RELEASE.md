@@ -130,7 +130,7 @@ packages/ai/test/xai-oauth.test.ts
 packages/ai/vitest.config.ts
 ```
 
-The detailed disposition matrix is in [`docs/upstream-v0.84.0-audit.md`](docs/upstream-v0.84.0-audit.md).
+The detailed disposition matrix is in [`docs/upstream-v0.84.0-audit.md`](docs/upstream-v0.84.0-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.0-test-crosswalk.md`](docs/upstream-v0.84.0-test-crosswalk.md) and covers all 127 upstream `packages/ai/test/*.test.ts` files.
 
 ## Exact catalog parity
 
@@ -184,6 +184,8 @@ ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 
 - Added a production OpenAI Responses request test proving a default/model Authorization header is deleted while unrelated headers remain.
 - Added cancellation-aware OAuth refresh protocol and registry path (`refreshToken(credentials:cancellation:)`), provider `Task.checkCancellation()` pre/post network awaits, pre-cancel and mid-refresh tests, and preserved typed/cause errors for non-cancellation failures.
 - Added `ModelRuntime.refresh(force:)` cancellation/supersession test and documented runtime API-key refresh separation from OAuth token refresh.
+- Hardened whole-corpus test parity evidence for the seven previously absent v0.84.0 filenames: Cloudflare stream placeholder preservation, OpenRouter Anthropic latest cache-control metadata, Bedrock/Google/Mistral/OpenAI Completions raw stop reason cases, and reasoning-options generator architecture evidence.
+- Added `docs/upstream-v0.84.0-test-crosswalk.md` with the exact cumulative 127-file upstream test manifest and Swift evidence/N/A disposition for every row.
 - Replaced the v0.84 audit appendix with path-addressable evidence for all 101 changed paths and added/updated the exact 46 changed-test assertion matrix.
 - Retained v0.83 raw stop reason, missing-finish, custom-tool, and terminal-status fixes.
 - Added OAuth minimum-validity semantics: effective window is `max(300s, override)`, and explicit stricter overrides are enforced after refresh.

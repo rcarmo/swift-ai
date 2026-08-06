@@ -254,6 +254,27 @@ final class SwiftAITests: XCTestCase {
         let model = Model(id: "cf", name: "CF", api: .openAICompletions, provider: .cloudflareWorkersAI, baseUrl: "https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1")
         XCTAssertTrue(AIUtilities.isCloudflareProvider(.cloudflareWorkersAI))
         XCTAssertEqual(AIUtilities.resolveCloudflareBaseURL(model: model, env: ["CLOUDFLARE_ACCOUNT_ID": "acct"]), "https://api.cloudflare.com/client/v4/accounts/acct/ai/v1")
+        XCTAssertEqual(AIUtilities.resolveCloudflareBaseURL(model: model, env: [:]), model.baseUrl)
+    }
+
+    func testCloudflareStreamPreservesUnresolvedPlaceholdersAndMaterializesResolvedEndpoint() async throws {
+        final class Capture: @unchecked Sendable { var urls: [String] = [] }
+        let capture = Capture()
+        OpenAIResponsesProvider.requestTransport = { request, _ in
+            capture.urls.append(request.url?.absoluteString ?? "")
+            let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"resp-cf\",\"status\":\"completed\",\"output\":[]}}\n\n"
+            return (AsyncThrowingStream { continuation in sse.utf8.forEach { continuation.yield($0) }; continuation.finish() }, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        defer { OpenAIResponsesProvider.requestTransport = nil }
+        let model = Model(id: "model", name: "model", api: .openAIResponses, provider: .cloudflareAIGateway, baseUrl: "https://gateway.ai.cloudflare.com/v1/{CLOUDFLARE_ACCOUNT_ID}/{CLOUDFLARE_GATEWAY_ID}/openai")
+        var options = StreamOptions(); options.apiKey = "key"; options.env = ["CLOUDFLARE_ACCOUNT_ID": "account", "CLOUDFLARE_GATEWAY_ID": "gateway"]
+        for await _ in OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {}
+        options.env = [:]
+        for await _ in OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {}
+        XCTAssertEqual(capture.urls, [
+            "https://gateway.ai.cloudflare.com/v1/account/gateway/openai/responses",
+            "https://gateway.ai.cloudflare.com/v1/%7BCLOUDFLARE_ACCOUNT_ID%7D/%7BCLOUDFLARE_GATEWAY_ID%7D/openai/responses"
+        ])
     }
 
     func testHashAndSanitizeUtilities() {
@@ -362,6 +383,29 @@ final class SwiftAITests: XCTestCase {
         let adjusted = AIUtilities.adjustMaxTokensForThinking(baseMaxTokens: 1000, modelMaxTokens: 2500, level: .low)
         XCTAssertEqual(adjusted.maxTokens, 2500)
         XCTAssertEqual(adjusted.thinkingBudget, 2048)
+    }
+
+    func testReasoningOptionsGeneratorArchitectureEvidence() {
+        let effortWithNone = Model(id: "effort-none", name: "Effort", api: .openAICompletions, provider: .openAI, reasoning: true, thinkingLevelMap: [.off: "none", .minimal: nil, .low: "low", .medium: nil, .high: "high", .xhigh: nil, .max: "max"])
+        XCTAssertEqual(effortWithNone.thinkingLevelMap?[.off]!, "none")
+        XCTAssertNil(effortWithNone.thinkingLevelMap?[.minimal]!)
+        XCTAssertEqual(effortWithNone.thinkingLevelMap?[.low]!, "low")
+        XCTAssertNil(effortWithNone.thinkingLevelMap?[.medium]!)
+        XCTAssertEqual(effortWithNone.thinkingLevelMap?[.high]!, "high")
+        XCTAssertNil(effortWithNone.thinkingLevelMap?[.xhigh]!)
+        XCTAssertEqual(effortWithNone.thinkingLevelMap?[.max]!, "max")
+
+        let effortWithoutNone = Model(id: "effort", name: "Effort", api: .openAICompletions, provider: .openAI, reasoning: true, thinkingLevelMap: [.off: nil, .low: "low", .high: "high", .max: "max"])
+        XCTAssertNil(effortWithoutNone.thinkingLevelMap?[.off]!)
+        XCTAssertEqual(effortWithoutNone.thinkingLevelMap?[.low]!, "low")
+        XCTAssertEqual(effortWithoutNone.thinkingLevelMap?[.high]!, "high")
+        XCTAssertEqual(effortWithoutNone.thinkingLevelMap?[.max]!, "max")
+
+        let toggleOnly = Model(id: "toggle", name: "Toggle", api: .openAICompletions, provider: .openAI, reasoning: true)
+        XCTAssertNil(toggleOnly.thinkingLevelMap)
+        var budgetCompat = OpenAICompletionsCompat(); budgetCompat.supportsThinkingTokenBudget = true
+        let budgetOnly = Model(id: "budget", name: "Budget", api: .openAICompletions, provider: .openAI, reasoning: true, completionsCompat: budgetCompat)
+        XCTAssertNil(budgetOnly.thinkingLevelMap)
     }
 
     func testContextOverflowDiagnosticsNilSafety() {
@@ -572,6 +616,14 @@ final class SwiftAITests: XCTestCase {
         var options = ImagesOptions()
         options.apiKey = "explicit"
         XCTAssertEqual(options.apiKey, "explicit")
+    }
+
+    func testOpenRouterAnthropicLatestModelsEnableAnthropicCacheControl() throws {
+        let models = try BuiltinModels.all()
+        for id in ["~anthropic/claude-fable-latest", "~anthropic/claude-haiku-latest", "~anthropic/claude-opus-latest", "~anthropic/claude-sonnet-latest"] {
+            let model = try XCTUnwrap(models.first { $0.provider == .openRouter && $0.id == id }, id)
+            XCTAssertEqual(model.completionsCompat?.cacheControlFormat, "anthropic", id)
+        }
     }
 
     func testOpenAICompletionsAnthropicCacheControlFormat() {
@@ -1327,20 +1379,49 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(function["strict"], .bool(true))
     }
 
-    func testProviderRawStopReasonsAndUnknownErrors() throws {
-        let googleUnknown = """
-        data: {"candidates":[{"content":{"parts":[{"text":"hi"}]},"finishReason":"SAFETY"}]}
+    func testBedrockRawStopReasonSuccessAndGuardrailError() throws {
+        var success = Message(role: .assistant, content: [])
+        BedrockProvider.applyStopReason("end_turn", to: &success)
+        XCTAssertEqual(success.stopReason, .stop)
+        XCTAssertEqual(success.rawStopReason, "end_turn")
+        XCTAssertNil(success.errorMessage)
+
+        var guardrail = Message(role: .assistant, content: [])
+        BedrockProvider.applyStopReason("guardrail_intervened", to: &guardrail)
+        XCTAssertEqual(guardrail.stopReason, .error)
+        XCTAssertEqual(guardrail.rawStopReason, "guardrail_intervened")
+        XCTAssertEqual(guardrail.errorMessage, "Provider stopped with: guardrail_intervened")
+    }
+
+    func testGoogleRawStopReasonMalformedFunctionAndVertexSafetyErrors() throws {
+        let malformed = """
+        data: {"candidates":[{"content":{"parts":[{"text":"hi"}]},"finishReason":"MALFORMED_FUNCTION_CALL"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":0,"totalTokenCount":1}}
 
         """
-        let googleEvents = GoogleGenerativeAIProvider.processSSEText(googleUnknown, model: Model(id: "gemini", name: "Gemini", api: .googleGenerativeAI, provider: .google))
-        XCTAssertTrue(googleEvents.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "SAFETY" && message?.stopReason == .error }; return false })
-        let mistralUnknown = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"weird\"}]}\n\n"
-        let mistralEvents = MistralConversationsProvider.processSSEText(mistralUnknown, model: Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral))
-        XCTAssertTrue(mistralEvents.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "weird" && message?.stopReason == .error }; return false })
-        var bedrock = Message(role: .assistant, content: [])
-        BedrockProvider.applyStopReason("unknown_stop", to: &bedrock)
-        XCTAssertEqual(bedrock.rawStopReason, "unknown_stop")
-        XCTAssertEqual(bedrock.stopReason, .error)
+        let malformedEvents = GoogleGenerativeAIProvider.processSSEText(malformed, model: Model(id: "gemini-2.5-flash", name: "Gemini", api: .googleGenerativeAI, provider: .google))
+        XCTAssertTrue(malformedEvents.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "MALFORMED_FUNCTION_CALL" && message?.stopReason == .error && message?.errorMessage == "Provider stopped with: MALFORMED_FUNCTION_CALL" }; return false })
+
+        let safety = """
+        data: {"candidates":[{"finishReason":"SAFETY"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":0,"totalTokenCount":1}}
+
+        """
+        let safetyEvents = GoogleGenerativeAIProvider.processSSEText(safety, model: Model(id: "gemini-3-flash-preview", name: "Gemini", api: .googleVertex, provider: .googleVertex))
+        XCTAssertTrue(safetyEvents.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "SAFETY" && message?.stopReason == .error && message?.errorMessage == "Provider stopped with: SAFETY" }; return false })
+    }
+
+    func testMistralRawStopReasonStopErrorAndUnknown() throws {
+        let model = Model(id: "devstral-medium-latest", name: "Mistral", api: .mistralConversations, provider: .mistral)
+        let success = MistralConversationsProvider.processSSEText("data: {\"id\":\"mistral-response-id\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":0,\"total_tokens\":1}}\n\n", model: model)
+        guard case .done(_, let successMessage)? = success.last else { return XCTFail("missing Mistral stop") }
+        XCTAssertEqual(successMessage.stopReason, .stop)
+        XCTAssertEqual(successMessage.rawStopReason, "stop")
+        XCTAssertNil(successMessage.errorMessage)
+
+        let providerError = MistralConversationsProvider.processSSEText("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"error\"}]}\n\n", model: model)
+        XCTAssertTrue(providerError.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "error" && message?.errorMessage == "Provider stopped with: error" }; return false })
+
+        let unknown = MistralConversationsProvider.processSSEText("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"unmapped_error\"}]}\n\n", model: model)
+        XCTAssertTrue(unknown.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "unmapped_error" && message?.errorMessage == "Provider stopped with: unmapped_error" }; return false })
     }
 
     func testOpenAICompletionsMalformedCustomPrefersFunctionPayload() throws {
@@ -1373,12 +1454,23 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testOpenAICompletionsMissingAndRawFinishReason() throws {
-        let missing = OpenAICompletionsProvider.processSSEText("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n", model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI))
+        let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI)
+        let missing = OpenAICompletionsProvider.processSSEText("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n", model: model)
         XCTAssertTrue(missing.contains { if case .error(_, let message, _) = $0 { return message?.errorMessage?.contains("finish_reason") == true }; return false })
-        let raw = OpenAICompletionsProvider.processSSEText("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n", model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI))
+
+        let stop = OpenAICompletionsProvider.processSSEText("data: {\"id\":\"chatcmpl-1\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n", model: model)
+        guard case .done(_, let stopMessage)? = stop.last else { return XCTFail("missing OpenAI stop") }
+        XCTAssertEqual(stopMessage.stopReason, .stop)
+        XCTAssertEqual(stopMessage.rawStopReason, "stop")
+        XCTAssertNil(stopMessage.errorMessage)
+
+        let raw = OpenAICompletionsProvider.processSSEText("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n", model: model)
         let done = raw.compactMap { event -> Message? in if case .done(_, let message) = event { return message }; return nil }.last
         XCTAssertEqual(done?.rawStopReason, "length")
         XCTAssertEqual(done?.stopReason, .length)
+
+        let filtered = OpenAICompletionsProvider.processSSEText("data: {\"id\":\"chatcmpl-2\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"content_filter\"}]}\n\n", model: model)
+        XCTAssertTrue(filtered.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "content_filter" && message?.errorMessage == "Provider finish_reason: content_filter" }; return false })
     }
 
     func testAnthropicMissingSensitiveAndRawStopReason() throws {

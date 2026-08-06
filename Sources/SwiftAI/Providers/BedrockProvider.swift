@@ -112,7 +112,7 @@ public enum BedrockProvider {
     public static func applyStopReason(_ raw: String?, to message: inout Message) {
         message.rawStopReason = raw
         message.stopReason = mapStopReason(raw)
-        if message.stopReason == .error, let raw { message.errorMessage = "Provider stop_reason: \(raw)" }
+        if message.stopReason == .error, let raw { message.errorMessage = "Provider stopped with: \(raw)" }
     }
 
     public static func createImageBlock(data: String, mimeType: String) -> JSONValue {

@@ -116,7 +116,7 @@ public enum MistralConversationsProvider {
         let reason = stopReason(state.finishReason)
         state.partial.stopReason = reason
         if reason == .error {
-            state.partial.errorMessage = "Provider finish_reason: \(state.finishReason ?? "error")"
+            state.partial.errorMessage = "Provider stopped with: \(state.finishReason ?? "error")"
             yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "mistral error")))
         } else {
             yield(.done(reason: reason, message: state.partial))

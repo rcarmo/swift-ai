@@ -4,7 +4,7 @@ Baseline: accepted official release `v0.83.0` / `845d6ff1f6643aba440341cce877ce1
 Target: official release `v0.84.0` / `a5f43bf8aff3c55752432655f7334e3dafd1e256`.
 Scope: release-only audit pinned to `a5f43bf8`; no commits beyond the tag were considered.
 
-The final `packages/ai` delta is exactly 101 changed paths.
+The final `packages/ai` delta is exactly 101 changed paths. The cumulative whole-corpus test crosswalk covers exactly 127 upstream `packages/ai/test/*.test.ts` files in [`upstream-v0.84.0-test-crosswalk.md`](upstream-v0.84.0-test-crosswalk.md).
 
 ## Exact changed-path disposition matrix
 

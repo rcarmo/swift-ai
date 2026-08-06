@@ -29,6 +29,7 @@ public struct OpenRouterOAuthProvider: OAuthProvider {
     }
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { credentials }
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials { try cancellation.check(); return credentials }
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
 

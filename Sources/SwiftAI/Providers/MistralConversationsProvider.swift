@@ -35,7 +35,7 @@ public enum MistralConversationsProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)

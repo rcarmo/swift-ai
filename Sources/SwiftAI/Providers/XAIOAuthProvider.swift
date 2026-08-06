@@ -26,6 +26,7 @@ public struct XAIOAuthProvider: OAuthProvider {
     }
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { try await refreshXAIToken(refreshToken: credentials.refresh) }
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials { try cancellation.check(); let refreshed = try await refreshXAIToken(refreshToken: credentials.refresh); try cancellation.check(); return refreshed }
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
 
@@ -63,12 +64,14 @@ public struct XAIOAuthProvider: OAuthProvider {
     }
 
     public func refreshXAIToken(refreshToken: String) async throws -> OAuthCredentials {
+        try Task.checkCancellation()
         var request = URLRequest(url: URL(string: Self.tokenURL)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.form(["grant_type": "refresh_token", "client_id": Self.clientID, "refresh_token": refreshToken])
         let body = try await Self.jsonResponse(request: request, action: "token refresh")
+        try Task.checkCancellation()
         return try Self.credentials(from: body, previousRefreshToken: refreshToken)
     }
 

@@ -28,6 +28,7 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
     }
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { try await refreshCodexToken(refreshToken: credentials.refresh) }
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials { try cancellation.check(); let refreshed = try await refreshCodexToken(refreshToken: credentials.refresh); try cancellation.check(); return refreshed }
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
 
@@ -89,12 +90,14 @@ public struct OpenAICodexOAuthProvider: OAuthProvider {
     }
 
     private func refreshCodexToken(refreshToken: String) async throws -> OAuthCredentials {
+        try Task.checkCancellation()
         var request = URLRequest(url: URL(string: legacyAccessTokenURL)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = form(["grant_type": "refresh_token", "client_id": legacyClientID, "refresh_token": refreshToken])
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { let status = (response as? HTTPURLResponse)?.statusCode ?? 0; throw AIError.provider(Self.refreshFailureMessage(status: status, body: String(data: data, encoding: .utf8) ?? "")) }
         let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
         let access = raw["access_token"]?.stringValue ?? ""

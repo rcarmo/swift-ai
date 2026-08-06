@@ -29,11 +29,11 @@ public struct ImagesModel: Codable, Equatable, Sendable {
     public var api: ImagesAPI
     public var provider: ImagesProvider
     public var baseUrl: String?
-    public var headers: [String: String]?
+    public var headers: ProviderHeaders?
     public var input: [String]?
     public var output: [String]?
     public var cost: ModelCost
-    public init(id: String, name: String, api: ImagesAPI, provider: ImagesProvider, baseUrl: String? = nil, headers: [String: String]? = nil, input: [String]? = nil, output: [String]? = nil, cost: ModelCost = ModelCost()) { self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.headers = headers; self.input = input; self.output = output; self.cost = cost }
+    public init(id: String, name: String, api: ImagesAPI, provider: ImagesProvider, baseUrl: String? = nil, headers: ProviderHeaders? = nil, input: [String]? = nil, output: [String]? = nil, cost: ModelCost = ModelCost()) { self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.headers = headers; self.input = input; self.output = output; self.cost = cost }
 }
 
 public struct AssistantImages: Codable, Equatable, Sendable {
@@ -53,7 +53,7 @@ public struct ImagesResponseMetadata: Codable, Equatable, Sendable { public var 
 
 public struct ImagesOptions: Sendable {
     public var apiKey: String?
-    public var headers: [String: String]?
+    public var headers: ProviderHeaders?
     public var timeoutMs: Int?
     public var maxRetries: Int?
     public var maxRetryDelayMs: Int?

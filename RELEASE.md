@@ -14,7 +14,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
   - `f3879329ac0479116f049f17406a553f4fa14d56` — `Sync upstream v0.84.0 parity`
   - `fa33169cc030bf0fa169388ed90ab8407b9bf9ba` — `Complete v0.84.0 thinking budget parity`
   - `898e43dc31511e5c2704b05bda4dd63f279b90cd` — `Close v0.84.0 corrective audit gaps`
-  - This corrective commit — deferred/background lifecycle API, typed telemetry context propagation, ProviderHeaders null deletion, refresh cancellation/supersession, updated exact 101-path evidence, and exact 46 changed-test assertion matrix.
+  - `46e02b699d86fdbea36f6a29228f517bfd4dbb61` — `Add v0.84.0 deferred lifecycle parity`
+  - This corrective commit — production nullable ProviderHeaders deletion and cancellation-aware OAuth refresh protocol/registry/provider path, updated exact 101-path evidence, and exact 46 changed-test assertion matrix.
 - Latest accepted CI for this release chain before this corrective commit: <https://github.com/rcarmo/swift-ai/actions/runs/31108725910>
 
 ## Exact upstream delta
@@ -179,7 +180,10 @@ ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 
 - Added public deferred/background lifecycle support: `DeferredHandle`, `DeferredRequestOptions`, `StopReason.deferred`, `Message.deferred`, provider `fetchDeferred`/`cancelDeferred`, and `SwiftAI.fetchDeferred`/`SwiftAI.cancelDeferred`.
 - Added deterministic `FauxProvider` deferred lifecycle support and tests for submit → pending → ready, failed fetch, cancel/cancelled, `pollAfterMs`, state counters, authenticated dispatch, and unsupported capability errors.
 - Added Swift-native `TelemetryContext` on `StreamOptions` and `ImagesOptions`, with propagation tests through stream, simple stream, deferred fetch/cancel, and images.
-- Added `AIUtilities.mergeProviderHeaders` for ProviderHeaders null deletion semantics and a `ModelRuntime.refresh(force:)` cancellation/supersession test.
+- Added public nullable `ProviderHeaders` (`[String: String?]`) for `Model.headers`, `StreamOptions.headers`, `ImagesModel.headers`, and `ImagesOptions.headers`; production provider request builders now use `AIUtilities.applyProviderHeaders` so null deletion markers remove default/model headers case-insensitively.
+- Added a production OpenAI Responses request test proving a default/model Authorization header is deleted while unrelated headers remain.
+- Added cancellation-aware OAuth refresh protocol and registry path (`refreshToken(credentials:cancellation:)`), provider `Task.checkCancellation()` pre/post network awaits, pre-cancel and mid-refresh tests, and preserved typed/cause errors for non-cancellation failures.
+- Added `ModelRuntime.refresh(force:)` cancellation/supersession test and documented runtime API-key refresh separation from OAuth token refresh.
 - Replaced the v0.84 audit appendix with path-addressable evidence for all 101 changed paths and added/updated the exact 46 changed-test assertion matrix.
 - Retained v0.83 raw stop reason, missing-finish, custom-tool, and terminal-status fixes.
 - Added OAuth minimum-validity semantics: effective window is `max(300s, override)`, and explicit stricter overrides are enforced after refresh.
@@ -188,7 +192,7 @@ ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 
 ### Existing Swift equivalents / adaptations
 
 - Upstream JS `fetch` injection maps to Swift's existing typed transport/request seams (`requestTransport`, `BedrockTransport`, `CodexTransport`, `onPayload`, `onResponse`).
-- Provider refresh publication maps to Swift's actor-backed `ModelRuntime`/`AIRegistry` replacement flow; forced refresh cancels/supersedes older in-flight refresh work.
+- Provider model refresh publication maps to Swift's actor-backed `ModelRuntime`/`AIRegistry` replacement flow; forced model refresh cancels/supersedes older in-flight work and remains separate from OAuth token refresh in `OAuthRegistry`.
 - Upstream JS `telemetryContext` threading is represented by a Swift-native typed `TelemetryContext` value that propagates through stream/deferred/image options.
 - Swift preserves structured concurrency, AsyncSequence stream handling, typed errors, and actor/sendability boundaries instead of mirroring JS SDK internals.
 
@@ -214,8 +218,8 @@ grep -R "XCTSkip" -n Tests || true
 
 Latest local results before this commit:
 
-- `swift test`: `226` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`226` tests each run).
+- `swift test`: `228` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`228` tests each run).
 - `make check`: passed.
 - `scripts/audit-parity.py`: passed with exact v0.84.0 counts.
 - `scripts/static-check.py`: passed.

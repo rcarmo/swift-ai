@@ -39,9 +39,9 @@ The upstream `382aa641` public contract is now represented in Swift rather than 
 - `SwiftAI.fetchDeferred` / `SwiftAI.cancelDeferred` validate handle/model affinity, resolve provider auth from request/env options, check cancellation, and throw typed `AIError.unsupported` for providers that do not expose deferred lifecycle support.
 - `FauxProvider` implements deterministic submit → pending → ready, failed fetch, cancel/cancelled, `pollAfterMs`, `deferredFetchCount`, and `cancelledDeferred` behavior.
 - `TelemetryContext` is a Swift-native typed context on `StreamOptions` and `ImagesOptions`, with propagation tests across stream, simple stream, deferred fetch/cancel, and images.
-- `AIUtilities.mergeProviderHeaders` implements ProviderHeaders null deletion semantics.
-- `ModelRuntime.refresh(force:)` now cancels older in-flight provider refresh work before running the forced refresh; tests assert newer refresh results supersede older network work.
-- OAuth refresh signal propagation maps to Swift structured cancellation (`Task.checkCancellation`) and existing device-code/refresh cancellation tests; no separate `AbortSignal` object is introduced because Swift tasks are the public cancellation primitive.
+- `ProviderHeaders = [String: String?]` is the public model/stream/image header override type. `AIUtilities.applyProviderHeaders` is wired into production provider request builders, and `testProviderHeadersNullDeletionAppliedInResponsesRequest` proves a default Authorization header can be deleted while unrelated headers remain.
+- `ModelRuntime.refresh(force:)` now cancels older in-flight provider refresh work before running the forced refresh; tests assert newer refresh results supersede older network work and document runtime API-key refresh separation from OAuth token refresh.
+- OAuth refresh signal propagation maps to Swift structured cancellation (`Task.checkCancellation`) through the new cancellation-aware `OAuthProvider.refreshToken(credentials:cancellation:)` protocol path. `OAuthRegistry.resolveAPIKey`/`refreshToken` preflight cancellation, preserve typed/cause errors for non-cancel failures, and `testOAuthRefreshCancellationPreAndMidRefresh` covers pre-cancelled and mid-refresh cancellation without task leakage.
 
 ## Exact 101-path appendix
 
@@ -65,7 +65,7 @@ Every row below is path-addressable to the exact `packages/ai` diff. Rows name t
 | 14 | `packages/ai/src/api/openai-responses-shared.ts` | Shared Responses deltas covered by Responses/Azure/Codex builders, terminal status rejection, custom/function tool deltas, image tool-result tests, and sampling merge assertions. |
 | 15 | `packages/ai/src/api/openai-responses.ts` | OpenAI Responses direct surface covered by request URL/body tests, response-id propagation, terminal event rejection, and sampling/request metadata assertions. |
 | 16 | `packages/ai/src/api/simple-options.ts` | JS simple-stream adapter maps to Swift `AIProvider.streamSimple`; `SwiftAI.stream` dispatches `streamSimple` when reasoning is set, with request option tests covering max tokens/temperature/reasoning. |
-| 17 | `packages/ai/src/auth/credential-store.ts` | Credential store semantics covered by `testAuthCredentialStoreAndCodable` plus OAuth refresh validity tests using `InMemoryCredentialStore`. |
+| 17 | `packages/ai/src/auth/credential-store.ts` | Credential store semantics covered by `testAuthCredentialStoreAndCodable` plus OAuth refresh validity/cancellation tests using `InMemoryCredentialStore` and `OAuthRegistry`. |
 | 18 | `packages/ai/src/auth/helpers.ts` | Auth helper URL/domain/PKCE behavior covered by OAuth utility tests (`normalizeDomain`, PKCE verifier/challenge, callback URL helpers). |
 | 19 | `packages/ai/src/auth/oauth/anthropic.ts` | Anthropic OAuth/bearer distinction covered by `anthropic-auth-token` equivalent env tests and central OAuth refresh/callback contract; provider-specific browser callback is JS process surface. |
 | 20 | `packages/ai/src/auth/oauth/device-code.ts` | Device-code polling interval/slow-down/cancellation covered by `testOAuthDeviceCodePollingImmediateAndCancellation`, Radius device polling, Kimi, and xAI tests. |
@@ -75,7 +75,7 @@ Every row below is path-addressable to the exact `packages/ai` diff. Rows name t
 | 24 | `packages/ai/src/auth/oauth/openrouter.ts` | OpenRouter OAuth is central-registry credential refresh in Swift; provider catalog/env lookup and OAuth registry missing/provider failure paths are tested. |
 | 25 | `packages/ai/src/auth/oauth/radius.ts` | Radius OAuth discovery/device/token/gateway config covered by `testRadiusOAuthConfigCredentialsAndModelInjection`, `testRadiusOAuthHTTPPathsAndTypedErrors`, and `testRadiusOAuthDevicePollingTransitionsAndCancellation`. |
 | 26 | `packages/ai/src/auth/oauth/xai.ts` | xAI device/refresh and `verification_uri_complete` trust/fallback covered by `testXAIOAuthDeviceRefreshTransitionsAndErrors` and `testXAIOAuthDeviceCodePrefersTrustedCompleteVerificationURI`. |
-| 27 | `packages/ai/src/auth/resolve.ts` | Auth resolution and post-refresh validity covered by `testOAuthRefreshValidityWindowAndPostRefreshCheck` and provider env precedence tests. |
+| 27 | `packages/ai/src/auth/resolve.ts` | Auth resolution, post-refresh validity, typed/cause error preservation, and caller-owned cancellation are covered by `testOAuthRefreshValidityWindowAndPostRefreshCheck`, `testOAuthRefreshCancellationPreAndMidRefresh`, and provider env precedence tests. |
 | 28 | `packages/ai/src/auth/types.ts` | Auth option shapes map to Swift `Credential`, `OAuthCredentials`, and `OAuthLoginCallbacks`; Codable and callback/device tests cover persisted shape. |
 | 29 | `packages/ai/src/cli.ts` | CLI command wiring is package executable-only; Swift library has no CLI target, and release metadata is documented in `RELEASE.md`. |
 | 30 | `packages/ai/src/env-api-keys.ts` | Provider env names covered by `ProviderEnvironment` tests, including Baseten, Anthropic auth token precedence, Bedrock authenticated marker, Radius, and OpenRouter. |
@@ -98,7 +98,7 @@ Every row below is path-addressable to the exact `packages/ai` diff. Rows name t
 | 47 | `packages/ai/src/providers/opencode-go.ts` | OpenCode Go provider catalog/disposition covered by generated catalog tests and Responses routing/model selection tests. |
 | 48 | `packages/ai/src/providers/radius.ts` | Radius provider OAuth/model injection/runtime refresh covered by Radius OAuth and runtime provider tests. |
 | 49 | `packages/ai/src/providers/xai.ts` | xAI provider catalog, OAuth, and Responses routing covered by xAI OAuth tests and `testXAIResponsesRouting`. |
-| 50 | `packages/ai/src/types.ts` | Types/options covered by Codable shape tests, `samplingParams`, `supportsThinkingTokenBudget`, `DeferredHandle`, `DeferredRequestOptions`, `TelemetryContext`, `StopReason.deferred`, stop reason, usage, diagnostics, and request option assertions. |
+| 50 | `packages/ai/src/types.ts` | Types/options covered by Codable shape tests, `samplingParams`, `supportsThinkingTokenBudget`, `ProviderHeaders` nullable deletion markers, `DeferredHandle`, `DeferredRequestOptions`, `TelemetryContext`, `StopReason.deferred`, stop reason, usage, diagnostics, and request option assertions. |
 | 51 | `packages/ai/src/utils/abort.ts` | Abort utility maps to Swift structured cancellation; covered by OAuth polling cancellation, ProviderRetry cancellation, retry-aborted test, and Bedrock abort diagnostic suppression. |
 | 52 | `packages/ai/src/utils/error-body.ts` | Provider error body normalization maps to Swift `AIUtilities.normalizeProviderError`/error-body tests and PiMessages response-failure diagnostics. |
 | 53 | `packages/ai/src/utils/overflow.ts` | Overflow detection covered by `testContextOverflowDiagnosticsNilSafety`, `testContextOverflowAndToolValidation`, and context-window clamp tests. |
@@ -124,7 +124,7 @@ Every row below is path-addressable to the exact `packages/ai` diff. Rows name t
 | 73 | `packages/ai/test/kimi-coding-oauth.test.ts` | Matrix row 19; Swift evidence: Kimi device authorization, trusted complete URI, polling and refresh tests. |
 | 74 | `packages/ai/test/model-catalog-types.test.ts` | Matrix row 20; Swift evidence: generated model metadata Codable/catalog tests and static comparator. |
 | 75 | `packages/ai/test/models-runtime.test.ts` | Matrix row 21; Swift evidence: `ModelRuntime` refresh/cache/replacement tests plus forced refresh cancellation/supersession test. |
-| 76 | `packages/ai/test/oauth-auth.test.ts` | Matrix row 22; Swift evidence: credential store, env precedence, and OAuth resolve tests. |
+| 76 | `packages/ai/test/oauth-auth.test.ts` | Matrix row 22; Swift evidence: credential store, env precedence, OAuth resolve, typed refresh-error preservation, and refresh cancellation tests. |
 | 77 | `packages/ai/test/oauth-device-code.test.ts` | Matrix row 23; Swift evidence: device code poll immediate/slow-down/cancel plus provider device tests. |
 | 78 | `packages/ai/test/oauth.ts` | Matrix row 24; Swift evidence: OAuth utility/domain/PKCE/callback tests. |
 | 79 | `packages/ai/test/openai-codex-oauth.test.ts` | Matrix row 25; Swift evidence: OpenAI Codex OAuth device/poll/refresh/zstd tests. |
@@ -178,7 +178,7 @@ The release diff contains exactly 46 changed upstream test files. This matrix re
 | 19 | `kimi-coding-oauth.test.ts` | Kimi device code complete URI, polling transitions, refresh. | `testKimiCodingOAuthDeviceAndRefresh`. |
 | 20 | `model-catalog-types.test.ts` | Generated model data validates provider/API/type counts. | `testGeneratedModelRegistryMetadata`, `scripts/audit-parity.py`. |
 | 21 | `models-runtime.test.ts` | Runtime model store replacement, cache fallback, stale removal, cancellation/newer refresh supersession. | `ModelRuntime` tests including Radius runtime refresh/cache fallback and `testProviderHeadersNullDeletionAndRefreshCancellation`. |
-| 22 | `oauth-auth.test.ts` | Credential store and OAuth auth resolution precedence. | `testAuthCredentialStoreAndCodable`, env/OAuth registry tests. |
+| 22 | `oauth-auth.test.ts` | Credential store, OAuth auth resolution precedence, refresh error preservation, pre-cancel and mid-refresh cancellation. | `testAuthCredentialStoreAndCodable`, `testOAuthRegistryCausePreservingFailures`, `testOAuthRefreshCancellationPreAndMidRefresh`, env/OAuth registry tests. |
 | 23 | `oauth-device-code.test.ts` | Device-code slow_down/pending/complete/cancel/timeout behavior. | `testOAuthDeviceCodePollingImmediateAndCancellation`, Radius/xAI/Kimi device tests. |
 | 24 | `oauth.ts` | Shared OAuth utilities: domain normalization, PKCE, callbacks. | `testOAuthUtilitiesAndGitHubCopilotModelFiltering` and provider OAuth tests. |
 | 25 | `openai-codex-oauth.test.ts` | Codex device flow, token refresh, zstd SSE requirements. | OpenAI Codex OAuth and zstd frame tests. |

@@ -1151,12 +1151,47 @@ final class SwiftAITests: XCTestCase {
         await SwiftAI.bootstrap()
     }
 
+    func testOAuthRefreshCancellationPreAndMidRefresh() async throws {
+        actor RefreshGate { var started = false; var waiters: [CheckedContinuation<Void, Never>] = []; func markStarted() { started = true; for waiter in waiters { waiter.resume() }; waiters.removeAll() }; func waitStarted() async { if started { return }; await withCheckedContinuation { waiters.append($0) } } }
+        struct CancellableOAuthProvider: OAuthProvider {
+            let id = "cancellable"
+            let name = "Cancellable"
+            let gate: RefreshGate
+            func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials { OAuthCredentials(refresh: "r", access: "login", expires: 0) }
+            func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { OAuthCredentials(refresh: credentials.refresh, access: "legacy", expires: Int64(Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000)) }
+            func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials {
+                try cancellation.check()
+                await gate.markStarted()
+                try await Task.sleep(nanoseconds: 10_000_000_000)
+                try cancellation.check()
+                return OAuthCredentials(refresh: credentials.refresh, access: "refreshed", expires: Int64(Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000))
+            }
+            func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
+            func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
+        }
+        await OAuthRegistry.shared.clear()
+        let gate = RefreshGate()
+        await OAuthRegistry.shared.register(CancellableOAuthProvider(gate: gate))
+        let expired = OAuthCredentials(refresh: "r", access: "old", expires: 0)
+        let preCancelled = Task { try await OAuthRegistry.shared.resolveAPIKey(id: "cancellable", credentials: expired) }
+        preCancelled.cancel()
+        do { _ = try await preCancelled.value; XCTFail("expected pre-cancelled refresh") } catch is CancellationError {}
+
+        let midRefresh = Task { try await OAuthRegistry.shared.resolveAPIKey(id: "cancellable", credentials: expired) }
+        await gate.waitStarted()
+        midRefresh.cancel()
+        do { _ = try await midRefresh.value; XCTFail("expected mid-refresh cancellation") } catch is CancellationError {}
+        await OAuthRegistry.shared.clear()
+        await SwiftAI.bootstrap()
+    }
+
     func testOAuthRegistryCausePreservingFailures() async throws {
         struct FailingOAuthProvider: OAuthProvider {
             let id = "failing"
             let name = "Failing"
             func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials { throw AIError.provider("login boom") }
             func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { throw AIError.provider("refresh boom") }
+            func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials { throw AIError.provider("refresh boom") }
             func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
             func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
         }
@@ -1432,6 +1467,29 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(deltas, ["{\"input\":\"bc", "d\"}"])
         let ended = events.compactMap { event -> ContentBlock? in if case .toolCallEnd(_, let toolCall, _) = event { return toolCall }; return nil }.last
         XCTAssertEqual(ended?.arguments?["input"], .string("abcd"))
+    }
+
+    func testProviderHeadersNullDeletionAppliedInResponsesRequest() async throws {
+        final class CapturedHeaderRequest: @unchecked Sendable { var headers: [String: String] = [:] }
+        let captured = CapturedHeaderRequest()
+        OpenAIResponsesProvider.requestTransport = { request, _ in
+            captured.headers = (request.allHTTPHeaderFields ?? [:]).reduce(into: [String: String]()) { $0[$1.key.lowercased()] = $1.value }
+            let text = "event: response.completed\ndata: {\"response\":{\"status\":\"completed\",\"output\":[]}}\n\n"
+            let stream = AsyncThrowingStream<UInt8, Error> { continuation in text.utf8.forEach { continuation.yield($0) }; continuation.finish() }
+            return (stream, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        defer { OpenAIResponsesProvider.requestTransport = nil }
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, baseUrl: "https://example.test/v1", headers: ["Authorization": "Bearer model-default", "X-Keep": "model", "X-Delete": "model"])
+        var options = StreamOptions(); options.apiKey = "runtime-key"; options.headers = ["authorization": nil, "x-delete": nil, "X-Request": "request"]
+        let events = OpenAIResponsesProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        var sawDone = false
+        for await event in events { if case .done = event { sawDone = true } }
+        XCTAssertTrue(sawDone)
+        XCTAssertNil(captured.headers["authorization"])
+        XCTAssertNil(captured.headers["x-delete"])
+        XCTAssertEqual(captured.headers["x-keep"], "model")
+        XCTAssertEqual(captured.headers["x-request"], "request")
+        XCTAssertEqual(captured.headers["content-type"], "application/json")
     }
 
     func testProviderRetryWiredIntoResponsesTransport() async throws {

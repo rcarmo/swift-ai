@@ -26,6 +26,7 @@ public struct KimiCodingOAuthProvider: OAuthProvider {
     }
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { try await Self.refresh(oauthHost: Self.oauthHost(), refreshToken: credentials.refresh) }
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials { try cancellation.check(); let refreshed = try await Self.refresh(oauthHost: Self.oauthHost(), refreshToken: credentials.refresh); try cancellation.check(); return refreshed }
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
 
@@ -69,6 +70,7 @@ public struct KimiCodingOAuthProvider: OAuthProvider {
     public static func refresh(oauthHost: String, refreshToken: String) async throws -> OAuthCredentials {
         var lastError: Error?
         for attempt in 0...3 {
+            try Task.checkCancellation()
             if attempt > 0 { try await Task.sleep(nanoseconds: UInt64(1_000 * Int(pow(2.0, Double(attempt - 1)))) * 1_000_000) }
             var request = URLRequest(url: URL(string: oauthHost + "/api/oauth/token")!)
             request.httpMethod = "POST"
@@ -77,6 +79,7 @@ public struct KimiCodingOAuthProvider: OAuthProvider {
             request.httpBody = "client_id=\(clientID)&grant_type=refresh_token&refresh_token=\(refreshToken)".data(using: .utf8)
             do {
                 let (data, response) = try await data(for: request)
+                try Task.checkCancellation()
                 guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("missing HTTP response") }
                 let body = (try? JSONDecoder().decode([String: JSONValue].self, from: data)) ?? [:]
                 if (200..<300).contains(http.statusCode) { return try parseToken(body) }

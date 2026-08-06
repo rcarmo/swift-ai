@@ -34,6 +34,17 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         return refreshed
     }
 
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials {
+        try cancellation.check()
+        let domain = credentials.extra?["enterpriseUrl"]?.stringValue ?? ""
+        var refreshed = try await refreshGitHubCopilotAccessToken(refreshToken: credentials.refresh, enterpriseDomain: domain)
+        try cancellation.check()
+        let ids = try await fetchAvailableModelIDs(token: refreshed.access, enterpriseDomain: domain)
+        try cancellation.check()
+        refreshed.extra = (refreshed.extra ?? [:]).merging(["availableModelIds": .array(ids.map { .string($0) })]) { _, new in new }
+        return refreshed
+    }
+
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
 
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] {
@@ -112,6 +123,7 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
     }
 
     private func refreshGitHubCopilotAccessToken(refreshToken: String, enterpriseDomain: String) async throws -> OAuthCredentials {
+        try Task.checkCancellation()
         let domain = enterpriseDomain.isEmpty ? "github.com" : enterpriseDomain
         var request = URLRequest(url: URL(string: "https://api.\(domain)/copilot_internal/v2/token")!)
         request.httpMethod = "GET"
@@ -119,18 +131,21 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         request.setValue("Bearer \(refreshToken)", forHTTPHeaderField: "Authorization")
         for (k, v) in copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode(CopilotTokenResponse.self, from: data)
         return OAuthCredentials(refresh: refreshToken, access: raw.token, expires: raw.expiresAt * 1000 - 5 * 60 * 1000, extra: ["enterpriseUrl": .string(enterpriseDomain)])
     }
 
     public func fetchAvailableModelIDs(token: String, enterpriseDomain: String) async throws -> [String] {
+        try Task.checkCancellation()
         var request = URLRequest(url: URL(string: Self.baseURL(token: token, enterpriseDomain: enterpriseDomain) + "/models")!)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(apiVersion, forHTTPHeaderField: "X-GitHub-Api-Version")
         for (k, v) in copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode(CopilotModelsResponse.self, from: data)
         return raw.data.filter(\.isSelectable).map(\.id)

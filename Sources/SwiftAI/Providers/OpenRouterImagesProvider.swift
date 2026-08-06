@@ -22,8 +22,7 @@ public enum OpenRouterImagesProvider {
             request.httpMethod = "POST"
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-            for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+            AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
             request.httpBody = try JSONEncoder().encode(payloadValue)
             let policy = RetryPolicy(options: options)
             let retryRequest = request

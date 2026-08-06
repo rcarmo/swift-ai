@@ -194,8 +194,7 @@ public enum OpenAIResponsesProvider {
             }
         }
         if model.provider == .githubCopilot { for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) } }
-        for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         if model.api == .openAICodexResponses {
             let encoded = try encodeCodexSSERequestBody(body)
             request.setValue(encoded.contentEncoding, forHTTPHeaderField: "Content-Encoding")

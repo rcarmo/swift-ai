@@ -56,8 +56,7 @@ public enum GoogleGenerativeAIProvider {
         var request = URLRequest(url: URL(string: try buildStreamURL(model: model, apiKey: key, options: options))!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)

@@ -1,5 +1,8 @@
 import Foundation
 import Crypto
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct ContextTokenEstimate: Codable, Equatable, Sendable { public var tokens: Int; public var usageTokens: Int; public var trailingTokens: Int; public var lastUsageIndex: Int?; public init(tokens: Int, usageTokens: Int, trailingTokens: Int, lastUsageIndex: Int?) { self.tokens = tokens; self.usageTokens = usageTokens; self.trailingTokens = trailingTokens; self.lastUsageIndex = lastUsageIndex } }
 
@@ -171,16 +174,22 @@ public enum AIUtilities {
         text.count <= maxChars ? text : String(text.prefix(maxChars)) + "... [truncated \(text.count - maxChars) chars]"
     }
 
-    public static func mergeProviderHeaders(_ base: [String: String?]? = nil, override: [String: String?]? = nil) -> [String: String]? {
+    public static func mergeProviderHeaders(_ base: ProviderHeaders? = nil, override: ProviderHeaders? = nil) -> [String: String]? {
         var out: [String: String] = [:]
+        func removeCaseInsensitive(_ name: String) { for key in out.keys where key.lowercased() == name.lowercased() { out.removeValue(forKey: key) } }
         for source in [base, override] {
             guard let source else { continue }
             for (key, value) in source {
+                removeCaseInsensitive(key)
                 if let value { out[key] = value }
-                else { out.removeValue(forKey: key) }
             }
         }
         return out.isEmpty ? nil : out
+    }
+
+    public static func applyProviderHeaders(_ modelHeaders: ProviderHeaders?, _ optionHeaders: ProviderHeaders?, to request: inout URLRequest) {
+        let existing = request.allHTTPHeaderFields?.reduce(into: ProviderHeaders()) { partial, item in partial[item.key] = item.value }
+        request.allHTTPHeaderFields = mergeProviderHeaders(mergeProviderHeaders(existing, override: modelHeaders)?.mapValues { Optional($0) }, override: optionHeaders)
     }
 
     public static func safeJsonStringify(_ value: Any) -> String {
@@ -286,9 +295,9 @@ public enum AIUtilities {
 
     public static func azureSessionHeaders(_ sessionId: String) -> [String: String] { sessionId.isEmpty ? [:] : ["session_id": sessionId, "x-client-request-id": sessionId, "x-ms-client-request-id": sessionId] }
 
-    public static func hasHeader(_ headers: [String: String]?, _ name: String) -> Bool {
+    public static func hasHeader(_ headers: ProviderHeaders?, _ name: String) -> Bool {
         guard let headers else { return false }
-        return headers.contains { $0.key.lowercased() == name.lowercased() && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return headers.contains { $0.key.lowercased() == name.lowercased() && ($0.value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
     }
 
     public static func hasOpenAIAuthHeader(_ headers: [String: String]?) -> Bool { hasHeader(headers, "authorization") || hasHeader(headers, "cf-aig-authorization") }

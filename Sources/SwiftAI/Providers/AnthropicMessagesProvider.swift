@@ -67,9 +67,7 @@ public enum AnthropicMessagesProvider {
         if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none, model.anthropicCompat?.sendSessionAffinityHeaders == true { headers["x-session-affinity"] = session }
         let betas = betaHeaders(model: model, context: context)
         if !betas.isEmpty { headers["Anthropic-Beta"] = betas.joined(separator: ",") }
-        for (k, v) in model.headers ?? [:] { headers[k] = v }
-        for (k, v) in options?.headers ?? [:] { headers[k] = v }
-        return headers
+        return AIUtilities.mergeProviderHeaders(headers.mapValues { Optional($0) }, override: AIUtilities.mergeProviderHeaders(model.headers, override: options?.headers)?.mapValues { Optional($0) }) ?? [:]
     }
 
     private static func isBearerAuthToken(_ key: String, env: ProviderEnv?) -> Bool {

@@ -58,7 +58,7 @@ public enum PiMessagesProvider {
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        AIUtilities.applyProviderHeaders(nil, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(JSONValue.object(payload))

@@ -248,6 +248,7 @@ public struct Tool: Codable, Equatable, Sendable {
 public struct AIContext: Codable, Equatable, Sendable { public var systemPrompt: String?; public var messages: [Message]; public var tools: [Tool]?; public init(systemPrompt: String? = nil, messages: [Message] = [], tools: [Tool]? = nil) { self.systemPrompt = systemPrompt; self.messages = messages; self.tools = tools } }
 
 public struct ModelCost: Codable, Equatable, Sendable { public var input = 0.0; public var output = 0.0; public var cacheRead = 0.0; public var cacheWrite = 0.0; public init(input: Double = 0, output: Double = 0, cacheRead: Double = 0, cacheWrite: Double = 0) { self.input = input; self.output = output; self.cacheRead = cacheRead; self.cacheWrite = cacheWrite } }
+public typealias ProviderHeaders = [String: String?]
 
 public struct Model: Codable, Equatable, Sendable {
     public var id: String
@@ -262,12 +263,12 @@ public struct Model: Codable, Equatable, Sendable {
     public var contextWindow: Int
     public var maxTokens: Int
     public var samplingParams: [String: JSONValue]?
-    public var headers: [String: String]?
+    public var headers: ProviderHeaders?
     public var completionsCompat: OpenAICompletionsCompat?
     public var responsesCompat: OpenAIResponsesCompat?
     public var anthropicCompat: AnthropicMessagesCompat?
 
-    public init(id: String, name: String, api: API, provider: Provider, baseUrl: String = "", reasoning: Bool = false, thinkingLevelMap: [ModelThinkingLevel: String?]? = nil, input: [String] = ["text"], cost: ModelCost = ModelCost(), contextWindow: Int = 0, maxTokens: Int = 0, samplingParams: [String: JSONValue]? = nil, headers: [String: String]? = nil, completionsCompat: OpenAICompletionsCompat? = nil, responsesCompat: OpenAIResponsesCompat? = nil, anthropicCompat: AnthropicMessagesCompat? = nil) {
+    public init(id: String, name: String, api: API, provider: Provider, baseUrl: String = "", reasoning: Bool = false, thinkingLevelMap: [ModelThinkingLevel: String?]? = nil, input: [String] = ["text"], cost: ModelCost = ModelCost(), contextWindow: Int = 0, maxTokens: Int = 0, samplingParams: [String: JSONValue]? = nil, headers: ProviderHeaders? = nil, completionsCompat: OpenAICompletionsCompat? = nil, responsesCompat: OpenAIResponsesCompat? = nil, anthropicCompat: AnthropicMessagesCompat? = nil) {
         self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.reasoning = reasoning; self.thinkingLevelMap = thinkingLevelMap; self.input = input; self.cost = cost; self.contextWindow = contextWindow; self.maxTokens = maxTokens; self.samplingParams = samplingParams; self.headers = headers; self.completionsCompat = completionsCompat; self.responsesCompat = responsesCompat; self.anthropicCompat = anthropicCompat
     }
 
@@ -293,7 +294,7 @@ public struct Model: Codable, Equatable, Sendable {
         contextWindow = try c.decodeIfPresent(Int.self, forKey: .contextWindow) ?? 0
         maxTokens = try c.decodeIfPresent(Int.self, forKey: .maxTokens) ?? 0
         samplingParams = try c.decodeIfPresent([String: JSONValue].self, forKey: .samplingParams)
-        headers = try c.decodeIfPresent([String: String].self, forKey: .headers)
+        headers = try c.decodeIfPresent(ProviderHeaders.self, forKey: .headers)
         completionsCompat = try c.decodeIfPresent(OpenAICompletionsCompat.self, forKey: .completionsCompat)
         responsesCompat = try c.decodeIfPresent(OpenAIResponsesCompat.self, forKey: .responsesCompat)
         anthropicCompat = try c.decodeIfPresent(AnthropicMessagesCompat.self, forKey: .anthropicCompat)
@@ -344,7 +345,7 @@ public struct StreamOptions: Sendable {
     public var transport: Transport?
     public var cacheRetention: CacheRetention?
     public var sessionId: String?
-    public var headers: [String: String]?
+    public var headers: ProviderHeaders?
     public var debug: Bool?
     public var maxRetryDelayMs: Int?
     public var retryConfig: RetryConfig?

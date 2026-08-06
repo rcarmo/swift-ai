@@ -40,6 +40,15 @@ public struct RadiusOAuthProvider: OAuthProvider {
         return try await tokenRequest(url: Self.tokenEndpoint(gateway: gateway), fields: Self.refreshTokenFields(clientID: config.clientId, refreshToken: credentials.refresh), fallbackRefresh: credentials.refresh, fallbackGatewayConfig: Self.gatewayConfig(from: credentials))
     }
 
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials {
+        try cancellation.check()
+        let config = try await loadOAuthConfig(gateway: gateway)
+        try cancellation.check()
+        let refreshed = try await tokenRequest(url: Self.tokenEndpoint(gateway: gateway), fields: Self.refreshTokenFields(clientID: config.clientId, refreshToken: credentials.refresh), fallbackRefresh: credentials.refresh, fallbackGatewayConfig: Self.gatewayConfig(from: credentials))
+        try cancellation.check()
+        return refreshed
+    }
+
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
 
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] {
@@ -81,18 +90,22 @@ public struct RadiusOAuthProvider: OAuthProvider {
     }
 
     public func loadOAuthConfig(gateway: String) async throws -> RadiusOAuthConfig {
+        try Task.checkCancellation()
         let url = URL(string: Self.normalizeGatewayURL(gateway) + "/v1/oauth")!
         let (data, response) = try await Self.data(for: URLRequest(url: url))
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         return try RadiusOAuthConfig.decode(data: data, gateway: Self.normalizeGatewayURL(gateway))
     }
 
     public func loadGatewayConfig(gateway: String, apiKey: String?, etag: String? = nil) async throws -> RadiusGatewayConfig {
+        try Task.checkCancellation()
         var request = URLRequest(url: URL(string: Self.normalizeGatewayURL(gateway) + "/v1/config")!)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let etag, !etag.isEmpty { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
         let (data, response) = try await Self.data(for: request)
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("missing HTTP response") }
         if http.statusCode == 304 { return RadiusGatewayConfig(baseUrl: "", models: [], etag: http.value(forHTTPHeaderField: "ETag") ?? etag, notModified: true) }
         guard http.statusCode == 200 else { throw RadiusOAuthError.http(status: http.statusCode, body: String(data: data, encoding: .utf8) ?? "") }
@@ -119,12 +132,14 @@ public struct RadiusOAuthProvider: OAuthProvider {
     }
 
     private func tokenRequest(url: String, fields: [String: String], fallbackRefresh: String?, fallbackGatewayConfig: RadiusGatewayConfig?) async throws -> OAuthCredentials {
+        try Task.checkCancellation()
         var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = Self.form(fields)
         let (data, response) = try await Self.data(for: request)
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw RadiusOAuthError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
         let access = raw["access_token"]?.stringValue ?? ""

@@ -28,8 +28,23 @@ public protocol OAuthProvider: Sendable {
     var name: String { get }
     func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials
     func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials
+    func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials
     func apiKey(credentials: OAuthCredentials) -> String
     func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model]
+}
+
+public struct OAuthCancellation: Sendable {
+    public init() {}
+    public func check() throws { try Task.checkCancellation() }
+}
+
+public extension OAuthProvider {
+    func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials {
+        try cancellation.check()
+        let refreshed = try await refreshToken(credentials: credentials)
+        try cancellation.check()
+        return refreshed
+    }
 }
 
 public actor OAuthRegistry {
@@ -47,9 +62,10 @@ public actor OAuthRegistry {
         catch { throw ModelsError("OAuth login failed for \(id)", cause: error) }
     }
 
-    public func refreshToken(id: String, credentials: OAuthCredentials) async throws -> OAuthCredentials {
+    public func refreshToken(id: String, credentials: OAuthCredentials, cancellation: OAuthCancellation = OAuthCancellation()) async throws -> OAuthCredentials {
         guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
-        do { return try await provider.refreshToken(credentials: credentials) }
+        do { try cancellation.check(); return try await provider.refreshToken(credentials: credentials, cancellation: cancellation) }
+        catch is CancellationError { throw CancellationError() }
         catch { throw ModelsError("OAuth refresh failed for \(id)", cause: error) }
     }
 
@@ -64,8 +80,10 @@ public actor OAuthRegistry {
         let effectiveMinimumSeconds = max(300, minimumValiditySeconds ?? 300)
         let minValidityMs = Int64(effectiveMinimumSeconds) * 1000
         let nowMs = Int64(now.timeIntervalSince1970 * 1000)
+        let cancellation = OAuthCancellation()
         if resolved.expires - nowMs <= minValidityMs {
-            do { resolved = try await provider.refreshToken(credentials: credentials) }
+            do { try cancellation.check(); resolved = try await provider.refreshToken(credentials: credentials, cancellation: cancellation) }
+            catch is CancellationError { throw CancellationError() }
             catch { throw ModelsError("OAuth refresh failed for \(id)", cause: error) }
         }
         if let explicit = minimumValiditySeconds, explicit > 300, resolved.expires - nowMs < Int64(explicit) * 1000 {

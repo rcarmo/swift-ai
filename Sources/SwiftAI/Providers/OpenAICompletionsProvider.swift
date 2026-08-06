@@ -206,13 +206,9 @@ public enum OpenAICompletionsProvider {
 
     private static func clientAPIKey(model: Model, options: StreamOptions?) -> String? {
         if let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty { return key }
-        let headers = (model.headers ?? [:]).merging(options?.headers ?? [:]) { _, new in new }
-        if hasHeader(headers, "authorization") || hasHeader(headers, "cf-aig-authorization") { return "unused" }
+        let headers = AIUtilities.mergeProviderHeaders(model.headers, override: options?.headers)?.mapValues { Optional($0) }
+        if AIUtilities.hasHeader(headers, "authorization") || AIUtilities.hasHeader(headers, "cf-aig-authorization") { return "unused" }
         return nil
-    }
-
-    private static func hasHeader(_ headers: [String: String], _ name: String) -> Bool {
-        headers.contains { $0.key.lowercased() == name.lowercased() && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private static func openAIContentParts(_ blocks: [ContentBlock], leadingText: String?) -> [JSONValue] {
@@ -310,8 +306,7 @@ public enum OpenAICompletionsProvider {
         if model.provider == .githubCopilot {
             for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) }
         }
-        for (k, v) in model.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options, stream: stream)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)

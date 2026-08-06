@@ -38,7 +38,7 @@ public enum GoogleGeminiCLIProvider {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("cloud-code-assist/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("cl/head cloud-code-assist/1.0", forHTTPHeaderField: "X-Goog-Api-Client")
-        for (k, v) in options?.headers ?? [:] { request.setValue(v, forHTTPHeaderField: k) }
+        AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, projectId: project, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)

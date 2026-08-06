@@ -25,6 +25,7 @@ public struct AnthropicOAuthProvider: OAuthProvider {
     }
 
     public func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials { try await refreshAnthropicToken(refreshToken: credentials.refresh) }
+    public func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials { try cancellation.check(); let refreshed = try await refreshAnthropicToken(refreshToken: credentials.refresh); try cancellation.check(); return refreshed }
     public func apiKey(credentials: OAuthCredentials) -> String { credentials.access }
     public func modifyModels(_ models: [Model], credentials: OAuthCredentials) -> [Model] { models }
 
@@ -58,12 +59,14 @@ public struct AnthropicOAuthProvider: OAuthProvider {
     }
 
     private func tokenRequest(fields: [String: String], fallbackRefresh: String?) async throws -> OAuthCredentials {
+        try Task.checkCancellation()
         var request = URLRequest(url: URL(string: tokenURL)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = form(fields)
         let (data, response) = try await HTTPRetry.data(for: request, policy: RetryPolicy(maxRetries: 1))
+        try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw AIError.apiError(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: String(data: data, encoding: .utf8) ?? "") }
         let raw = try JSONDecoder().decode([String: JSONValue].self, from: data)
         let access = raw["access_token"]?.stringValue ?? ""

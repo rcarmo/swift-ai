@@ -312,6 +312,21 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(cachedIDs, ["cached"])
     }
 
+    func testUUIDV7ConcurrentUniquenessAndRFCLayout() async {
+        let pattern = #"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#
+        let values = await withTaskGroup(of: [String].self) { group in
+            for _ in 0..<20 {
+                group.addTask { (0..<50).map { _ in AIUtilities.uuidv7() } }
+            }
+            var out: [String] = []
+            for await chunk in group { out.append(contentsOf: chunk) }
+            return out
+        }
+        XCTAssertEqual(values.count, 1_000)
+        XCTAssertEqual(Set(values).count, values.count)
+        XCTAssertTrue(values.allSatisfy { $0.range(of: pattern, options: .regularExpression) != nil })
+    }
+
     func testRadiusRuntimeProviderRefreshUsesConfigAndCacheFallback() async throws {
         let store = InMemoryProviderModelsStore()
         let runtime = ModelRuntime(store: store)

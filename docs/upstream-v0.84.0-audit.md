@@ -4,7 +4,7 @@ Baseline: accepted official release `v0.83.0` / `845d6ff1f6643aba440341cce877ce1
 Target: official release `v0.84.0` / `a5f43bf8aff3c55752432655f7334e3dafd1e256`.
 Scope: release-only audit pinned to `a5f43bf8`; no commits beyond the tag were considered.
 
-The final `packages/ai` delta is exactly 101 changed paths. The cumulative whole-corpus test crosswalk covers exactly 127 upstream `packages/ai/test/*.test.ts` files in [`upstream-v0.84.0-test-crosswalk.md`](upstream-v0.84.0-test-crosswalk.md), with disposition counts `ported: 111`, `adapted: 9`, `live-only: 7`, and open items `0`.
+The final `packages/ai` delta is exactly 101 changed paths. The cumulative whole-corpus test crosswalk covers exactly 127 upstream `packages/ai/test/*.test.ts` files in [`upstream-v0.84.0-test-crosswalk.md`](upstream-v0.84.0-test-crosswalk.md), with disposition counts `ported: 102`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 10`, and open items `0`.
 
 ## Exact changed-path disposition matrix
 

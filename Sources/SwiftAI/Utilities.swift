@@ -8,6 +8,42 @@ public struct ContextTokenEstimate: Codable, Equatable, Sendable { public var to
 
 public struct NormalizedProviderError: Equatable, Sendable { public var status: Int?; public var body: String?; public var message: String; public var messageCarriesBody: Bool; public init(status: Int? = nil, body: String? = nil, message: String, messageCarriesBody: Bool = false) { self.status = status; self.body = body; self.message = message; self.messageCarriesBody = messageCarriesBody } }
 
+private final class UUIDV7State: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastTimestamp: UInt64 = 0
+    private var sequence: UInt32 = 0
+
+    func next(timestampMs timestamp: UInt64, randomBytes: [UInt8]?) -> String {
+        let random = randomBytes ?? (0..<16).map { _ in UInt8.random(in: 0...255) }
+        let paddedRandom = random + Array(repeating: UInt8(0), count: max(0, 16 - random.count))
+        let snapshot: (timestamp: UInt64, sequence: UInt32) = lock.withLock {
+            if timestamp > lastTimestamp {
+                sequence = UInt32(paddedRandom[6]) << 24 | UInt32(paddedRandom[7]) << 16 | UInt32(paddedRandom[8]) << 8 | UInt32(paddedRandom[9])
+                lastTimestamp = timestamp
+            } else {
+                sequence &+= 1
+                if sequence == 0 { lastTimestamp &+= 1 }
+            }
+            return (lastTimestamp, sequence)
+        }
+        var bytes = Array(repeating: UInt8(0), count: 16)
+        bytes[0] = UInt8((snapshot.timestamp >> 40) & 0xff)
+        bytes[1] = UInt8((snapshot.timestamp >> 32) & 0xff)
+        bytes[2] = UInt8((snapshot.timestamp >> 24) & 0xff)
+        bytes[3] = UInt8((snapshot.timestamp >> 16) & 0xff)
+        bytes[4] = UInt8((snapshot.timestamp >> 8) & 0xff)
+        bytes[5] = UInt8(snapshot.timestamp & 0xff)
+        bytes[6] = 0x70 | UInt8((snapshot.sequence >> 28) & 0x0f)
+        bytes[7] = UInt8((snapshot.sequence >> 20) & 0xff)
+        bytes[8] = 0x80 | UInt8((snapshot.sequence >> 14) & 0x3f)
+        bytes[9] = UInt8((snapshot.sequence >> 6) & 0xff)
+        bytes[10] = UInt8((snapshot.sequence & 0x3f) << 2) | (paddedRandom[10] & 0x03)
+        for i in 11...15 { bytes[i] = paddedRandom[i] }
+        let hex = bytes.map { String(format: "%02x", $0) }.joined()
+        return "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20))"
+    }
+}
+
 public enum AIUtilities {
     public static let charsPerToken = 4
     public static let estimatedImageChars = 4800
@@ -65,37 +101,10 @@ public enum AIUtilities {
         }.joined(separator: separator)
     }
 
-    nonisolated(unsafe) private static var uuidLastTimestamp: UInt64 = 0
-    nonisolated(unsafe) private static var uuidSequence: UInt32 = 0
+    private static let uuidV7State = UUIDV7State()
 
     public static func uuidv7(timestampMs: UInt64? = nil, randomBytes: [UInt8]? = nil) -> String {
-        let timestamp = timestampMs ?? UInt64(Date().timeIntervalSince1970 * 1000)
-        let random = randomBytes ?? (0..<16).map { _ in UInt8.random(in: 0...255) }
-        let paddedRandom = random + Array(repeating: UInt8(0), count: max(0, 16 - random.count))
-        if timestamp > uuidLastTimestamp {
-            uuidSequence = UInt32(paddedRandom[6]) << 24 | UInt32(paddedRandom[7]) << 16 | UInt32(paddedRandom[8]) << 8 | UInt32(paddedRandom[9])
-            uuidLastTimestamp = timestamp
-        } else {
-            uuidSequence &+= 1
-            if uuidSequence == 0 { uuidLastTimestamp &+= 1 }
-        }
-        let sequence = uuidSequence
-        let encodedTimestamp = uuidLastTimestamp
-        var bytes = Array(repeating: UInt8(0), count: 16)
-        bytes[0] = UInt8((encodedTimestamp >> 40) & 0xff)
-        bytes[1] = UInt8((encodedTimestamp >> 32) & 0xff)
-        bytes[2] = UInt8((encodedTimestamp >> 24) & 0xff)
-        bytes[3] = UInt8((encodedTimestamp >> 16) & 0xff)
-        bytes[4] = UInt8((encodedTimestamp >> 8) & 0xff)
-        bytes[5] = UInt8(encodedTimestamp & 0xff)
-        bytes[6] = 0x70 | UInt8((sequence >> 28) & 0x0f)
-        bytes[7] = UInt8((sequence >> 20) & 0xff)
-        bytes[8] = 0x80 | UInt8((sequence >> 14) & 0x3f)
-        bytes[9] = UInt8((sequence >> 6) & 0xff)
-        bytes[10] = UInt8((sequence & 0x3f) << 2) | (paddedRandom[10] & 0x03)
-        for i in 11...15 { bytes[i] = paddedRandom[i] }
-        let hex = bytes.map { String(format: "%02x", $0) }.joined()
-        return "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20))"
+        uuidV7State.next(timestampMs: timestampMs ?? UInt64(Date().timeIntervalSince1970 * 1000), randomBytes: randomBytes)
     }
 
     public static func estimateTextAndImageContentTokens(_ content: [ContentBlock]) -> Int {

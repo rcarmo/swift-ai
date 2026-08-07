@@ -5,16 +5,17 @@ Scope: exact official upstream tag `a5f43bf8aff3c55752432655f7334e3dafd1e256`, `
 Exact cumulative upstream test-file count: **127**.
 
 Disposition counts:
-- ported: 111
-- adapted: 9
+- ported: 102
+- adapted: 8
 - live-only: 7
+- adapted/live-remainder: 10
 - open items: 0
 
-Credential-gated E2E/live files are explicitly marked `live-only` and are not claimed as deterministic Swift coverage. Generator-policy files are marked `adapted` unless a production Swift helper assertion executes.
+Credential-gated E2E/live files are explicitly marked `live-only` when the whole upstream file requires live credentials. Files with substantial deterministic Swift coverage plus an unexecuted credential-gated/provider-matrix remainder are marked `adapted/live-remainder` and are not claimed as full live parity. Generator-policy files are marked `adapted` unless a production Swift helper assertion executes.
 
 | # | Upstream test file | Disposition | Swift evidence / N/A | Assertion disposition |
 | ---: | --- | --- | --- | --- |
-| 1 | `packages/ai/test/abort.test.ts` | ported | `testOAuthDeviceCodePollingImmediateAndCancellation`, `testProviderRetryCapAndCancellation`, `testRetryAssistantCallReportsAbortedRetriesUnsuccessful`, Bedrock abort diagnostic suppression | Structured cancellation and abort-normalized assistant responses. |
+| 1 | `packages/ai/test/abort.test.ts` | adapted/live-remainder | `testOAuthDeviceCodePollingImmediateAndCancellation`, `testProviderRetryCapAndCancellation`, `testRetryAssistantCallReportsAbortedRetriesUnsuccessful`, Bedrock abort diagnostic suppression | Deterministic Swift cancellation/abort behavior is covered; upstream live/provider abort matrices remain credential-gated and unexecuted. |
 | 2 | `packages/ai/test/anthropic-adaptive-thinking-models.test.ts` | ported | `testAnthropicAdaptiveThinkingModels` / `testGitHubCopilotAnthropicHeadersAndAdaptiveThinking` / `testBedrockThinkingPayloadParity` | Adaptive thinking model metadata and request payload assertions. |
 | 3 | `packages/ai/test/anthropic-auth-token.test.ts` | ported | `testProviderEnvironmentAndOptions`, Anthropic request/header tests | `ANTHROPIC_AUTH_TOKEN` precedence and bearer auth behavior. |
 | 4 | `packages/ai/test/anthropic-cache-write-1h-cost.test.ts` | ported | usage/cost cache-write assertions in core/provider tests | Swift `Usage.cacheWrite1h`/cost fields and cache-write cost calculation are executable in provider/core tests. |
@@ -46,9 +47,9 @@ Credential-gated E2E/live files are explicitly marked `live-only` and are not cl
 | 30 | `packages/ai/test/constrained-sampling.test.ts` | ported | constrained sampling grammar/json-schema tests | Grammar/custom tool and strict JSON schema payloads. |
 | 31 | `packages/ai/test/context-estimate.test.ts` | ported | `testV0803EstimateClampErrorAndRetryUtilities`, CoreUtility context tests | Context token estimation and trailing-token handling. |
 | 32 | `packages/ai/test/context-overflow.test.ts` | ported | `testContextOverflowDiagnosticsNilSafety`, `testContextOverflowAndToolValidation` | Overflow classification from messages/diagnostics/usage. |
-| 33 | `packages/ai/test/cross-provider-handoff.test.ts` | adapted | registry/model dispatch tests | JS handoff harness maps to Swift `AIRegistry`/`ModelRuntime` dispatch. |
+| 33 | `packages/ai/test/cross-provider-handoff.test.ts` | adapted/live-remainder | registry/model dispatch tests | Swift registry/model dispatch is covered; upstream cross-provider live handoff matrix remains provider-credential gated. |
 | 34 | `packages/ai/test/deferred-tools.test.ts` | ported | `testOpenAICompletionsKimiDeferredTools`, deferred lifecycle tests | Deferred tools plus background response lifecycle. |
-| 35 | `packages/ai/test/empty.test.ts` | ported | empty/blank content provider tests | Empty content serialization safeguards. |
+| 35 | `packages/ai/test/empty.test.ts` | adapted/live-remainder | empty/blank content provider tests | Portable empty content serialization is covered; upstream provider live matrix remainder is unexecuted. |
 | 36 | `packages/ai/test/env-api-keys.test.ts` | ported | EnvironmentTests + `ProviderEnvironment` tests | Provider env key matrix. |
 | 37 | `packages/ai/test/error-body.test.ts` | ported | provider error body normalization tests | Error body extraction without stream serialization. |
 | 38 | `packages/ai/test/faux-provider.test.ts` | ported | Faux provider tests including deferred lifecycle | Faux stream, queue, usage, cache and deferred states. |
@@ -66,10 +67,10 @@ Credential-gated E2E/live files are explicitly marked `live-only` and are not cl
 | 50 | `packages/ai/test/google-thinking-signature.test.ts` | ported | `testGoogleThinkingSignatureDetectionAndRetention` | Thought signature detection/retention. |
 | 51 | `packages/ai/test/google-vertex-api-key-resolution.test.ts` | ported | `testGoogleVertexAPIKeyResolutionURLSemantics`, EnvironmentTests | Vertex ADC/API-key URL semantics. |
 | 52 | `packages/ai/test/image-model-data.test.ts` | adapted | `scripts/audit-parity.py`, image catalog comparator | Generator-policy/catalog-data validation is handled by exact image catalog comparator, not runtime helper tests. |
-| 53 | `packages/ai/test/image-tool-result.test.ts` | ported | OpenAI/Google image tool-result tests | Image tool-result payload routing. |
+| 53 | `packages/ai/test/image-tool-result.test.ts` | adapted/live-remainder | OpenAI/Google image tool-result tests | Portable image tool-result payload routing is covered; upstream live multimodal provider matrix remainder is unexecuted. |
 | 54 | `packages/ai/test/images-models.test.ts` | ported | image registry/catalog tests | Image model registry/provider metadata. |
-| 55 | `packages/ai/test/images.test.ts` | ported | OpenRouter image payload/response tests | Image generation request/response parsing. |
-| 56 | `packages/ai/test/interleaved-thinking.test.ts` | ported | Anthropic/Bedrock interleaved thinking tests | Interleaved/adaptive thinking payload behavior. |
+| 55 | `packages/ai/test/images.test.ts` | adapted/live-remainder | OpenRouter image payload/response tests | Deterministic image request/response parsing is covered; live image-generation provider calls are not executed. |
+| 56 | `packages/ai/test/interleaved-thinking.test.ts` | adapted/live-remainder | Anthropic/Bedrock interleaved thinking tests | Portable interleaved/adaptive thinking payload behavior is covered; live provider matrix remainder is unexecuted. |
 | 57 | `packages/ai/test/kimi-coding-oauth.test.ts` | ported | `testKimiCodingOAuthDeviceAndRefresh` | Kimi OAuth device/refresh transitions. |
 | 58 | `packages/ai/test/lax-message-content.test.ts` | ported | message transform/content tests | Lax content/unknown blocks handled safely. |
 | 59 | `packages/ai/test/lazy-module-load.test.ts` | adapted | Swift bootstrap/registry tests | JS lazy module loading maps to explicit Swift bootstrap registration. |
@@ -122,14 +123,14 @@ Credential-gated E2E/live files are explicitly marked `live-only` and are not cl
 | 106 | `packages/ai/test/responseid.test.ts` | ported | response ID tests | Response ID propagation across providers. |
 | 107 | `packages/ai/test/retry.test.ts` | ported | retry assistant/provider tests | Assistant retry and provider retry behavior. |
 | 108 | `packages/ai/test/sampling-options.test.ts` | ported | sampling options tests | Model/request sampling params merge. |
-| 109 | `packages/ai/test/stream.test.ts` | ported | SSE/stream parser tests | Stream parser, deltas, finish/error cases. |
+| 109 | `packages/ai/test/stream.test.ts` | adapted/live-remainder | SSE/stream parser tests | Deterministic stream parser/delta/finish/error cases are covered; upstream live stream-provider matrix remainder is unexecuted. |
 | 110 | `packages/ai/test/supports-xhigh.test.ts` | ported | supported thinking level tests | XHigh/max supported thinking levels. |
 | 111 | `packages/ai/test/telemetry-options.test.ts` | ported | `testTelemetryContextPropagatesThroughStreamDeferredAndImages` | Typed telemetry context propagation. |
 | 112 | `packages/ai/test/text.test.ts` | ported | text utility tests | Text/sanitize helpers. |
 | 113 | `packages/ai/test/together-models.test.ts` | ported | Together model metadata tests | Together catalog/reasoning controls. |
 | 114 | `packages/ai/test/tokens.test.ts` | ported | usage/token parsing tests | Token and usage accounting. |
 | 115 | `packages/ai/test/tool-call-id-normalization.test.ts` | ported | tool call ID normalization tests | Tool call ID normalization across providers. |
-| 116 | `packages/ai/test/tool-call-without-result.test.ts` | ported | tool-call-without-result tests | Pending/tool-call result behavior. |
+| 116 | `packages/ai/test/tool-call-without-result.test.ts` | adapted/live-remainder | tool-call-without-result tests | Pending/tool-call no-result behavior is covered deterministically; live provider matrix remainder is unexecuted. |
 | 117 | `packages/ai/test/total-tokens.test.ts` | ported | total token usage tests | Total token parsing/fallbacks. |
 | 118 | `packages/ai/test/transform-messages-copilot-openai-to-anthropic.test.ts` | ported | transform messages/Copilot Anthropic tests | Message transform from OpenAI/Copilot to Anthropic payloads. |
 | 119 | `packages/ai/test/unicode-surrogate.test.ts` | ported | unicode surrogate tests | Invalid surrogate sanitization. |
@@ -137,7 +138,7 @@ Credential-gated E2E/live files are explicitly marked `live-only` and are not cl
 | 121 | `packages/ai/test/validation.test.ts` | ported | `testToolValidationCoercionParity` | Tool argument coercion including nullable unions. |
 | 122 | `packages/ai/test/xai-oauth.test.ts` | ported | xAI OAuth tests | xAI OAuth device/refresh/verification URI complete. |
 | 123 | `packages/ai/test/xai-responses.test.ts` | ported | `testGrok45ResponsesCatalogAndActualRequestMatrix` | xAI retired exclusions, low/medium/high-only Grok 4.5 levels, and actual Responses request matrix. |
-| 124 | `packages/ai/test/xhigh.test.ts` | ported | xhigh support tests | XHigh support mapping. |
+| 124 | `packages/ai/test/xhigh.test.ts` | adapted/live-remainder | xhigh support tests | XHigh/max mapping is covered deterministically; upstream live provider matrix remainder is unexecuted. |
 | 125 | `packages/ai/test/xiaomi-models.test.ts` | ported | Xiaomi model placement tests | Xiaomi catalog placement. |
 | 126 | `packages/ai/test/xiaomi-token-plan-ams-anthropic-empty-signature-smoke.test.ts` | live-only | N/A live/provider smoke | Smoke test requires live Xiaomi/Anthropic-compatible endpoint; deterministic catalog/signature tests cover portable logic. |
-| 127 | `packages/ai/test/zen.test.ts` | ported | misc provider/catalog tests | Zen/provider metadata behavior covered by catalog/provider tests. |
+| 127 | `packages/ai/test/zen.test.ts` | adapted/live-remainder | misc provider/catalog tests | Deterministic provider/catalog behavior is covered; upstream live/provider matrix remainder is unexecuted. |

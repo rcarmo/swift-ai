@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run_audit() -> None:
     subprocess.run([sys.executable, str(ROOT / "scripts" / "audit-parity.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "audit-parity.py"), "--self-test"], cwd=ROOT, check=True)
 
 
 def check_delimiters() -> None:

@@ -63,16 +63,17 @@ Text catalog:
 - Swift source snapshot: `scripts/models.v0.84.1.json`
 - Exact upstream comparator source: `scripts/upstream-models.53fa77c.json`
 - Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
-- Provider/id pairs: `1220/1220`
+- Full records: `1220/1220`
 - Providers: `39`
 - APIs: `9`
+- Full-record delta vs committed v0.84.0 snapshot: `+70/-3/9 changed`
 
 Image catalog:
 
 - Swift source snapshot: `scripts/image-models.v0.84.1.json`
 - Exact upstream comparator source: `scripts/upstream-image-models.53fa77c.json`
 - Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
-- Provider/id pairs: `42/42`
+- Full records: `42/42`
 - Providers: `1`
 - APIs: `1`
 
@@ -85,7 +86,7 @@ python3 scripts/audit-parity.py
 Expected output includes:
 
 ```text
-ok: 1220 text models / 39 providers / 9 APIs; 42 image models / 1 providers / 1 APIs
+ok: 1220 text models / 39 providers / 9 APIs; 42 image models / 1 providers / 1 APIs; delta +70/-3/9 changed
 ```
 
 ## Swift implementation, adaptations, and N/A decisions
@@ -102,11 +103,11 @@ ok: 1220 text models / 39 providers / 9 APIs; 42 image models / 1 providers / 1 
   - Retired `qwen3.8-max-preview` and image model IDs are excluded.
 - Ported the v0.84.1 Qwen request-body behavior by emitting `enable_thinking` for Qwen-format OpenAI Completions models and `reasoning_effort` when `supportsReasoningEffort` is true.
 - Added deterministic Swift tests for Individual catalog/env metadata and Qwen request payloads, including qwen3.8 `xhigh` mapping.
-- Added `docs/upstream-v0.84.1-test-crosswalk.md` with the exact 128-file upstream test manifest and updated disposition counts (`ported: 103`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 10`, open items: 0).
+- Added `docs/upstream-v0.84.1-test-crosswalk.md` with the exact 128-file upstream test manifest and corrected disposition counts (`ported: 98`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 14`, `N/A/adapted-generator-policy: 1`, open items: 0).
 
 ### Existing Swift equivalents / adaptations
 
-- Upstream strict generator tests map to Swift's exact source/comparator/embedded registry gate in `scripts/audit-parity.py` plus deterministic seven-model Individual assertions.
+- Upstream strict generator tests map to Swift's full-record source/comparator/embedded registry gate in `scripts/audit-parity.py`, exact `+70/-3/9` v0.84.0→v0.84.1 delta assertions, a metadata fault-injection self-test, and deterministic seven-model Individual assertions; TS atomic rollback policy remains classified as `N/A/adapted-generator-policy`.
 - Upstream package docs/version changes are recorded in `RELEASE.md`, `PARITY.md`, `STATUS.json`, and `docs/upstream-v0.84.1-audit.md`.
 - The v0.84.1 modified live/provider tests retain the existing `live-only` or `adapted/live-remainder` classification where credentials or provider-specific live behavior are required; portable request/catalog behavior is covered deterministically.
 
@@ -135,8 +136,9 @@ Latest local results before this commit:
 - `swift test`: `236` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`236` tests each run).
 - `make check`: passed (`236` tests, `0` failures).
-- `scripts/audit-parity.py`: passed with exact v0.84.1 counts.
-- `scripts/static-check.py`: passed.
+- `scripts/audit-parity.py`: passed with exact v0.84.1 full-record counts and `+70/-3/9` delta.
+- `scripts/audit-parity.py --self-test`: passed, proving a metadata fault injection is caught.
+- `scripts/static-check.py`: passed, including the audit self-test.
 - hidden skip scan: no `XCTSkip` matches.
 
 GitHub Actions evidence for `27bb19a975033580aee8351cb08f6d197124999d`:

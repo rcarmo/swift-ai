@@ -10,13 +10,16 @@ This is intentionally toolchain-light so it can run even in containers without
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_MODELS = ROOT / "scripts" / "models.v0.84.1.json"
 UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.53fa77c.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.0.json"
 IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.1.json"
 UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.53fa77c.json"
 STATUS = ROOT / "STATUS.json"
@@ -31,6 +34,9 @@ EXPECTED_TEXT_MODELS = 1220
 EXPECTED_TEXT_PROVIDERS = 39
 EXPECTED_IMAGE_MODELS = 42
 EXPECTED_IMAGE_PROVIDERS = 1
+EXPECTED_TEXT_ADDED = 70
+EXPECTED_TEXT_REMOVED = 3
+EXPECTED_TEXT_CHANGED = 9
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
     "Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift",
@@ -85,11 +91,101 @@ def registered_api_raw_values() -> tuple[set[str], set[str]]:
     )
 
 
+def model_key(model: dict) -> tuple[str, str]:
+    return (str(model.get("provider")), str(model.get("id")))
+
+
+def keyed_records(records: list[dict], label: str) -> dict[tuple[str, str], dict]:
+    out: dict[tuple[str, str], dict] = {}
+    for record in records:
+        key = model_key(record)
+        if key in out:
+            raise SystemExit(f"duplicate model key in {label}: {key[0]}/{key[1]}")
+        out[key] = record
+    return out
+
+
+def normalize_model(model: dict) -> dict:
+    model = copy.deepcopy(model)
+    compat = model.pop("compat", None)
+    if isinstance(compat, dict):
+        api = model.get("api")
+        if api == "openai-completions":
+            model["completionsCompat"] = compat
+        elif api in ("openai-responses", "azure-openai-responses", "openai-codex-responses"):
+            model["responsesCompat"] = compat
+        elif api == "anthropic-messages":
+            model["anthropicCompat"] = compat
+        else:
+            model["compat"] = compat
+    return model
+
+
+def normalize_records(records: list[dict]) -> list[dict]:
+    return [normalize_model(record) for record in records]
+
+
+def describe_record_differences(left: dict[tuple[str, str], dict], right: dict[tuple[str, str], dict], limit: int = 10) -> str:
+    missing = sorted(right.keys() - left.keys())[:limit]
+    extra = sorted(left.keys() - right.keys())[:limit]
+    changed = sorted(key for key in left.keys() & right.keys() if left[key] != right[key])[:limit]
+    parts = []
+    if missing:
+        parts.append("missing=" + repr(missing))
+    if extra:
+        parts.append("extra=" + repr(extra))
+    if changed:
+        parts.append("changed=" + repr(changed))
+    return " ".join(parts) or "record content differs"
+
+
+def require_full_record_equal(failures: list[str], left: list[dict], right: list[dict], label: str) -> None:
+    left_map = keyed_records(left, label + " left")
+    right_map = keyed_records(right, label + " right")
+    if left_map != right_map:
+        failures.append(f"{label}: full records differ ({describe_record_differences(left_map, right_map)})")
+
+
+def text_delta_counts(previous: list[dict], current: list[dict]) -> tuple[int, int, int]:
+    previous_map = keyed_records(previous, "previous text catalog")
+    current_map = keyed_records(current, "current text catalog")
+    added = current_map.keys() - previous_map.keys()
+    removed = previous_map.keys() - current_map.keys()
+    changed = {key for key in current_map.keys() & previous_map.keys() if current_map[key] != previous_map[key]}
+    return (len(added), len(removed), len(changed))
+
+
 def main() -> int:
+    self_test = "--self-test" in sys.argv[1:]
+    failures, summary = collect_failures(self_test_mutation=False)
+    if self_test:
+        mutated_failures, _ = collect_failures(self_test_mutation=True)
+        if not any("full records differ" in failure for failure in mutated_failures):
+            failures.append("self-test metadata mutation did not trigger full-record comparator")
+
+    if failures:
+        for failure in failures:
+            print("FAIL:", failure)
+        return 1
+    suffix = "; self-test metadata mutation caught" if self_test else ""
+    print(
+        f"ok: {summary['text_models']} text models / {summary['text_providers']} providers / {summary['text_apis']} APIs; "
+        f"{summary['image_models']} image models / {summary['image_providers']} providers / {summary['image_apis']} APIs; "
+        f"delta +{summary['text_added']}/-{summary['text_removed']}/{summary['text_changed']} changed" + suffix
+    )
+    return 0
+
+
+def collect_failures(self_test_mutation: bool = False) -> tuple[list[str], dict[str, int]]:
     text = json.loads(TEXT_MODELS.read_text())
     upstream_text = json.loads(UPSTREAM_TEXT_MODELS.read_text())
+    previous_text = json.loads(PREVIOUS_TEXT_MODELS.read_text())
     images = json.loads(IMAGE_MODELS.read_text())
     upstream_images = json.loads(UPSTREAM_IMAGE_MODELS.read_text())
+    if self_test_mutation:
+        text = copy.deepcopy(text)
+        text[0]["name"] = str(text[0].get("name", "")) + " fault-injected"
+
     status = json.loads(STATUS.read_text())
     swift_status = SWIFT_STATUS.read_text()
     embedded_text = embedded_registry(MODELS_GENERATED)
@@ -119,6 +215,18 @@ def main() -> int:
     for got, want, label in checks:
         if got != want:
             failures.append(f"{label}: got {got}, want {want}")
+
+    require_full_record_equal(failures, text, upstream_text, "current text snapshot vs exact-tag upstream snapshot")
+    normalized_text = normalize_records(text)
+    require_full_record_equal(failures, embedded_text, normalized_text, "embedded text registry vs normalized current snapshot")
+    require_full_record_equal(failures, images, upstream_images, "current image snapshot vs exact-tag upstream snapshot")
+    require_full_record_equal(failures, embedded_images, images, "embedded image registry vs current image snapshot")
+    text_added, text_removed, text_changed = text_delta_counts(previous_text, text)
+    if (text_added, text_removed, text_changed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED, EXPECTED_TEXT_CHANGED):
+        failures.append(
+            f"v0.84.0..v0.84.1 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
+            f"want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}/{EXPECTED_TEXT_CHANGED} changed"
+        )
 
     text_ids = {(m["provider"], m["id"]) for m in text}
     upstream_text_ids = {(m["provider"], m["id"]) for m in upstream_text}
@@ -239,15 +347,18 @@ def main() -> int:
     if "openrouter-images" not in status.get("bundledRuntimeProviders", []):
         failures.append("STATUS bundledRuntimeProviders missing image API: openrouter-images")
 
-    if failures:
-        for failure in failures:
-            print("FAIL:", failure)
-        return 1
-    print(
-        f"ok: {len(text)} text models / {len(text_providers)} providers / {len(text_apis)} APIs; "
-        f"{len(images)} image models / {len(image_providers)} providers / {len(image_apis)} APIs"
-    )
-    return 0
+    summary = {
+        "text_models": len(text),
+        "text_providers": len(text_providers),
+        "text_apis": len(text_apis),
+        "image_models": len(images),
+        "image_providers": len(image_providers),
+        "image_apis": len(image_apis),
+        "text_added": text_added,
+        "text_removed": text_removed,
+        "text_changed": text_changed,
+    }
+    return failures, summary
 
 
 if __name__ == "__main__":

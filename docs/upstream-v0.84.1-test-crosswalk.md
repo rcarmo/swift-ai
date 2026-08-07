@@ -4,7 +4,7 @@ Scope: exact official upstream tag `53fa77ccd8a279eb87e92294ef3687b03ff80112`, `
 
 Baseline: accepted v0.84.0 crosswalk at `a5f43bf8aff3c55752432655f7334e3dafd1e256`.
 
-This is the bounded v0.84.1 corpus inventory. It covers exactly 128 upstream test files. Disposition counts: `ported: 103`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 10`, open items: `0`.
+This is the bounded v0.84.1 corpus inventory. It covers exactly 128 upstream test files. Disposition counts: `ported: 98`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 14`, `N/A/adapted-generator-policy: 1`, open items: `0`.
 
 The v0.84.1 changed-test slice contains exactly 14 paths total: 13 existing tests modified plus 1 new `generate-models-strict.test.ts`.
 
@@ -41,7 +41,7 @@ The v0.84.1 changed-test slice contains exactly 14 paths total: 13 existing test
 | 29 | `packages/ai/test/compat-env.test.ts` | ported | `testProviderEnvironmentAndOptions`, env tests | Provider env/API-key resolution. |
 | 30 | `packages/ai/test/constrained-sampling.test.ts` | ported | constrained sampling grammar/json-schema tests | Grammar/custom tool and strict JSON schema payloads. |
 | 31 | `packages/ai/test/context-estimate.test.ts` | ported | `testV0803EstimateClampErrorAndRetryUtilities`, CoreUtility context tests | Context token estimation and trailing-token handling. |
-| 32 | `packages/ai/test/context-overflow.test.ts` | ported | `testContextOverflowDiagnosticsNilSafety`, `testContextOverflowAndToolValidation` | Overflow classification from messages/diagnostics/usage. |
+| 32 | `packages/ai/test/context-overflow.test.ts` | adapted/live-remainder | context overflow Swift tests + live-remainder classification | Deterministic generic overflow behavior is covered; newly added Individual live/provider case is credential-gated and unexecuted. |
 | 33 | `packages/ai/test/cross-provider-handoff.test.ts` | adapted/live-remainder | registry/model dispatch tests | Swift registry/model dispatch is covered; upstream cross-provider live handoff matrix remains provider-credential gated. |
 | 34 | `packages/ai/test/deferred-tools.test.ts` | ported | `testOpenAICompletionsKimiDeferredTools`, deferred lifecycle tests | Deferred tools plus background response lifecycle. |
 | 35 | `packages/ai/test/empty.test.ts` | adapted/live-remainder | empty/blank content provider tests | Portable empty content serialization is covered; upstream provider live matrix remainder is unexecuted. |
@@ -50,7 +50,7 @@ The v0.84.1 changed-test slice contains exactly 14 paths total: 13 existing test
 | 38 | `packages/ai/test/faux-provider.test.ts` | ported | Faux provider tests including deferred lifecycle | Faux stream, queue, usage, cache and deferred states. |
 | 39 | `packages/ai/test/fetch-option.test.ts` | adapted | typed request transports (`requestTransport`, `CodexTransport`, `BedrockTransport`) tests | JS `fetch` injection maps to explicit Swift transport seams. |
 | 40 | `packages/ai/test/fireworks-models.test.ts` | ported | `testFireworksKimiK26ModelMetadataAndCompat`, `testFireworksAnthropicToolCompatRequestShape` | Fireworks catalog and Anthropic compat payload. |
-| 41 | `packages/ai/test/generate-models-strict.test.ts` | ported | `scripts/generate-models.py`, exact `scripts/models.v0.84.1.json` / `upstream-models.53fa77c.json`, `scripts/audit-parity.py` | Strict Individual allowlist is represented by exact seven-model catalog assertions and comparator source equality before generated Swift is accepted. |
+| 41 | `packages/ai/test/generate-models-strict.test.ts` | N/A/adapted-generator-policy | `scripts/audit-parity.py` full-record snapshot/comparator/embedded checks plus exact delta assertions | Private TS atomic generator rollback policy is not an executable Swift port; Swift enforces the resulting exact generated catalog policy through full-record CI checks and deterministic seven-model assertions. |
 | 42 | `packages/ai/test/github-copilot-anthropic.test.ts` | ported | `testGitHubCopilotAnthropicHeadersAndAdaptiveThinking` | GitHub Copilot Anthropic headers/model metadata. |
 | 43 | `packages/ai/test/github-copilot-oauth.test.ts` | ported | `testGitHubCopilotOAuthModelFilteringAndVerificationURI` | OAuth device URI, model filtering, base URL. |
 | 44 | `packages/ai/test/google-raw-stop-reason.test.ts` | ported | `testGoogleRawStopReasonMalformedFunctionAndVertexSafetyErrors` | GenAI `MALFORMED_FUNCTION_CALL` and Vertex `SAFETY` raw stop errors. |
@@ -124,12 +124,12 @@ The v0.84.1 changed-test slice contains exactly 14 paths total: 13 existing test
 | 112 | `packages/ai/test/telemetry-options.test.ts` | ported | `testTelemetryContextPropagatesThroughStreamDeferredAndImages` | Typed telemetry context propagation. |
 | 113 | `packages/ai/test/text.test.ts` | ported | text utility tests | Text/sanitize helpers. |
 | 114 | `packages/ai/test/together-models.test.ts` | ported | Together model metadata tests | Together catalog/reasoning controls. |
-| 115 | `packages/ai/test/tokens.test.ts` | ported | usage/token parsing tests | Token and usage accounting. |
+| 115 | `packages/ai/test/tokens.test.ts` | adapted/live-remainder | token accounting Swift tests + live-remainder classification | Deterministic generic token behavior is covered; newly added Individual live/provider case is credential-gated and unexecuted. |
 | 116 | `packages/ai/test/tool-call-id-normalization.test.ts` | ported | tool call ID normalization tests | Tool call ID normalization across providers. |
 | 117 | `packages/ai/test/tool-call-without-result.test.ts` | adapted/live-remainder | tool-call-without-result tests | Pending/tool-call no-result behavior is covered deterministically; live provider matrix remainder is unexecuted. |
-| 118 | `packages/ai/test/total-tokens.test.ts` | ported | total token usage tests | Total token parsing/fallbacks. |
+| 118 | `packages/ai/test/total-tokens.test.ts` | adapted/live-remainder | total-token usage Swift tests + live-remainder classification | Deterministic generic total-token behavior is covered; newly added Individual live/provider case is credential-gated and unexecuted. |
 | 119 | `packages/ai/test/transform-messages-copilot-openai-to-anthropic.test.ts` | ported | transform messages/Copilot Anthropic tests | Message transform from OpenAI/Copilot to Anthropic payloads. |
-| 120 | `packages/ai/test/unicode-surrogate.test.ts` | ported | unicode surrogate tests | Invalid surrogate sanitization. |
+| 120 | `packages/ai/test/unicode-surrogate.test.ts` | adapted/live-remainder | Unicode/surrogate Swift tests + live-remainder classification | Deterministic generic Unicode behavior is covered; newly added Individual live/provider case is credential-gated and unexecuted. |
 | 121 | `packages/ai/test/uuid.test.ts` | ported | `CoreUtilityTests.testV0803EstimateClampErrorAndRetryUtilities` | UUIDv7 RFC version/variant layout, monotonic lexical order within fixed millisecond, and sequence overflow timestamp advance. |
 | 122 | `packages/ai/test/validation.test.ts` | ported | `testToolValidationCoercionParity` | Tool argument coercion including nullable unions. |
 | 123 | `packages/ai/test/xai-oauth.test.ts` | ported | xAI OAuth tests | xAI OAuth device/refresh/verification URI complete. |

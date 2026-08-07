@@ -11,7 +11,9 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Previous accepted upstream tag commit: `a5f43bf8aff3c55752432655f7334e3dafd1e256`
 - Previous accepted Swift baseline: `80366a574649a64350baabc9b31c093a36f3a904`
 - Swift parity branch: `main`
-- Current Swift parity commit for v0.84.1: this release update commit (exact SHA/CI run to be reported after GitHub verifies it).
+- Current Swift parity commits for v0.84.1:
+  - `27bb19a975033580aee8351cb08f6d197124999d` — `Sync upstream v0.84.1 parity`
+  - This evidence commit — records the green hosted CI evidence for `27bb19a`.
 - Last accepted v0.84.0 CI: <https://github.com/rcarmo/swift-ai/actions/runs/31133380351>
 
 ## Exact upstream delta
@@ -137,7 +139,17 @@ Latest local results before this commit:
 - `scripts/static-check.py`: passed.
 - hidden skip scan: no `XCTSkip` matches.
 
-Fresh GitHub Actions evidence for this release commit must be captured from the pushed commit and reported with the final handoff.
+GitHub Actions evidence for `27bb19a975033580aee8351cb08f6d197124999d`:
+
+- Run: <https://github.com/rcarmo/swift-ai/actions/runs/31161870654>
+- Status: `completed`
+- Conclusion: `success`
+- Jobs:
+  - `static-check`: success
+  - `swift-test (ubuntu-latest)`: success
+  - `swift-test (macos-14)`: success
+
+Fresh GitHub Actions evidence for this final evidence commit must be captured from the pushed commit and reported with the final handoff.
 
 ## Future release-audit checklist
 

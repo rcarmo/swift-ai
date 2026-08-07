@@ -46,7 +46,20 @@ public enum OpenAICompletionsProvider {
         if cacheRetention == .long, compat.supportsLongCacheRetention == true { body["prompt_cache_retention"] = .string("24h") }
         if let toolChoice = options?.toolChoice { body["tool_choice"] = toolChoice }
         if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body); applyThinkingTokenBudget(model: model, options: options, compat: compat, body: &body) }
+        else if model.reasoning { applyThinkingDisabled(model: model, compat: compat, body: &body) }
         return body
+    }
+
+    private static func applyThinkingDisabled(model: Model, compat: OpenAICompletionsCompat, body: inout [String: JSONValue]) {
+        switch compat.thinkingFormat {
+        case "qwen": body["enable_thinking"] = .bool(false)
+        case "qwen-chat-template": body["chat_template_kwargs"] = .object(["enable_thinking": .bool(false), "preserve_thinking": .bool(true)])
+        case "deepseek": if model.thinkingLevelMap?[.off] != nil { body["thinking"] = .object(["type": .string("disabled")]) }
+        case "openrouter": if let off = model.thinkingLevelMap?[.off] { body["reasoning"] = .object(["effort": .string(off ?? "none")]) }
+        case "string-thinking": if let off = model.thinkingLevelMap?[.off] { body["thinking"] = .string(off ?? "none") }
+        default:
+            if compat.supportsReasoningEffort == true, let off = model.thinkingLevelMap?[.off], let off { body["reasoning_effort"] = .string(off) }
+        }
     }
 
     private static func applyThinking(model: Model, options: StreamOptions?, compat: OpenAICompletionsCompat, effort: String, body: inout [String: JSONValue]) {
@@ -57,7 +70,9 @@ public enum OpenAICompletionsProvider {
         case "deepseek": body["thinking"] = .object(["type": .string("enabled")]); body["reasoning_effort"] = .string(mapped)
         case "together": body["reasoning"] = .object(["enabled": .bool(true)]); body["reasoning_effort"] = .string(mapped)
         case "zai": body["thinking"] = .object(["type": .string("enabled")]); if compat.zaiToolStream == true { body["tool_stream"] = .bool(true) }
-        case "qwen": body["enable_thinking"] = .bool(true)
+        case "qwen":
+            body["enable_thinking"] = .bool(true)
+            if compat.supportsReasoningEffort == true { body["reasoning_effort"] = .string(mapped) }
         case "qwen-chat-template": body["chat_template_kwargs"] = .object(["enable_thinking": .bool(true), "preserve_thinking": .bool(true)])
         case "chat-template": if let kwargs = buildChatTemplateValues(model: model, source: compat.chatTemplateKwargs, effort: effort) { body["chat_template_kwargs"] = .object(kwargs) }
         case "baseten": if let args = buildChatTemplateValues(model: model, source: compat.chatTemplateArgs, effort: effort) { body["chat_template_args"] = .object(args) }; if compat.supportsReasoningEffort == true { body["reasoning_effort"] = .string(mapped) }

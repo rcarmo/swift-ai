@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.0")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1153)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1220)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 42)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.0")
-        XCTAssertEqual(BuiltinModels.modelCount, 1153)
-        XCTAssertEqual(BuiltinModels.providerCount, 38)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1220)
+        XCTAssertEqual(BuiltinModels.providerCount, 39)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1153)
+        XCTAssertEqual(models.count, 1220)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -146,7 +146,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanCN && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .openCodeGo && $0.id == "grok-4.5" && $0.api == .openAIResponses })
         XCTAssertTrue(models.contains { $0.provider == .google && $0.id == "gemini-2.5-computer-use-preview-10-2025" })
-        XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "inclusionai/ling-3.0-flash:free" })
+        XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "inclusionai/ling-3.0-flash" })
+        XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanIndividual && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .baseten && $0.id == "moonshotai/Kimi-K2.5" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
     }
@@ -210,7 +211,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.0")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.1")
         XCTAssertEqual(BuiltinImageModels.modelCount, 42)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()

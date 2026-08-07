@@ -50,6 +50,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
     case moonshotAICN = "moonshotai-cn"
     case qwenTokenPlan = "qwen-token-plan"
     case qwenTokenPlanCN = "qwen-token-plan-cn"
+    case qwenTokenPlanIndividual = "qwen-token-plan-individual"
     case xiaomi = "xiaomi"
     case xiaomiTokenPlanCN = "xiaomi-token-plan-cn"
     case xiaomiTokenPlanAMS = "xiaomi-token-plan-ams"

@@ -5,24 +5,20 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 ## Current upstream parity baseline
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.84.0`
-- Current upstream tag commit: `a5f43bf8aff3c55752432655f7334e3dafd1e256`
-- Previous accepted upstream release: `v0.83.0`
-- Previous accepted upstream tag commit: `845d6ff1f6643aba440341cce877ce1c43ebbc39`
+- Current upstream release: `v0.84.1`
+- Current upstream tag commit: `53fa77ccd8a279eb87e92294ef3687b03ff80112`
+- Previous accepted upstream release: `v0.84.0`
+- Previous accepted upstream tag commit: `a5f43bf8aff3c55752432655f7334e3dafd1e256`
+- Previous accepted Swift baseline: `80366a574649a64350baabc9b31c093a36f3a904`
 - Swift parity branch: `main`
-- Current Swift parity commits for v0.84.0:
-  - `f3879329ac0479116f049f17406a553f4fa14d56` — `Sync upstream v0.84.0 parity`
-  - `fa33169cc030bf0fa169388ed90ab8407b9bf9ba` — `Complete v0.84.0 thinking budget parity`
-  - `898e43dc31511e5c2704b05bda4dd63f279b90cd` — `Close v0.84.0 corrective audit gaps`
-  - `46e02b699d86fdbea36f6a29228f517bfd4dbb61` — `Add v0.84.0 deferred lifecycle parity`
-  - This corrective commit — production nullable ProviderHeaders deletion and cancellation-aware OAuth refresh protocol/registry/provider path, updated exact 101-path evidence, and exact 46 changed-test assertion matrix.
-- Latest accepted CI for this release chain before this corrective commit: <https://github.com/rcarmo/swift-ai/actions/runs/31108725910>
+- Current Swift parity commit for v0.84.1: this release update commit (exact SHA/CI run to be reported after GitHub verifies it).
+- Last accepted v0.84.0 CI: <https://github.com/rcarmo/swift-ai/actions/runs/31133380351>
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from `845d6ff1f6643aba440341cce877ce1c43ebbc39` to `a5f43bf8aff3c55752432655f7334e3dafd1e256`.
+Release-only audit scope: `packages/ai` diff from `a5f43bf8aff3c55752432655f7334e3dafd1e256` to `53fa77ccd8a279eb87e92294ef3687b03ff80112`.
 
-Exact changed-path count: **101**.
+Exact changed-path count: **25**.
 
 Changed paths:
 
@@ -31,124 +27,48 @@ packages/ai/CHANGELOG.md
 packages/ai/README.md
 packages/ai/package.json
 packages/ai/scripts/generate-models.ts
-packages/ai/src/api/anthropic-messages.ts
-packages/ai/src/api/azure-openai-responses.ts
-packages/ai/src/api/bedrock-converse-stream.ts
-packages/ai/src/api/google-generative-ai.ts
-packages/ai/src/api/google-shared.ts
-packages/ai/src/api/google-vertex.ts
-packages/ai/src/api/lazy.ts
-packages/ai/src/api/openai-codex-responses.ts
-packages/ai/src/api/openai-completions.ts
-packages/ai/src/api/openai-responses-shared.ts
-packages/ai/src/api/openai-responses.ts
-packages/ai/src/api/simple-options.ts
-packages/ai/src/auth/credential-store.ts
-packages/ai/src/auth/helpers.ts
-packages/ai/src/auth/oauth/anthropic.ts
-packages/ai/src/auth/oauth/device-code.ts
-packages/ai/src/auth/oauth/github-copilot.ts
-packages/ai/src/auth/oauth/kimi-coding.ts
-packages/ai/src/auth/oauth/openai-codex.ts
-packages/ai/src/auth/oauth/openrouter.ts
-packages/ai/src/auth/oauth/radius.ts
-packages/ai/src/auth/oauth/xai.ts
-packages/ai/src/auth/resolve.ts
-packages/ai/src/auth/types.ts
-packages/ai/src/cli.ts
+packages/ai/scripts/model-data.ts
 packages/ai/src/env-api-keys.ts
-packages/ai/src/image-models.generated.ts
-packages/ai/src/images-models.ts
-packages/ai/src/models-store.ts
 packages/ai/src/models.generated.ts
-packages/ai/src/models.ts
 packages/ai/src/providers/all.ts
-packages/ai/src/providers/amazon-bedrock.ts
-packages/ai/src/providers/anthropic.ts
-packages/ai/src/providers/baseten.models.ts
-packages/ai/src/providers/baseten.ts
-packages/ai/src/providers/cloudflare-auth.ts
-packages/ai/src/providers/faux.ts
-packages/ai/src/providers/github-copilot.ts
-packages/ai/src/providers/google-vertex.ts
-packages/ai/src/providers/kimi-coding.ts
-packages/ai/src/providers/openai-codex.ts
-packages/ai/src/providers/opencode-go.ts
-packages/ai/src/providers/radius.ts
-packages/ai/src/providers/xai.ts
+packages/ai/src/providers/qwen-token-plan-individual.models.ts
+packages/ai/src/providers/qwen-token-plan-individual.ts
 packages/ai/src/types.ts
-packages/ai/src/utils/abort.ts
-packages/ai/src/utils/error-body.ts
-packages/ai/src/utils/overflow.ts
-packages/ai/src/utils/validation.ts
 packages/ai/test/abort.test.ts
-packages/ai/test/anthropic-adaptive-thinking-models.test.ts
-packages/ai/test/anthropic-auth-token.test.ts
-packages/ai/test/anthropic-oauth.test.ts
-packages/ai/test/anthropic-sse-parsing.test.ts
-packages/ai/test/baseten-models.test.ts
-packages/ai/test/bedrock-error-metadata.test.ts
 packages/ai/test/context-overflow.test.ts
 packages/ai/test/cross-provider-handoff.test.ts
-packages/ai/test/deferred-tools.test.ts
 packages/ai/test/empty.test.ts
-packages/ai/test/error-body.test.ts
-packages/ai/test/fireworks-models.test.ts
-packages/ai/test/github-copilot-oauth.test.ts
-packages/ai/test/google-shared-gemini3-unsigned-tool-call.test.ts
-packages/ai/test/google-shared-retry.test.ts
-packages/ai/test/google-shared-signed-empty-blocks.test.ts
+packages/ai/test/generate-models-strict.test.ts
 packages/ai/test/image-tool-result.test.ts
-packages/ai/test/kimi-coding-oauth.test.ts
-packages/ai/test/model-catalog-types.test.ts
-packages/ai/test/models-runtime.test.ts
-packages/ai/test/oauth-auth.test.ts
-packages/ai/test/oauth-device-code.test.ts
-packages/ai/test/oauth.ts
-packages/ai/test/openai-codex-oauth.test.ts
-packages/ai/test/openai-codex-stream.test.ts
-packages/ai/test/openai-completions-prompt-cache.test.ts
-packages/ai/test/openai-completions-thinking-as-text.test.ts
-packages/ai/test/openai-completions-thinking-token-budget.test.ts
+packages/ai/test/model-data-validation.test.ts
 packages/ai/test/openai-completions-tool-choice.test.ts
-packages/ai/test/openai-completions-tool-result-images.test.ts
-packages/ai/test/openai-responses-terminal-event.test.ts
-packages/ai/test/openrouter-oauth.test.ts
-packages/ai/test/overflow.test.ts
-packages/ai/test/providers.test.ts
 packages/ai/test/qwen-token-plan-models.test.ts
-packages/ai/test/radius-oauth.test.ts
-packages/ai/test/sampling-options.test.ts
 packages/ai/test/stream.test.ts
-packages/ai/test/telemetry-options.test.ts
 packages/ai/test/tokens.test.ts
 packages/ai/test/tool-call-without-result.test.ts
 packages/ai/test/total-tokens.test.ts
 packages/ai/test/unicode-surrogate.test.ts
-packages/ai/test/validation.test.ts
-packages/ai/test/xai-oauth.test.ts
-packages/ai/vitest.config.ts
 ```
 
-The detailed disposition matrix is in [`docs/upstream-v0.84.0-audit.md`](docs/upstream-v0.84.0-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.0-test-crosswalk.md`](docs/upstream-v0.84.0-test-crosswalk.md) and covers all 127 upstream `packages/ai/test/*.test.ts` files.
+The detailed disposition matrix is in [`docs/upstream-v0.84.1-audit.md`](docs/upstream-v0.84.1-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.1-test-crosswalk.md`](docs/upstream-v0.84.1-test-crosswalk.md) and covers all **128** upstream `packages/ai/test/*.test.ts` files. The v0.84.1 changed-test slice is exactly **14** paths total: **13 existing tests modified + 1 new `generate-models-strict.test.ts`**.
 
 ## Exact catalog parity
 
-Generated from exact upstream tag `a5f43bf8aff3c55752432655f7334e3dafd1e256`; live main was not chased.
+Generated from exact upstream tag `53fa77ccd8a279eb87e92294ef3687b03ff80112`; live main was not chased.
 
 Text catalog:
 
-- Swift source snapshot: `scripts/models.v0.84.0.json`
-- Exact upstream comparator source: `scripts/upstream-models.a5f43bf.json`
+- Swift source snapshot: `scripts/models.v0.84.1.json`
+- Exact upstream comparator source: `scripts/upstream-models.53fa77c.json`
 - Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
-- Provider/id pairs: `1153/1153`
-- Providers: `38`
+- Provider/id pairs: `1220/1220`
+- Providers: `39`
 - APIs: `9`
 
 Image catalog:
 
-- Swift source snapshot: `scripts/image-models.v0.84.0.json`
-- Exact upstream comparator source: `scripts/upstream-image-models.a5f43bf.json`
+- Swift source snapshot: `scripts/image-models.v0.84.1.json`
+- Exact upstream comparator source: `scripts/upstream-image-models.53fa77c.json`
 - Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
 - Provider/id pairs: `42/42`
 - Providers: `1`
@@ -163,52 +83,39 @@ python3 scripts/audit-parity.py
 Expected output includes:
 
 ```text
-ok: 1153 text models / 38 providers / 9 APIs; 42 image models / 1 providers / 1 APIs
+ok: 1220 text models / 39 providers / 9 APIs; 42 image models / 1 providers / 1 APIs
 ```
 
 ## Swift implementation, adaptations, and N/A decisions
 
 ### Implemented
 
-- Regenerated v0.84.0 text and image catalogs from the exact upstream tag.
-- Added Baseten provider metadata and `BASETEN_API_KEY` environment lookup.
-- Added `Model.samplingParams` and `StreamOptions.samplingParams`.
-- OpenAI Completions and OpenAI Responses/Azure/Codex builders merge model sampling defaults with per-request overrides.
-- Added `OpenAICompletionsCompat.supportsThinkingTokenBudget` and OpenAI Completions `thinking_token_budget` emission/clamping for vLLM-compatible providers.
-- Ported v0.84 nullable union validation in `ContextUtilities.validateAndCoerce`: existing union-arm matches are preserved and non-matching values are coerced through `anyOf`/`oneOf` arms.
-- Added a bounded Swift-native Bedrock failure metadata surface (`BedrockFailureMetadata` / `bedrock_response_failure`) for modeled send errors, modeled/unmodeled mid-stream errors, transport-name filtering, abort suppression, overlong value dropping, and `Unknown` placeholder omission.
-- Added public deferred/background lifecycle support: `DeferredHandle`, `DeferredRequestOptions`, `StopReason.deferred`, `Message.deferred`, provider `fetchDeferred`/`cancelDeferred`, and `SwiftAI.fetchDeferred`/`SwiftAI.cancelDeferred`.
-- Added deterministic `FauxProvider` deferred lifecycle support and tests for submit → pending → ready, failed fetch, cancel/cancelled, `pollAfterMs`, state counters, authenticated dispatch, and unsupported capability errors.
-- Added Swift-native `TelemetryContext` on `StreamOptions` and `ImagesOptions`, with propagation tests through stream, simple stream, deferred fetch/cancel, and images.
-- Added public nullable `ProviderHeaders` (`[String: String?]`) for `Model.headers`, `StreamOptions.headers`, `ImagesModel.headers`, and `ImagesOptions.headers`; production provider request builders now use `AIUtilities.applyProviderHeaders` so null deletion markers remove default/model headers case-insensitively.
-- Added a production OpenAI Responses request test proving a default/model Authorization header is deleted while unrelated headers remain.
-- Added cancellation-aware OAuth refresh protocol and registry path (`refreshToken(credentials:cancellation:)`), provider `Task.checkCancellation()` pre/post network awaits, pre-cancel and mid-refresh tests, and preserved typed/cause errors for non-cancellation failures.
-- Added `ModelRuntime.refresh(force:)` cancellation/supersession test and documented runtime API-key refresh separation from OAuth token refresh.
-- Hardened whole-corpus test parity evidence for the seven previously absent v0.84.0 filenames: Cloudflare stream placeholder preservation, OpenRouter Anthropic latest cache-control metadata, Bedrock/Google/Mistral/OpenAI Completions raw stop reason cases, and reasoning-options generator architecture evidence.
-- Ported upstream `uuid.test.ts` behavior into production `AIUtilities.uuidv7`: RFC version/variant layout, monotonic lexical ordering within a fixed millisecond, and counter-overflow timestamp advancement with deterministic fixed-time/random tests.
-- Strengthened xAI Responses parity: retired catalog exclusions, exact low/medium/high-only Grok 4.5 thinking levels, and actual request assertions for developer prompt, session/cache fields, store=false, medium reasoning without summary, encrypted include, and no long retention.
-- Added `docs/upstream-v0.84.0-test-crosswalk.md` with the exact cumulative 127-file upstream test manifest, disposition counts (`ported: 102`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 10`, open items: 0), and row-specific Swift evidence/N/A disposition for every row.
-- Replaced the v0.84 audit appendix with path-addressable evidence for all 101 changed paths and added/updated the exact 46 changed-test assertion matrix.
-- Retained v0.83 raw stop reason, missing-finish, custom-tool, and terminal-status fixes.
-- Added OAuth minimum-validity semantics: effective window is `max(300s, override)`, and explicit stricter overrides are enforced after refresh.
-- Added representative v0.84 Baseten, Qwen Token Plan, and image catalog tests.
+- Regenerated v0.84.1 text catalog from the exact upstream npm/tag artifact and updated the embedded Swift registry to `1220` models / `39` providers.
+- Added `Provider.qwenTokenPlanIndividual` for upstream `qwen-token-plan-individual`.
+- Added provider environment lookup for Individual via shared international Token Plan credentials: `QWEN_TOKEN_PLAN_API_KEY` first, then `DASHSCOPE_API_KEY` fallback.
+- Ported Qwen Token Plan Individual provider semantics:
+  - OpenAI Completions API.
+  - Singapore Token Plan base URL: `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`.
+  - Exact seven-model text-only allowlist: `deepseek-v4-flash-0731`, `deepseek-v4-pro`, `glm-5.2`, `qwen3.6-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.8-max`.
+  - Retired `qwen3.8-max-preview` and image model IDs are excluded.
+- Ported the v0.84.1 Qwen request-body behavior by emitting `enable_thinking` for Qwen-format OpenAI Completions models and `reasoning_effort` when `supportsReasoningEffort` is true.
+- Added deterministic Swift tests for Individual catalog/env metadata and Qwen request payloads, including qwen3.8 `xhigh` mapping.
+- Added `docs/upstream-v0.84.1-test-crosswalk.md` with the exact 128-file upstream test manifest and updated disposition counts (`ported: 103`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 10`, open items: 0).
 
 ### Existing Swift equivalents / adaptations
 
-- Upstream JS `fetch` injection maps to Swift's existing typed transport/request seams (`requestTransport`, `BedrockTransport`, `CodexTransport`, `onPayload`, `onResponse`).
-- Provider model refresh publication maps to Swift's actor-backed `ModelRuntime`/`AIRegistry` replacement flow; forced model refresh cancels/supersedes older in-flight work and remains separate from OAuth token refresh in `OAuthRegistry`.
-- Upstream JS `telemetryContext` threading is represented by a Swift-native typed `TelemetryContext` value that propagates through stream/deferred/image options.
-- Swift preserves structured concurrency, AsyncSequence stream handling, typed errors, and actor/sendability boundaries instead of mirroring JS SDK internals.
+- Upstream strict generator tests map to Swift's exact source/comparator/embedded registry gate in `scripts/audit-parity.py` plus deterministic seven-model Individual assertions.
+- Upstream package docs/version changes are recorded in `RELEASE.md`, `PARITY.md`, `STATUS.json`, and `docs/upstream-v0.84.1-audit.md`.
+- The v0.84.1 modified live/provider tests retain the existing `live-only` or `adapted/live-remainder` classification where credentials or provider-specific live behavior are required; portable request/catalog behavior is covered deterministically.
 
 ### N/A decisions
 
-- Direct JS `fetch` callback API is not mirrored as a Swift option because Swift uses typed pluggable transports and URLSession request paths.
-- Bedrock credential/profile priority remains transport-owned in Swift because SwiftPM core does not implement AWS SigV4 credential sourcing.
-- Vitest/CLI/package runner changes are monorepo-only.
+- NPM package metadata and Vitest runner wiring are monorepo-only and have no SwiftPM runtime analogue.
+- JS generated provider shard files map to Swift's single embedded `ModelsGenerated.swift` registry rather than one Swift file per provider.
 
 ## Tests and gates
 
-Local validation for v0.84.0 parity work used Swift `6.3.2`:
+Local validation for v0.84.1 parity work uses Swift `6.3.2`:
 
 ```bash
 swift build -Xswiftc -warnings-as-errors
@@ -222,23 +129,15 @@ grep -R "XCTSkip" -n Tests || true
 
 Latest local results before this commit:
 
-- `swift test`: `228` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`228` tests each run).
-- `make check`: passed.
-- `scripts/audit-parity.py`: passed with exact v0.84.0 counts.
+- `swift build -Xswiftc -warnings-as-errors`: passed.
+- `swift test`: `236` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`236` tests each run).
+- `make check`: passed (`236` tests, `0` failures).
+- `scripts/audit-parity.py`: passed with exact v0.84.1 counts.
 - `scripts/static-check.py`: passed.
 - hidden skip scan: no `XCTSkip` matches.
 
-Latest GitHub Actions before this corrective commit:
-
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/31108725910>
-- Commit: `fa33169cc030bf0fa169388ed90ab8407b9bf9ba`
-- Jobs:
-  - `static-check`: success
-  - `swift-test (ubuntu-latest)`: success
-  - `swift-test (macos-14)`: success
-
-Fresh GitHub Actions evidence for this corrective commit must be captured from the pushed commit and reported with the final handoff.
+Fresh GitHub Actions evidence for this release commit must be captured from the pushed commit and reported with the final handoff.
 
 ## Future release-audit checklist
 

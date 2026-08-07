@@ -451,6 +451,61 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .qwenTokenPlanCN, env: ["DASHSCOPE_API_KEY": "dashscope-key"]), "dashscope-key")
     }
 
+    func testUpstream0841QwenTokenPlanIndividualProvider() throws {
+        let models = try BuiltinModels.all()
+        let individual = models.filter { $0.provider == .qwenTokenPlanIndividual }
+        let individualIDs = Set(individual.map(\.id))
+        XCTAssertEqual(individualIDs, [
+            "deepseek-v4-flash-0731",
+            "deepseek-v4-pro",
+            "glm-5.2",
+            "qwen3.6-flash",
+            "qwen3.7-max",
+            "qwen3.7-plus",
+            "qwen3.8-max"
+        ])
+        XCTAssertFalse(individualIDs.contains("qwen3.8-max-preview"))
+        XCTAssertFalse(individualIDs.contains("qwen-image-2.0"))
+
+        let qwen38 = try model(.qwenTokenPlanIndividual, "qwen3.8-max")
+        XCTAssertEqual(qwen38.api, .openAICompletions)
+        XCTAssertEqual(qwen38.baseUrl, "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1")
+        XCTAssertTrue(qwen38.input.contains("text"))
+        XCTAssertTrue(qwen38.reasoning)
+        XCTAssertEqual(qwen38.completionsCompat?.thinkingFormat, "qwen")
+        XCTAssertEqual(qwen38.completionsCompat?.supportsDeveloperRole, false)
+        XCTAssertEqual(qwen38.completionsCompat?.supportsStore, false)
+        XCTAssertEqual(qwen38.completionsCompat?.supportsReasoningEffort, true)
+        XCTAssertNil(qwen38.thinkingLevelMap?[.high]!)
+        XCTAssertEqual(qwen38.thinkingLevelMap?[.xhigh]!, "xhigh")
+        XCTAssertNil(qwen38.thinkingLevelMap?[.max]!)
+
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .qwenTokenPlanIndividual, env: ["QWEN_TOKEN_PLAN_API_KEY": "qwen-key"]), "qwen-key")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .qwenTokenPlanIndividual, env: ["DASHSCOPE_API_KEY": "dashscope-key"]), "dashscope-key")
+    }
+
+    func testUpstream0841QwenTokenPlanIndividualRequestShape() throws {
+        let deepSeek = try model(.qwenTokenPlanIndividual, "deepseek-v4-pro")
+        var high = StreamOptions()
+        high.reasoning = .high
+        let highBody = OpenAICompletionsProvider.buildRequestBody(model: deepSeek, context: AIContext(messages: [.user("hi")]), options: high)
+        XCTAssertEqual(highBody["enable_thinking"], .bool(true))
+        XCTAssertEqual(highBody["reasoning_effort"], .string("high"))
+        XCTAssertNil(highBody["thinking"])
+
+        let qwen38 = try model(.qwenTokenPlanIndividual, "qwen3.8-max")
+        var xhigh = StreamOptions()
+        xhigh.reasoning = .xhigh
+        let xhighBody = OpenAICompletionsProvider.buildRequestBody(model: qwen38, context: AIContext(messages: [.user("hi")]), options: xhigh)
+        XCTAssertEqual(xhighBody["enable_thinking"], .bool(true))
+        XCTAssertEqual(xhighBody["reasoning_effort"], .string("xhigh"))
+        XCTAssertNil(xhighBody["thinking"])
+
+        let noReasoningBody = OpenAICompletionsProvider.buildRequestBody(model: qwen38, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(noReasoningBody["enable_thinking"], .bool(false))
+        XCTAssertNil(noReasoningBody["reasoning_effort"])
+    }
+
     func testTogetherAPIKeyEnvironment() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .together, env: ["TOGETHER_API_KEY": "test-together-key"]), "test-together-key")
     }

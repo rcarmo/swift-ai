@@ -29,6 +29,7 @@ public enum ProviderEnvironment {
         .moonshotAICN: ["MOONSHOT_API_KEY"],
         .qwenTokenPlan: ["QWEN_TOKEN_PLAN_API_KEY", "DASHSCOPE_API_KEY"],
         .qwenTokenPlanCN: ["QWEN_TOKEN_PLAN_CN_API_KEY", "DASHSCOPE_API_KEY"],
+        .qwenTokenPlanIndividual: ["QWEN_TOKEN_PLAN_API_KEY", "DASHSCOPE_API_KEY"],
         .cloudflareAIGateway: ["CLOUDFLARE_API_KEY"],
         .cloudflareWorkersAI: ["CLOUDFLARE_API_KEY"],
         .xiaomi: ["XIAOMI_API_KEY"],

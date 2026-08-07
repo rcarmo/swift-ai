@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.84.0 counts, that every generated API/provider raw value is represented in
+v0.84.1 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -15,10 +15,10 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.84.0.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.a5f43bf.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.0.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.a5f43bf.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.84.1.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.53fa77c.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.1.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.53fa77c.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -27,8 +27,8 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1153
-EXPECTED_TEXT_PROVIDERS = 38
+EXPECTED_TEXT_MODELS = 1220
+EXPECTED_TEXT_PROVIDERS = 39
 EXPECTED_IMAGE_MODELS = 42
 EXPECTED_IMAGE_PROVIDERS = 1
 REQUIRED_SOURCES = [
@@ -139,10 +139,12 @@ def main() -> int:
         ("vercel-ai-gateway", "thinkingmachines/inkling"),
         ("qwen-token-plan", "qwen3.8-max"),
         ("qwen-token-plan-cn", "qwen3.8-max"),
+        ("qwen-token-plan-individual", "qwen3.8-max"),
+        ("qwen-token-plan-individual", "deepseek-v4-flash-0731"),
         ("opencode-go", "grok-4.5"),
         ("baseten", "moonshotai/Kimi-K2.5"),
         ("google", "gemini-2.5-computer-use-preview-10-2025"),
-        ("openrouter", "inclusionai/ling-3.0-flash:free"),
+        ("openrouter", "inclusionai/ling-3.0-flash"),
     }
     missing_representatives = sorted(representative_ids - upstream_text_ids)
     if missing_representatives:

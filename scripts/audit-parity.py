@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.84.1 counts, that every generated API/provider raw value is represented in
+v0.84.2 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -17,11 +17,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.84.1.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.53fa77c.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.0.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.1.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.53fa77c.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.84.2.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.914cf14.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.1.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.2.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.914cf14.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.1.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -30,13 +31,16 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1220
+EXPECTED_TEXT_MODELS = 1267
 EXPECTED_TEXT_PROVIDERS = 39
-EXPECTED_IMAGE_MODELS = 42
+EXPECTED_IMAGE_MODELS = 45
 EXPECTED_IMAGE_PROVIDERS = 1
-EXPECTED_TEXT_ADDED = 70
-EXPECTED_TEXT_REMOVED = 3
-EXPECTED_TEXT_CHANGED = 9
+EXPECTED_TEXT_ADDED = 71
+EXPECTED_TEXT_REMOVED = 24
+EXPECTED_TEXT_CHANGED = 85
+EXPECTED_IMAGE_ADDED = 3
+EXPECTED_IMAGE_REMOVED = 0
+EXPECTED_IMAGE_CHANGED = 0
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
     "Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift",
@@ -146,7 +150,7 @@ def require_full_record_equal(failures: list[str], left: list[dict], right: list
         failures.append(f"{label}: full records differ ({describe_record_differences(left_map, right_map)})")
 
 
-def text_delta_counts(previous: list[dict], current: list[dict]) -> tuple[int, int, int]:
+def record_delta_counts(previous: list[dict], current: list[dict]) -> tuple[int, int, int]:
     previous_map = keyed_records(previous, "previous text catalog")
     current_map = keyed_records(current, "current text catalog")
     added = current_map.keys() - previous_map.keys()
@@ -171,7 +175,8 @@ def main() -> int:
     print(
         f"ok: {summary['text_models']} text models / {summary['text_providers']} providers / {summary['text_apis']} APIs; "
         f"{summary['image_models']} image models / {summary['image_providers']} providers / {summary['image_apis']} APIs; "
-        f"delta +{summary['text_added']}/-{summary['text_removed']}/{summary['text_changed']} changed" + suffix
+        f"text delta +{summary['text_added']}/-{summary['text_removed']}/{summary['text_changed']} changed; "
+        f"image delta +{summary['image_added']}/-{summary['image_removed']}/{summary['image_changed']} changed" + suffix
     )
     return 0
 
@@ -182,6 +187,7 @@ def collect_failures(self_test_mutation: bool = False) -> tuple[list[str], dict[
     previous_text = json.loads(PREVIOUS_TEXT_MODELS.read_text())
     images = json.loads(IMAGE_MODELS.read_text())
     upstream_images = json.loads(UPSTREAM_IMAGE_MODELS.read_text())
+    previous_images = json.loads(PREVIOUS_IMAGE_MODELS.read_text())
     if self_test_mutation:
         text = copy.deepcopy(text)
         text[0]["name"] = str(text[0].get("name", "")) + " fault-injected"
@@ -221,11 +227,17 @@ def collect_failures(self_test_mutation: bool = False) -> tuple[list[str], dict[
     require_full_record_equal(failures, embedded_text, normalized_text, "embedded text registry vs normalized current snapshot")
     require_full_record_equal(failures, images, upstream_images, "current image snapshot vs exact-tag upstream snapshot")
     require_full_record_equal(failures, embedded_images, images, "embedded image registry vs current image snapshot")
-    text_added, text_removed, text_changed = text_delta_counts(previous_text, text)
+    text_added, text_removed, text_changed = record_delta_counts(previous_text, text)
     if (text_added, text_removed, text_changed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED, EXPECTED_TEXT_CHANGED):
         failures.append(
-            f"v0.84.0..v0.84.1 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
+            f"v0.84.1..v0.84.2 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
             f"want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}/{EXPECTED_TEXT_CHANGED} changed"
+        )
+    image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
+    if (image_added, image_removed, image_changed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED, EXPECTED_IMAGE_CHANGED):
+        failures.append(
+            f"v0.84.1..v0.84.2 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
+            f"want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}/{EXPECTED_IMAGE_CHANGED} changed"
         )
 
     text_ids = {(m["provider"], m["id"]) for m in text}
@@ -357,6 +369,9 @@ def collect_failures(self_test_mutation: bool = False) -> tuple[list[str], dict[
         "text_added": text_added,
         "text_removed": text_removed,
         "text_changed": text_changed,
+        "image_added": image_added,
+        "image_removed": image_removed,
+        "image_changed": image_changed,
     }
     return failures, summary
 

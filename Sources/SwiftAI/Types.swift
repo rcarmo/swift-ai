@@ -118,9 +118,10 @@ public struct ContentBlock: Codable, Equatable, Sendable {
     public var name: String?
     public var arguments: [String: JSONValue]?
     public var thoughtSignature: String?
+    public var namespace: String?
 
-    public init(type: String, text: String? = nil, textSignature: String? = nil, thinking: String? = nil, thinkingSignature: String? = nil, redacted: Bool? = nil, data: String? = nil, mimeType: String? = nil, id: String? = nil, name: String? = nil, arguments: [String: JSONValue]? = nil, thoughtSignature: String? = nil) {
-        self.type = type; self.text = text; self.textSignature = textSignature; self.thinking = thinking; self.thinkingSignature = thinkingSignature; self.redacted = redacted; self.data = data; self.mimeType = mimeType; self.id = id; self.name = name; self.arguments = arguments; self.thoughtSignature = thoughtSignature
+    public init(type: String, text: String? = nil, textSignature: String? = nil, thinking: String? = nil, thinkingSignature: String? = nil, redacted: Bool? = nil, data: String? = nil, mimeType: String? = nil, id: String? = nil, name: String? = nil, arguments: [String: JSONValue]? = nil, thoughtSignature: String? = nil, namespace: String? = nil) {
+        self.type = type; self.text = text; self.textSignature = textSignature; self.thinking = thinking; self.thinkingSignature = thinkingSignature; self.redacted = redacted; self.data = data; self.mimeType = mimeType; self.id = id; self.name = name; self.arguments = arguments; self.thoughtSignature = thoughtSignature; self.namespace = namespace
     }
 
     public static func text(_ text: String, signature: String? = nil) -> ContentBlock { ContentBlock(type: "text", text: text, textSignature: signature) }
@@ -169,8 +170,9 @@ public struct Message: Codable, Equatable, Sendable {
     public var isError: Bool?
     public var details: JSONValue?
     public var addedToolNames: [String]?
+    public var endTurn: Bool?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, endTurn }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -195,6 +197,7 @@ public struct Message: Codable, Equatable, Sendable {
         isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
         details = try c.decodeIfPresent(JSONValue.self, forKey: .details)
         addedToolNames = try c.decodeIfPresent([String].self, forKey: .addedToolNames)
+        endTurn = try c.decodeIfPresent(Bool.self, forKey: .endTurn)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -218,6 +221,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(isError, forKey: .isError)
         try c.encodeIfPresent(details, forKey: .details)
         try c.encodeIfPresent(addedToolNames, forKey: .addedToolNames)
+        try c.encodeIfPresent(endTurn, forKey: .endTurn)
     }
 
     public static func user(_ text: String) -> Message { Message(role: .user, content: [.text(text)]) }

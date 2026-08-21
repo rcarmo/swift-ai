@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1220)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 42)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.2")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1267)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 45)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1220)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.2")
+        XCTAssertEqual(BuiltinModels.modelCount, 1267)
         XCTAssertEqual(BuiltinModels.providerCount, 39)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1220)
+        XCTAssertEqual(models.count, 1267)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -211,11 +211,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.1")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 42)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.2")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 45)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 42)
+        XCTAssertEqual(models.count, 45)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -3524,6 +3524,78 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(kwargs["enable_thinking"], .bool(true))
         XCTAssertEqual(kwargs["effort"], .string("high"))
     }
+    func testUpstream0842StrictSchemaAndNullableNullOmission() throws {
+        let schema: JSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "required": .object(["type": .string("string")]),
+                "optional": .object(["type": .string("string")]),
+                "nullable": .object(["anyOf": .array([.object(["type": .string("string")]), .object(["type": .string("null")])])])
+            ]),
+            "required": .array([.string("required")])
+        ])
+        guard case .object(let strict) = try ContextUtilities.makeStrictJSONSchema(schema), case .array(let required)? = strict["required"], case .object(let properties)? = strict["properties"] else { return XCTFail("missing strict schema") }
+        XCTAssertEqual(Set(required.compactMap(\.stringValue)), ["required", "optional", "nullable"])
+        XCTAssertEqual(strict["additionalProperties"], .bool(false))
+        XCTAssertNotNil(properties["optional"]?.objectValue?["anyOf"])
+
+        let tool = Tool(name: "lookup", description: "Lookup", parameters: schema)
+        let validated = try ContextUtilities.validateToolArguments(tool: tool, arguments: ["required": .string("ok"), "optional": .null, "nullable": .null])
+        XCTAssertNil(validated["optional"])
+        XCTAssertEqual(validated["nullable"], .null)
+    }
+
+    func testUpstream0842ResponsesAdditionalToolsNamespaceAndEndTurn() {
+        let toolA = Tool(name: "alpha", description: "Alpha", parameters: .object(["type": .string("object")]))
+        let toolB = Tool(name: "beta", description: "Beta", parameters: .object(["type": .string("object")]))
+        var result = Message(role: .toolResult, content: [.text("done")])
+        result.timestamp = 42
+        result.toolCallId = "call_1"
+        result.toolName = "alpha"
+        result.addedToolNames = ["beta"]
+        var compat = OpenAIResponsesCompat()
+        compat.supportsAdditionalTools = true
+        compat.supportsToolSearch = true
+        let model = Model(id: "gpt-5.6", name: "GPT", api: .openAIResponses, provider: .openAI, responsesCompat: compat)
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [result], tools: [toolA, toolB]), options: nil)
+        guard case .array(let input)? = body["input"] else { return XCTFail("missing input") }
+        XCTAssertTrue(input.contains { item in item.objectValue?["type"] == .string("additional_tools") })
+
+        let sse = """
+        event: response.output_item.added
+        data: {"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"lookup","namespace":"dynamic_tools"}}
+
+        event: response.completed
+        data: {"response":{"id":"r","status":"completed","end_turn":false}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+        guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.content.first?.namespace, "dynamic_tools")
+        XCTAssertEqual(message.endTurn, false)
+    }
+
+    func testUpstream0842BedrockReplaySanitizesEmptyArgumentKeys() {
+        let model = Model(id: "anthropic.claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock)
+        let args: [String: JSONValue] = ["edits": .array([.object(["oldText": .string("first"), "newText": .string("second"), "": .string("")])])]
+        let assistant = Message(role: .assistant, content: [.toolCall(id: "tool-1", name: "edit", arguments: args)])
+        let request = BedrockProvider.buildConverseRequest(model: model, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let messages)? = request["messages"], case .object(let message) = messages.first, case .array(let content)? = message["content"], case .object(let wrapper) = content.first, case .object(let toolUse)? = wrapper["toolUse"], case .object(let input)? = toolUse["input"], case .array(let edits)? = input["edits"], case .object(let firstEdit) = edits.first else { return XCTFail("missing bedrock tool use") }
+        XCTAssertNil(firstEdit[""])
+        XCTAssertEqual(args["edits"]?.arrayValue?.first?.objectValue?[""], .string(""))
+    }
+
+    func testUpstream0842UserAgentAndRetryClassifier() {
+        let kimi = Model(id: "k3", name: "Kimi", api: .anthropicMessages, provider: .kimiCoding, anthropicCompat: AnthropicMessagesCompat())
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: kimi, context: AIContext(), apiKey: "key", options: nil)
+        XCTAssertEqual(headers["User-Agent"], AIUtilities.piUserAgent())
+
+        var retryable = Message(role: .assistant, content: [])
+        retryable.stopReason = .error
+        retryable.errorMessage = "exceeded request buffer limit while retrying upstream"
+        XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
+    }
+
 }
 
 private actor CleanupBox {

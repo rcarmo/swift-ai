@@ -64,6 +64,10 @@ public enum AnthropicMessagesProvider {
         } else {
             headers["X-Api-Key"] = key
         }
+        if model.provider == .kimiCoding {
+            for key in headers.keys where key.lowercased() == "user-agent" { headers.removeValue(forKey: key) }
+            headers["User-Agent"] = AIUtilities.piUserAgent()
+        }
         if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none, model.anthropicCompat?.sendSessionAffinityHeaders == true { headers["x-session-affinity"] = session }
         let betas = betaHeaders(model: model, context: context)
         if !betas.isEmpty { headers["Anthropic-Beta"] = betas.joined(separator: ",") }

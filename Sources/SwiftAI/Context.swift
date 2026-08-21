@@ -36,6 +36,59 @@ public enum ContextUtilities {
         return texts
     }
 
+    public static func makeStrictJSONSchema(_ schema: JSONValue) throws -> JSONValue {
+        guard case .object(var root) = schema else { throw AIError.provider("root schema must have type object") }
+        try makeStrictJSONSchemaNode(&root)
+        guard root["type"] == .string("object") else { throw AIError.provider("root schema must have type object") }
+        return .object(root)
+    }
+
+    private static func makeStrictJSONSchemaNode(_ schema: inout [String: JSONValue]) throws {
+        let unsupported = ["$ref", "$defs", "definitions", "allOf", "oneOf", "patternProperties", "dependentSchemas", "dependencies", "unevaluatedProperties", "propertyNames", "contains", "prefixItems", "not", "if", "then", "else"]
+        for key in unsupported where schema[key] != nil { throw AIError.provider("") }
+        if case .array(var anyOf)? = schema["anyOf"] {
+            guard !anyOf.isEmpty else { throw AIError.provider("anyOf must contain at least one schema") }
+            for index in anyOf.indices {
+                guard case .object(var variant) = anyOf[index] else { throw AIError.provider("boolean schemas are unsupported") }
+                if isStructuredSchema(variant) { throw AIError.provider("object and array unions are unsupported") }
+                try makeStrictJSONSchemaNode(&variant)
+                anyOf[index] = .object(variant)
+            }
+            schema["anyOf"] = .array(anyOf)
+        }
+        if case .array = schema["items"] { throw AIError.provider("tuple schemas are unsupported") }
+        if case .object(var items)? = schema["items"] { try makeStrictJSONSchemaNode(&items); schema["items"] = .object(items) }
+        guard schema["type"] == .string("object") else {
+            if schema["properties"] != nil { throw AIError.provider("properties require type object") }
+            return
+        }
+        if let additional = schema["additionalProperties"], additional != .bool(false) { throw AIError.provider("schema-valued or true additionalProperties is unsupported") }
+        guard schema["properties"] == nil || schema["properties"]?.objectValue != nil else { throw AIError.provider("object properties must be a schema map") }
+        let required = Set(schema["required"]?.arrayValue?.compactMap(\.stringValue) ?? [])
+        guard schema["required"] == nil || schema["required"]?.arrayValue?.count == required.count else { throw AIError.provider("object required must be a string array") }
+        var properties = schema["properties"]?.objectValue ?? [:]
+        let names = Set(properties.keys)
+        if !required.isSubset(of: names) { throw AIError.provider("required contains an unknown property") }
+        for name in properties.keys.sorted() {
+            guard case .object(var property) = properties[name] else { throw AIError.provider("boolean schemas are unsupported") }
+            try makeStrictJSONSchemaNode(&property)
+            if !required.contains(name), !schemaAllowsNull(.object(property)) { property = ["anyOf": .array([.object(property), .object(["type": .string("null")])])] }
+            properties[name] = .object(property)
+        }
+        schema["properties"] = .object(properties)
+        schema["required"] = .array(properties.keys.sorted().map { .string($0) })
+        schema["additionalProperties"] = .bool(false)
+    }
+
+    private static func isStructuredSchema(_ schema: [String: JSONValue]) -> Bool { schemaTypes(schema).contains { $0 == "object" || $0 == "array" } || schema["properties"] != nil || schema["items"] != nil }
+    private static func schemaAllowsNull(_ schema: JSONValue) -> Bool {
+        guard case .object(let object) = schema else { return false }
+        if schemaTypes(object).contains("null") { return true }
+        if object["const"] == .null { return true }
+        if object["enum"]?.arrayValue?.contains(.null) == true { return true }
+        return object["anyOf"]?.arrayValue?.contains(where: schemaAllowsNull) == true
+    }
+
     public static func validateToolCall(tools: [Tool], toolCall: ContentBlock) throws -> [String: JSONValue] {
         guard let name = toolCall.name, let tool = tools.first(where: { $0.name == name }) else { throw AIError.provider("tool \(toolCall.name ?? "") not found") }
         return try validateToolArguments(tool: tool, arguments: toolCall.arguments ?? [:])
@@ -49,12 +102,23 @@ public enum ContextUtilities {
             }
         }
         var coerced = arguments
+        normalizeOptionalNulls(value: &coerced, schema: schema)
         if case .object(let properties)? = schema["properties"] {
-            for (name, value) in arguments {
+            for (name, value) in coerced {
                 if case .object(let propertySchema)? = properties[name] { coerced[name] = try validateAndCoerce(name: name, value: value, schema: propertySchema, toolName: tool.name) }
             }
         }
         return coerced
+    }
+
+    private static func normalizeOptionalNulls(value: inout [String: JSONValue], schema: [String: JSONValue]) {
+        guard case .object(let properties)? = schema["properties"] else { return }
+        let required = Set(schema["required"]?.arrayValue?.compactMap(\.stringValue) ?? [])
+        for (key, propertySchemaValue) in properties {
+            guard var current = value[key], case .object(let propertySchema) = propertySchemaValue else { continue }
+            if current == .null, !required.contains(key), !matchesSchema(.null, schema: propertySchema) { value.removeValue(forKey: key); continue }
+            if case .object(var nested) = current { normalizeOptionalNulls(value: &nested, schema: propertySchema); current = .object(nested); value[key] = current }
+        }
     }
 
     private static func validateAndCoerce(name: String, value: JSONValue, schema: [String: JSONValue], toolName: String) throws -> JSONValue {

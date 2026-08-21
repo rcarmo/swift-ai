@@ -44,16 +44,23 @@ public enum MistralConversationsProvider {
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
         guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
         var state = MistralStreamState(model: model)
-        var buffer = ""
+        var buffer = Data()
         for try await byte in bytes {
-            buffer += String(decoding: [byte], as: UTF8.self)
-            while let range = buffer.range(of: "\n\n") ?? buffer.range(of: "\r\n\r\n") {
-                let frame = String(buffer[..<range.lowerBound])
-                buffer.removeSubrange(..<range.upperBound)
+            buffer.append(byte)
+            while let match = firstSSEFrameDelimiter(in: buffer) {
+                let frameData = buffer[..<match.lowerBound]
+                buffer.removeSubrange(..<match.upperBound)
+                guard let frame = String(data: frameData, encoding: .utf8) else { continue }
                 for event in SSEParser().parse(frame + "\n\n") { process(data: event.data, state: &state) { continuation.yield($0) } }
             }
         }
         finish(state: &state) { continuation.yield($0) }
+    }
+
+    private static func firstSSEFrameDelimiter(in data: Data) -> Range<Data.Index>? {
+        if let range = data.range(of: Data([10, 10])) { return range }
+        if let range = data.range(of: Data([13, 10, 13, 10])) { return range }
+        return nil
     }
 
     public static func processSSEText(_ text: String, model: Model) -> [AIEvent] {

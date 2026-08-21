@@ -5,120 +5,78 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 ## Current upstream parity baseline
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.84.1`
-- Current upstream tag commit: `53fa77ccd8a279eb87e92294ef3687b03ff80112`
-- Previous accepted upstream release: `v0.84.0`
-- Previous accepted upstream tag commit: `a5f43bf8aff3c55752432655f7334e3dafd1e256`
-- Previous accepted Swift baseline: `80366a574649a64350baabc9b31c093a36f3a904`
+- Current upstream release: `v0.84.2`
+- Current upstream tag commit: `914cf1472e715297caa30db4b9535d534a9eb718`
+- Previous accepted upstream release: `v0.84.1`
+- Previous accepted upstream tag commit: `53fa77ccd8a279eb87e92294ef3687b03ff80112`
+- Previous accepted Swift baseline: `a960b0a27ff8b7feaaeb4acd0d3eb5b30d9e56d4`
+- Verified npm artifact SHA-256: `0262785a76b0eb2eec596cd8a7ab2ee23eef89d2ef1bb1211c4f0a1944dacf41`
 - Swift parity branch: `main`
-- Current Swift parity commits for v0.84.1:
-  - `27bb19a975033580aee8351cb08f6d197124999d` — `Sync upstream v0.84.1 parity`
-  - This evidence commit — records the green hosted CI evidence for `27bb19a`.
-- Last accepted v0.84.0 CI: <https://github.com/rcarmo/swift-ai/actions/runs/31133380351>
+- Current Swift parity commit for v0.84.2: this release update commit (exact SHA/CI run to be reported after GitHub verifies it).
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from `a5f43bf8aff3c55752432655f7334e3dafd1e256` to `53fa77ccd8a279eb87e92294ef3687b03ff80112`.
+Release-only audit scope: `packages/ai` diff from `53fa77ccd8a279eb87e92294ef3687b03ff80112` to `914cf1472e715297caa30db4b9535d534a9eb718`.
 
-Exact changed-path count: **25**.
+Exact changed-path count: **42**.
 
-Changed paths:
+Changed test paths: **21** total = **18 modified + 3 new** (`cloudflare-gateway-binding.test.ts`, `mistral-http-transport.test.ts`, `openai-responses-namespace.test.ts`).
 
-```text
-packages/ai/CHANGELOG.md
-packages/ai/README.md
-packages/ai/package.json
-packages/ai/scripts/generate-models.ts
-packages/ai/scripts/model-data.ts
-packages/ai/src/env-api-keys.ts
-packages/ai/src/models.generated.ts
-packages/ai/src/providers/all.ts
-packages/ai/src/providers/qwen-token-plan-individual.models.ts
-packages/ai/src/providers/qwen-token-plan-individual.ts
-packages/ai/src/types.ts
-packages/ai/test/abort.test.ts
-packages/ai/test/context-overflow.test.ts
-packages/ai/test/cross-provider-handoff.test.ts
-packages/ai/test/empty.test.ts
-packages/ai/test/generate-models-strict.test.ts
-packages/ai/test/image-tool-result.test.ts
-packages/ai/test/model-data-validation.test.ts
-packages/ai/test/openai-completions-tool-choice.test.ts
-packages/ai/test/qwen-token-plan-models.test.ts
-packages/ai/test/stream.test.ts
-packages/ai/test/tokens.test.ts
-packages/ai/test/tool-call-without-result.test.ts
-packages/ai/test/total-tokens.test.ts
-packages/ai/test/unicode-surrogate.test.ts
-```
-
-The detailed disposition matrix is in [`docs/upstream-v0.84.1-audit.md`](docs/upstream-v0.84.1-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.1-test-crosswalk.md`](docs/upstream-v0.84.1-test-crosswalk.md) and covers all **128** upstream `packages/ai/test/*.test.ts` files. The v0.84.1 changed-test slice is exactly **14** paths total: **13 existing tests modified + 1 new `generate-models-strict.test.ts`**.
+The detailed disposition matrix is in [`docs/upstream-v0.84.2-audit.md`](docs/upstream-v0.84.2-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.2-test-crosswalk.md`](docs/upstream-v0.84.2-test-crosswalk.md) and covers all **131** upstream `packages/ai/test/*.test.ts` files.
 
 ## Exact catalog parity
 
-Generated from exact upstream tag `53fa77ccd8a279eb87e92294ef3687b03ff80112`; live main was not chased.
-
 Text catalog:
 
-- Swift source snapshot: `scripts/models.v0.84.1.json`
-- Exact upstream comparator source: `scripts/upstream-models.53fa77c.json`
+- Swift source snapshot: `scripts/models.v0.84.2.json`
+- Exact upstream comparator source: `scripts/upstream-models.914cf14.json`
 - Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
-- Full records: `1220/1220`
+- Full records: `1267/1267`
 - Providers: `39`
 - APIs: `9`
-- Full-record delta vs committed v0.84.0 snapshot: `+70/-3/9 changed`
+- Full-record delta vs committed v0.84.1 snapshot: `+71/-24/85 changed`
 
 Image catalog:
 
-- Swift source snapshot: `scripts/image-models.v0.84.1.json`
-- Exact upstream comparator source: `scripts/upstream-image-models.53fa77c.json`
+- Swift source snapshot: `scripts/image-models.v0.84.2.json`
+- Exact upstream comparator source: `scripts/upstream-image-models.914cf14.json`
 - Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
-- Full records: `42/42`
+- Full records: `45/45`
 - Providers: `1`
 - APIs: `1`
+- Full-record delta vs committed v0.84.1 snapshot: `+3/0/0 changed`
 
-Comparator gate:
-
-```bash
-python3 scripts/audit-parity.py
-```
-
-Expected output includes:
+Expected comparator output:
 
 ```text
-ok: 1220 text models / 39 providers / 9 APIs; 42 image models / 1 providers / 1 APIs; delta +70/-3/9 changed
+ok: 1267 text models / 39 providers / 9 APIs; 45 image models / 1 providers / 1 APIs; text delta +71/-24/85 changed; image delta +3/-0/0 changed
 ```
 
 ## Swift implementation, adaptations, and N/A decisions
 
-### Implemented
+Implemented/adapted:
 
-- Regenerated v0.84.1 text catalog from the exact upstream npm/tag artifact and updated the embedded Swift registry to `1220` models / `39` providers.
-- Added `Provider.qwenTokenPlanIndividual` for upstream `qwen-token-plan-individual`.
-- Added provider environment lookup for Individual via shared international Token Plan credentials: `QWEN_TOKEN_PLAN_API_KEY` first, then `DASHSCOPE_API_KEY` fallback.
-- Ported Qwen Token Plan Individual provider semantics:
-  - OpenAI Completions API.
-  - Singapore Token Plan base URL: `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`.
-  - Exact seven-model text-only allowlist: `deepseek-v4-flash-0731`, `deepseek-v4-pro`, `glm-5.2`, `qwen3.6-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.8-max`.
-  - Retired `qwen3.8-max-preview` and image model IDs are excluded.
-- Ported the v0.84.1 Qwen request-body behavior by emitting `enable_thinking` for Qwen-format OpenAI Completions models and `reasoning_effort` when `supportsReasoningEffort` is true.
-- Added deterministic Swift tests for Individual catalog/env metadata and Qwen request payloads, including qwen3.8 `xhigh` mapping.
-- Added `docs/upstream-v0.84.1-test-crosswalk.md` with the exact 128-file upstream test manifest and corrected disposition counts (`ported: 98`, `adapted: 8`, `live-only: 7`, `adapted/live-remainder: 14`, `N/A/adapted-generator-policy: 1`, open items: 0).
+- Regenerated v0.84.2 text and image catalogs from the verified npm artifact.
+- Extended full-record audit/self-test gates to v0.84.2 text and image deltas.
+- Added runtime/test coverage for strict JSON-schema tool conversion and optional non-nullable null omission.
+- Added Kimi runtime `User-Agent` and Codex SSE `User-Agent` handling via `AIUtilities.piUserAgent()`.
+- Added Responses/Codex `supportsAdditionalTools`, message-anchored `additional_tools`, tool-search fallback arguments, function/custom tool-call namespace preservation, and `AssistantMessage.endTurn` parsing.
+- Kept Mistral on native Swift URLSession HTTP/SSE transport and added UTF-8-safe SSE chunk framing; existing/focused tests cover request/replay, usage, raw stops, errors, cancellation/timeout seams.
+- Preserved GitHub Copilot policy/model update through structured task groups with cancellation checks and bounded model filtering.
+- Added retry classifier coverage for `exceeded request buffer limit while retrying upstream`.
+- Preserved/validated case-insensitive DeepSeek and `max_tokens` compatibility via exact catalog metadata and request builders.
+- Preserved Google/Vertex STOP vs MAX_TOKENS/raw reason behavior in parser tests.
+- Added Bedrock replay sanitization for empty argument keys without mutating original streamed args.
+- Preserved streaming usage across parser terminal/final events.
 
-### Existing Swift equivalents / adaptations
+N/A/adapted:
 
-- Upstream strict generator tests map to Swift's full-record source/comparator/embedded registry gate in `scripts/audit-parity.py`, exact `+70/-3/9` v0.84.0→v0.84.1 delta assertions, a metadata fault-injection self-test, and deterministic seven-model Individual assertions; TS atomic rollback policy remains classified as `N/A/adapted-generator-policy`.
-- Upstream package docs/version changes are recorded in `RELEASE.md`, `PARITY.md`, `STATUS.json`, and `docs/upstream-v0.84.1-audit.md`.
-- The v0.84.1 modified live/provider tests retain the existing `live-only` or `adapted/live-remainder` classification where credentials or provider-specific live behavior are required; portable request/catalog behavior is covered deterministically.
-
-### N/A decisions
-
-- NPM package metadata and Vitest runner wiring are monorepo-only and have no SwiftPM runtime analogue.
-- JS generated provider shard files map to Swift's single embedded `ModelsGenerated.swift` registry rather than one Swift file per provider.
+- Cloudflare `createGatewayBindingFetch` is a Cloudflare Workers AI Gateway binding object adapter. Swift has no Workers binding object in SwiftPM core; portable routing remains represented by base URL/env routing and pluggable request transports.
+- JS lazy module loading/package wiring is not a SwiftPM runtime behavior; Swift uses static modules.
 
 ## Tests and gates
 
-Local validation for v0.84.1 parity work uses Swift `6.3.2`:
+Local validation for v0.84.2 parity work uses Swift `6.3.2`:
 
 ```bash
 swift build -Xswiftc -warnings-as-errors
@@ -126,6 +84,7 @@ swift test
 for i in 1 2 3; do swift test; done
 make check
 python3 scripts/audit-parity.py
+python3 scripts/audit-parity.py --self-test
 python3 scripts/static-check.py
 grep -R "XCTSkip" -n Tests || true
 ```
@@ -133,35 +92,24 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- `swift test`: `236` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`236` tests each run).
-- `make check`: passed (`236` tests, `0` failures).
-- `scripts/audit-parity.py`: passed with exact v0.84.1 full-record counts and `+70/-3/9` delta.
-- `scripts/audit-parity.py --self-test`: passed, proving a metadata fault injection is caught.
-- `scripts/static-check.py`: passed, including the audit self-test.
+- focused v0.84.2 tests: passed.
+- `swift test`: `240` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`240` tests each run).
+- `make check`: passed (`240` tests, `0` failures).
+- `scripts/audit-parity.py`: passed with exact v0.84.2 full-record counts and text/image deltas.
+- `scripts/audit-parity.py --self-test`: passed, metadata fault injection caught.
+- `scripts/static-check.py`: passed, including self-test.
 - hidden skip scan: no `XCTSkip` matches.
 
-GitHub Actions evidence for `27bb19a975033580aee8351cb08f6d197124999d`:
-
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/31161870654>
-- Status: `completed`
-- Conclusion: `success`
-- Jobs:
-  - `static-check`: success
-  - `swift-test (ubuntu-latest)`: success
-  - `swift-test (macos-14)`: success
-
-Fresh GitHub Actions evidence for this final evidence commit must be captured from the pushed commit and reported with the final handoff.
+Fresh GitHub Actions evidence for this release commit must be captured from the pushed commit and reported with the final handoff.
 
 ## Future release-audit checklist
-
-For every future upstream release audit:
 
 1. Pin the exact upstream tag and SHA.
 2. Diff only from the last accepted upstream tag to the new official tag.
 3. Record exact changed path count and disposition matrix.
-4. Regenerate text and image snapshots from the exact tag.
-5. Update comparator sources and expected counts.
+4. Regenerate text and image snapshots from the exact tag/artifact.
+5. Update comparator sources and expected counts/deltas.
 6. Implement all applicable Swift production deltas with executable tests.
 7. Document every adaptation and N/A decision here and in the per-release audit doc.
 8. Run local gates and require green GitHub Actions on Ubuntu, macOS, and static-check.

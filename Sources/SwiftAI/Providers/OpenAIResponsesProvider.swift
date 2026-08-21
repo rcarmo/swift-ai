@@ -38,7 +38,7 @@ public enum OpenAIResponsesProvider {
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
         let plan = deferredToolPlan(model: model, context: context)
-        var input = convertInput(model: model, context: context, deferredMarkers: plan.markers)
+        var input = convertInput(model: model, context: context, deferredMarkers: plan.markers, deferredMode: deferredToolsMode(model))
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
         for (key, value) in model.samplingParams ?? [:] { body[key] = value }
@@ -179,7 +179,7 @@ public enum OpenAIResponsesProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        if model.api == .openAICodexResponses { for (k, v) in try codexHeaders(apiKey: key) { request.setValue(v, forHTTPHeaderField: k) } }
+        if model.api == .openAICodexResponses { for (k, v) in try codexHeaders(apiKey: key) { request.setValue(v, forHTTPHeaderField: k) }; request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent") }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none {
             if model.api == .azureOpenAIResponses {
@@ -251,8 +251,8 @@ public enum OpenAIResponsesProvider {
             switch item.item.type {
             case "message": state.partial.content.append(ContentBlock(type: "text")); state.current = ("message", state.partial.content.count - 1); yield(.textStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
             case "reasoning": state.partial.content.append(ContentBlock(type: "thinking")); state.current = ("reasoning", state.partial.content.count - 1); yield(.thinkingStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
-            case "function_call": let block = ContentBlock(type: "toolCall", id: item.item.callId ?? item.item.id, name: item.item.name); state.partial.content.append(block); state.current = ("function_call", state.partial.content.count - 1); state.toolArgs[state.partial.content.count - 1] = ""; yield(.toolCallStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
-            case "custom_tool_call": var block = ContentBlock(type: "toolCall", id: item.item.callId ?? item.item.id, name: item.item.name); block.arguments = ["input": .string(item.item.input ?? "")]; state.partial.content.append(block); state.current = ("custom_tool_call", state.partial.content.count - 1); state.customInputs[state.partial.content.count - 1] = GrammarInputBuffer(property: "input", input: item.item.input ?? ""); yield(.toolCallStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
+            case "function_call": let block = ContentBlock(type: "toolCall", id: item.item.callId ?? item.item.id, name: item.item.name, namespace: item.item.namespace); state.partial.content.append(block); state.current = ("function_call", state.partial.content.count - 1); state.toolArgs[state.partial.content.count - 1] = ""; yield(.toolCallStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
+            case "custom_tool_call": var block = ContentBlock(type: "toolCall", id: item.item.callId ?? item.item.id, name: item.item.name, namespace: item.item.namespace); block.arguments = ["input": .string(item.item.input ?? "")]; state.partial.content.append(block); state.current = ("custom_tool_call", state.partial.content.count - 1); state.customInputs[state.partial.content.count - 1] = GrammarInputBuffer(property: "input", input: item.item.input ?? ""); yield(.toolCallStart(contentIndex: state.partial.content.count - 1, partial: state.partial))
             default: break
             }
         case "response.output_text.delta": if let idx = state.current?.index { let raw = (try? JSONDecoder().decode(ResponseDelta.self, from: data))?.delta ?? ""; state.partial.content[idx].text = (state.partial.content[idx].text ?? "") + raw; yield(.textDelta(contentIndex: idx, delta: raw, partial: state.partial)) }
@@ -262,7 +262,7 @@ public enum OpenAIResponsesProvider {
         case "response.custom_tool_call_input.delta": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(CustomToolInputDelta.self, from: data), let delta = appendCustomInput(index: idx, nextInput: (state.customInputs[idx]?.input ?? "") + (raw.delta ?? ""), close: false, state: &state) { yield(.toolCallDelta(contentIndex: idx, delta: delta, partial: state.partial)) }
         case "response.custom_tool_call_input.done": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(CustomToolInputDone.self, from: data), let delta = appendCustomInput(index: idx, nextInput: raw.input ?? state.customInputs[idx]?.input ?? "", close: true, state: &state) { yield(.toolCallDelta(contentIndex: idx, delta: delta, partial: state.partial)) }
         case "response.output_item.done": if let raw = try? JSONDecoder().decode(ResponseOutputItemDone.self, from: data) { applyReasoningItem(raw.item, state: &state, overwriteEncryptedContent: true) }; closeCurrent(state: &state, yield: yield)
-        case "response.completed", "response.incomplete": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; if let responseModel = raw.response?.model, !responseModel.isEmpty, responseModel != state.model.id { state.partial.responseModel = responseModel }; for item in raw.response?.output ?? [] { applyReasoningItem(item, state: &state, overwriteEncryptedContent: false) }; applyUsage(raw.response?.usage, serviceTier: raw.response?.serviceTier, state: &state); let rawStatus = raw.response?.status ?? (eventName == "response.incomplete" ? "incomplete" : nil); state.partial.rawStopReason = rawStatus; state.partial.stopReason = mapStatus(rawStatus); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
+        case "response.completed", "response.incomplete": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; if let responseModel = raw.response?.model, !responseModel.isEmpty, responseModel != state.model.id { state.partial.responseModel = responseModel }; if let endTurn = raw.response?.endTurn { state.partial.endTurn = endTurn }; for item in raw.response?.output ?? [] { applyReasoningItem(item, state: &state, overwriteEncryptedContent: false) }; applyUsage(raw.response?.usage, serviceTier: raw.response?.serviceTier, state: &state); let rawStatus = raw.response?.status ?? (eventName == "response.incomplete" ? "incomplete" : nil); state.partial.rawStopReason = rawStatus; state.partial.stopReason = mapStatus(rawStatus); if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse } }
         case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; state.partial.stopReason = .error; let msg = raw.response?.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? raw.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? "response failed"; state.partial.errorMessage = msg; yield(.error(reason: .error, message: state.partial, error: AIError.provider(msg))) }
         case "error": if let raw = try? JSONDecoder().decode(ResponseAPIError.self, from: data) { state.sawTerminal = true; state.partial.stopReason = .error; state.partial.errorMessage = "API error \(raw.code ?? "unknown"): \(raw.message ?? "")"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "API error"))) }
         default: break
@@ -290,7 +290,7 @@ public enum OpenAIResponsesProvider {
     private static func applyUsage(_ raw: ResponseUsage?, serviceTier: String?, state: inout ResponsesStreamState) { guard let raw else { return }; let cached = raw.inputTokenDetails?.cachedTokens ?? 0; let cacheWrite = raw.inputTokenDetails?.cacheWriteTokens ?? 0; var u = Usage(); u.input = max(0, (raw.inputTokens ?? 0) - cached); u.output = raw.outputTokens ?? 0; u.reasoning = raw.outputTokenDetails?.reasoningTokens ?? 0; u.cacheRead = cached; u.cacheWrite = cacheWrite; u.totalTokens = raw.totalTokens ?? (u.input + u.output + u.cacheRead + u.cacheWrite); AIUtilities.applyCost(model: state.model, usage: &u); applyServiceTierMultiplier(serviceTier, model: state.model, usage: &u); state.partial.usage = u }
     private static func applyServiceTierMultiplier(_ serviceTier: String?, model: Model, usage: inout Usage) { guard let serviceTier else { return }; let multiplier: Double?; switch serviceTier { case "priority": multiplier = model.id.hasPrefix("gpt-5.5") ? 2.5 : 2.0; case "flex": multiplier = 0.5; default: multiplier = nil }; guard let multiplier else { return }; usage.cost.input *= multiplier; usage.cost.output *= multiplier; usage.cost.cacheRead *= multiplier; usage.cost.cacheWrite *= multiplier; usage.cost.total *= multiplier }
 
-    private static func convertInput(model: Model, context: AIContext, deferredMarkers: [Int64: [Tool]] = [:]) -> [JSONValue] {
+    private static func convertInput(model: Model, context: AIContext, deferredMarkers: [Int64: [Tool]] = [:], deferredMode: String? = nil) -> [JSONValue] {
         var out: [JSONValue] = []
         if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string(model.reasoning ? "developer" : "system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
         for (msgIndex, msg) in AIUtilities.transformMessages(context.messages, for: model).enumerated() {
@@ -301,9 +301,13 @@ public enum OpenAIResponsesProvider {
                 out.append(contentsOf: assistantItems(msg, model: model, messageIndex: msgIndex))
             case .toolResult:
                 if let tools = deferredMarkers[msg.timestamp], !tools.isEmpty {
-                    let callID = "ts_" + AIUtilities.shortHash("\(msg.timestamp):\(tools.map(\.name).joined(separator: ","))")
-                    out.append(.object(["type": .string("tool_search_call"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed")]))
-                    out.append(.object(["type": .string("tool_search_output"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed"), "tools": .array(tools.map { toolJSON($0, deferred: true, supportsOpenAIGrammarTools: model.responsesCompat?.supportsOpenAIGrammarTools == true) })]))
+                    if deferredMode == "additional-tools" {
+                        out.append(.object(["type": .string("additional_tools"), "role": .string("developer"), "tools": .array(tools.map { toolJSON($0, deferred: false, supportsOpenAIGrammarTools: model.responsesCompat?.supportsOpenAIGrammarTools == true) })]))
+                    } else {
+                        let callID = "ts_" + AIUtilities.shortHash("\(msg.timestamp):\(tools.map(\.name).joined(separator: ","))")
+                        out.append(.object(["type": .string("tool_search_call"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed"), "arguments": .object(["query": .string(tools.map(\.name).joined(separator: " ")), "limit": .number(Double(tools.count))])]))
+                        out.append(.object(["type": .string("tool_search_output"), "call_id": .string(callID), "execution": .string("client"), "status": .string("completed"), "tools": .array(tools.map { toolJSON($0, deferred: true, supportsOpenAIGrammarTools: model.responsesCompat?.supportsOpenAIGrammarTools == true) })]))
+                    }
                 }
                 let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
                 out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": toolResultOutput(msg)]))
@@ -338,6 +342,7 @@ public enum OpenAIResponsesProvider {
                 let parts = rawID.split(separator: "|", maxSplits: 1).map(String.init)
                 let callID = normalizeResponsesIDPart(parts.first ?? rawID)
                 var item: [String: JSONValue] = ["type": .string("function_call"), "call_id": .string(callID), "name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))]
+                if let namespace = block.namespace { item["namespace"] = .string(namespace) }
                 if parts.count == 2 { item["id"] = .string(normalizeResponsesItemID(parts[1])) }
                 items.append(.object(item))
             default:
@@ -367,8 +372,9 @@ public enum OpenAIResponsesProvider {
                 return .object(obj)
             }
         }
-        var obj: [String: JSONValue] = ["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]
-        obj["strict"] = .bool(tool.constrainedSampling?.type == "json_schema" ? true : false)
+        let strict = tool.constrainedSampling?.type == "json_schema" && (try? ContextUtilities.makeStrictJSONSchema(tool.parameters)) != nil
+        var obj: [String: JSONValue] = ["type": .string("function"), "name": .string(tool.name), "description": .string(tool.description), "parameters": strict ? ((try? ContextUtilities.makeStrictJSONSchema(tool.parameters)) ?? tool.parameters) : tool.parameters]
+        obj["strict"] = .bool(strict)
         if deferred { obj["defer_loading"] = .bool(true) }
         return .object(obj)
     }
@@ -376,7 +382,10 @@ public enum OpenAIResponsesProvider {
         let supportsStrict = model.responsesCompat?.supportsStrictMode != false
         let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
         for tool in tools ?? [] {
-            if tool.constrainedSampling?.type == "json_schema", tool.constrainedSampling?.strict == "require", !supportsStrict { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but strict tools are unsupported.") }
+            if tool.constrainedSampling?.type == "json_schema" {
+                if !supportsStrict, tool.constrainedSampling?.strict == "require" { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but strict tools are unsupported.") }
+                if supportsStrict, tool.constrainedSampling?.strict == "require" { _ = try ContextUtilities.makeStrictJSONSchema(tool.parameters) }
+            }
             if tool.constrainedSampling?.type == "grammar", supportsGrammar {
                 let variants = tool.constrainedSampling?.variants
                 let hasLark = variants?.openaiLark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -406,6 +415,7 @@ public enum OpenAIResponsesProvider {
         return (tools.filter { !deferred.contains($0.name.lowercased()) }, markers)
     }
     private static func supportsToolSearch(_ model: Model) -> Bool { if let forced = model.responsesCompat?.supportsToolSearch { return forced }; guard model.api == .openAIResponses || model.api == .openAICodexResponses else { return false }; return model.id == "gpt-5.4" || model.id.hasPrefix("gpt-5.4-") == false && model.id == "gpt-5.4" }
+    private static func deferredToolsMode(_ model: Model) -> String? { if model.responsesCompat?.supportsAdditionalTools == true { return "additional-tools" }; if supportsToolSearch(model) { return "tool-search" }; return nil }
     private static func mappedThinkingEffort(model: Model, effort: String) -> String { AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: effort) ?? .high) ?? effort }
     private static func reasoningPayload(model: Model, effort: String, options: StreamOptions?) -> JSONValue {
         var payload: [String: JSONValue] = ["effort": .string(effort)]
@@ -423,14 +433,14 @@ public enum OpenAIResponsesProvider {
 private struct GrammarInputBuffer { var property: String; var input: String; var started = false; var closed = false }
 private struct ResponsesStreamState { var model: Model; var partial: Message; var started = false; var sawTerminal = false; var current: (type: String, index: Int)?; var toolArgs: [Int: String] = [:]; var customInputs: [Int: GrammarInputBuffer] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct ResponseCreated: Decodable { var response: Inner?; struct Inner: Decodable { var id: String? } }
-private struct ResponseOutputItemAdded: Decodable { var item: Item; struct Item: Decodable { var type: String; var id: String?; var callId: String?; var name: String?; var input: String?; enum CodingKeys: String, CodingKey { case type, id, name, input; case callId = "call_id" } } }
+private struct ResponseOutputItemAdded: Decodable { var item: Item; struct Item: Decodable { var type: String; var id: String?; var callId: String?; var name: String?; var input: String?; var namespace: String?; enum CodingKeys: String, CodingKey { case type, id, name, input, namespace; case callId = "call_id" } } }
 private struct ResponseOutputItemDone: Decodable { var item: ReasoningOutputItem }
 private struct ReasoningOutputItem: Decodable { var type: String; var id: String?; var summary: JSONValue?; var encryptedContent: String?; enum CodingKeys: String, CodingKey { case type, id, summary; case encryptedContent = "encrypted_content" }; func asJSON() -> [String: JSONValue] { var object: [String: JSONValue] = ["type": .string(type)]; if let id { object["id"] = .string(id) }; if let summary { object["summary"] = summary }; if let encryptedContent { object["encrypted_content"] = .string(encryptedContent) }; return object } }
 private struct ResponseDelta: Decodable { var delta: String? }
 private struct CustomToolInputDelta: Decodable { var delta: String? }
 private struct CustomToolInputDone: Decodable { var input: String? }
 private struct ResponseArgumentsDone: Decodable { var arguments: String? }
-private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var model: String?; var serviceTier: String?; var usage: ResponseUsage?; var output: [ReasoningOutputItem]?; enum CodingKeys: String, CodingKey { case id, status, model, usage, output; case serviceTier = "service_tier" } } }
+private struct ResponseCompleted: Decodable { var response: Response?; struct Response: Decodable { var id: String?; var status: String?; var model: String?; var serviceTier: String?; var usage: ResponseUsage?; var output: [ReasoningOutputItem]?; var endTurn: Bool?; enum CodingKeys: String, CodingKey { case id, status, model, usage, output; case serviceTier = "service_tier"; case endTurn = "end_turn" } } }
 private struct ResponseUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var totalTokens: Int?; var inputTokenDetails: InputTokenDetails?; var outputTokenDetails: OutputTokenDetails?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case totalTokens = "total_tokens"; case inputTokenDetails = "input_tokens_details"; case outputTokenDetails = "output_tokens_details" }; struct InputTokenDetails: Decodable { var cachedTokens: Int?; var cacheWriteTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens"; case cacheWriteTokens = "cache_write_tokens" } }; struct OutputTokenDetails: Decodable { var reasoningTokens: Int?; enum CodingKeys: String, CodingKey { case reasoningTokens = "reasoning_tokens" } } }
 private struct ResponseFailed: Decodable { var response: FailedResponse?; var error: Failure?; struct FailedResponse: Decodable { var id: String?; var error: Failure? }; struct Failure: Decodable { var message: String?; var code: String? } }
 private struct ResponseAPIError: Decodable { var code: String?; var message: String? }

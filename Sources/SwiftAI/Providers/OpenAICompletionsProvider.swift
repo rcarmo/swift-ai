@@ -275,7 +275,10 @@ public enum OpenAICompletionsProvider {
 
     private static func validateConstrainedSampling(tools: [Tool]?, compat: OpenAICompletionsCompat) throws {
         for tool in tools ?? [] {
-            if tool.constrainedSampling?.type == "json_schema", tool.constrainedSampling?.strict == "require", compat.supportsStrictMode == false { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but strict tools are unsupported.") }
+            if tool.constrainedSampling?.type == "json_schema" {
+                if compat.supportsStrictMode == false, tool.constrainedSampling?.strict == "require" { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but strict tools are unsupported.") }
+                if compat.supportsStrictMode != false, tool.constrainedSampling?.strict == "require" { _ = try ContextUtilities.makeStrictJSONSchema(tool.parameters) }
+            }
             if tool.constrainedSampling?.type == "grammar", compat.supportsOpenAIGrammarTools == true {
                 let variants = tool.constrainedSampling?.variants
                 let hasLark = variants?.openaiLark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -296,8 +299,10 @@ public enum OpenAICompletionsProvider {
         }
         let strictModeSupported = compat.supportsStrictMode != false
 
-        var function: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "parameters": tool.parameters]
-        if strictModeSupported { function["strict"] = .bool(tool.constrainedSampling?.type == "json_schema" ? true : false) }
+        let strict = strictModeSupported && tool.constrainedSampling?.type == "json_schema" && (try? ContextUtilities.makeStrictJSONSchema(tool.parameters)) != nil
+        let parameters = strict ? ((try? ContextUtilities.makeStrictJSONSchema(tool.parameters)) ?? tool.parameters) : tool.parameters
+        var function: [String: JSONValue] = ["name": .string(tool.name), "description": .string(tool.description), "parameters": parameters]
+        if strictModeSupported { function["strict"] = .bool(strict) }
         return .object(["type": .string("function"), "function": .object(function)])
     }
 

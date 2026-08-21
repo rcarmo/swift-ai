@@ -171,7 +171,7 @@ public enum BedrockProvider {
         switch block.type {
         case "text": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])
         case "image": return createImageBlock(data: block.data ?? "", mimeType: block.mimeType ?? "image/png")
-        case "toolCall": return .object(["toolUse": .object(["toolUseId": .string(block.id ?? ""), "name": .string(block.name ?? ""), "input": .object(block.arguments ?? [:])])])
+        case "toolCall": return .object(["toolUse": .object(["toolUseId": .string(block.id ?? ""), "name": .string(block.name ?? ""), "input": sanitizeEmptyObjectKeys(.object(block.arguments ?? [:]))])])
         case "thinking": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])
         default: return nil
         }
@@ -244,5 +244,16 @@ public enum BedrockProvider {
         return false
     }
 
-    private static func toolJSON(_ tool: Tool) -> JSONValue { .object(["toolSpec": .object(["name": .string(tool.name), "description": .string(tool.description), "inputSchema": .object(["json": tool.parameters])])]) }
+    private static func sanitizeEmptyObjectKeys(_ value: JSONValue) -> JSONValue {
+        switch value {
+        case .object(let object): return .object(Dictionary(uniqueKeysWithValues: object.compactMap { key, value in key.isEmpty ? nil : (key, sanitizeEmptyObjectKeys(value)) }))
+        case .array(let array): return .array(array.map(sanitizeEmptyObjectKeys))
+        default: return value
+        }
+    }
+
+    private static func toolJSON(_ tool: Tool) -> JSONValue {
+        let strict = tool.constrainedSampling?.type == "json_schema" ? ((try? ContextUtilities.makeStrictJSONSchema(tool.parameters)) ?? tool.parameters) : tool.parameters
+        return .object(["toolSpec": .object(["name": .string(tool.name), "description": .string(tool.description), "inputSchema": .object(["json": strict])])])
+    }
 }

@@ -45,7 +45,10 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
     public var supportsToolSearch: Bool?
     public var supportsStrictMode: Bool?
     public var supportsOpenAIGrammarTools: Bool?
-    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools }
+    public var supportsAdditionalTools: Bool?
+    public var supportsExplicitPromptCacheMode: Bool?
+    public var sessionAffinityFormat: String?
+    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil, supportsAdditionalTools: Bool? = nil, supportsExplicitPromptCacheMode: Bool? = nil, sessionAffinityFormat: String? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools; self.supportsAdditionalTools = supportsAdditionalTools; self.supportsExplicitPromptCacheMode = supportsExplicitPromptCacheMode; self.sessionAffinityFormat = sessionAffinityFormat }
 }
 public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?
@@ -56,7 +59,8 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsTemperature: Bool?
     public var forceAdaptiveThinking: Bool?
     public var supportsToolReferences: Bool?
-    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil) {
+    public var supportsStrictTools: Bool?
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil) {
         self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
         self.supportsLongCacheRetention = supportsLongCacheRetention
         self.sendSessionAffinityHeaders = sendSessionAffinityHeaders
@@ -65,6 +69,7 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
         self.supportsTemperature = supportsTemperature
         self.forceAdaptiveThinking = forceAdaptiveThinking
         self.supportsToolReferences = supportsToolReferences
+        self.supportsStrictTools = supportsStrictTools
     }
 }
 

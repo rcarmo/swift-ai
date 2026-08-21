@@ -312,6 +312,8 @@ public enum AIUtilities {
         return headers
     }
 
+    public static func piUserAgent() -> String { "pi-swift-ai/\(SwiftAIStatus.upstreamVersion)" }
+
     public static func copilotHeaders(intent: String? = nil) -> [String: String] {
         var headers = ["User-Agent": "GitHubCopilotChat/0.35.0", "Editor-Version": "vscode/1.107.0", "Editor-Plugin-Version": "copilot-chat/0.35.0", "Copilot-Integration-Id": "vscode-chat"]
         if let intent, !intent.isEmpty { headers["openai-intent"] = intent }

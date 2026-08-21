@@ -63,9 +63,9 @@ Implemented/adapted:
 - Added runtime/test coverage for strict JSON-schema tool conversion and optional non-nullable null omission.
 - Added Kimi runtime `User-Agent` and Codex SSE `User-Agent` handling via `AIUtilities.piUserAgent()`.
 - Added Responses/Codex `supportsAdditionalTools`, message-anchored `additional_tools`, tool-search fallback arguments, function/custom tool-call namespace preservation, and `AssistantMessage.endTurn` parsing.
-- Kept Mistral on native Swift URLSession HTTP/SSE transport and added UTF-8-safe SSE chunk framing; existing/focused tests cover request/replay, usage, raw stops, errors, cancellation/timeout seams.
-- Preserved GitHub Copilot policy/model update through structured task groups with cancellation checks and bounded model filtering.
-- Added retry classifier coverage for `exceeded request buffer limit while retrying upstream`.
+- Added Mistral injectable raw streaming transport seam with URLSession fallback, `x-affinity`, bounded non-2xx response bodies, timeout/abort handling, and UTF-8-safe SSE chunk framing; focused tests cover byte-split UTF-8, headers, status/body, timeout, abort, usage, and raw stops.
+- Capped GitHub Copilot policy/model update concurrency at 4 structured tasks with cancellation-safe scheduling and max-in-flight tests.
+- Added retry classifier coverage for `exceeded request buffer limit while retrying upstream` and mixed-case DeepSeek/max_tokens focused tests.
 - Preserved/validated case-insensitive DeepSeek and `max_tokens` compatibility via exact catalog metadata and request builders.
 - Preserved Google/Vertex STOP vs MAX_TOKENS/raw reason behavior in parser tests.
 - Added Bedrock replay sanitization for empty argument keys without mutating original streamed args.
@@ -94,7 +94,7 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.2 tests: passed.
+- focused v0.84.2 tests: passed (`8` tests, including Copilot concurrency and Mistral wire tests).
 - `swift test`: `240` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`240` tests each run).
 - `make check`: passed (`240` tests, `0` failures).

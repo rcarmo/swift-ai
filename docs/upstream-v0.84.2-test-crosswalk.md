@@ -53,7 +53,7 @@ The v0.84.2 changed-test slice contains exactly 21 paths total: 18 existing test
 | 41 | `packages/ai/test/fireworks-models.test.ts` | ported | `testFireworksKimiK26ModelMetadataAndCompat`, `testFireworksAnthropicToolCompatRequestShape` | Fireworks catalog and Anthropic compat payload. |
 | 42 | `packages/ai/test/generate-models-strict.test.ts` | N/A/adapted-generator-policy | `scripts/audit-parity.py` full-record snapshot/comparator/embedded checks plus exact delta assertions | Private TS atomic generator rollback policy is not an executable Swift port; Swift enforces the resulting exact generated catalog policy through full-record CI checks and deterministic seven-model assertions. |
 | 43 | `packages/ai/test/github-copilot-anthropic.test.ts` | ported | `testGitHubCopilotAnthropicHeadersAndAdaptiveThinking` | GitHub Copilot Anthropic headers/model metadata. |
-| 44 | `packages/ai/test/github-copilot-oauth.test.ts` | adapted | GitHub Copilot OAuth tests + bounded task-group policy update | Portable token/model filtering covered; live policy endpoint remains mocked/adapted. |
+| 44 | `packages/ai/test/github-copilot-oauth.test.ts` | adapted | `testUpstream0842CopilotPolicyUpdateConcurrencyCap` plus GitHub Copilot OAuth tests | Portable token/model filtering and max 4 in-flight policy updates covered; live policy endpoint remains mocked/adapted. |
 | 45 | `packages/ai/test/google-raw-stop-reason.test.ts` | ported | Google raw stop reason tests | STOP/MAX_TOKENS/raw reason mapping and tool-use precedence. |
 | 46 | `packages/ai/test/google-shared-convert-tools.test.ts` | ported | `testGoogleSharedConvertToolsSchemaMetaHandling` | Tool schema/meta handling. |
 | 47 | `packages/ai/test/google-shared-gemini3-unsigned-tool-call.test.ts` | ported | `testGoogleGemini3UnsignedToolCalls` | Gemini 3 unsigned/cross-model tool-call signature behavior. |
@@ -72,7 +72,7 @@ The v0.84.2 changed-test slice contains exactly 21 paths total: 18 existing test
 | 60 | `packages/ai/test/lax-message-content.test.ts` | ported | message transform/content tests | Lax content/unknown blocks handled safely. |
 | 61 | `packages/ai/test/lazy-module-load.test.ts` | adapted | static-check/source import guards | JS lazy module loading is package/runtime wiring; Swift has direct static provider modules. |
 | 62 | `packages/ai/test/max-thinking.test.ts` | ported | thinking helpers and provider payload tests | Max/xhigh thinking mapping and clamps. |
-| 63 | `packages/ai/test/mistral-http-transport.test.ts` | ported | Mistral native HTTP/SSE request and parser tests | Native URLSession/SSE path, UTF-8-safe chunking, usage/errors/timeouts via Swift provider path. |
+| 63 | `packages/ai/test/mistral-http-transport.test.ts` | ported | `testUpstream0842MistralStreamingTransportHeadersAndUTF8`, `testUpstream0842MistralTransportErrorBodyTimeoutAndAbort`, Mistral parser tests | Raw streaming seam, UTF-8 split bytes, x-affinity, non-2xx body, timeout, abort, usage/errors covered. |
 | 64 | `packages/ai/test/mistral-raw-stop-reason.test.ts` | ported | Mistral raw stop reason tests | Raw reason mapping retained. |
 | 65 | `packages/ai/test/mistral-reasoning-mode.test.ts` | ported | `ProviderMetadataTests.testMistralReasoningModeAndPromptCacheKey` | Mistral reasoning mode/effort and prompt cache key. |
 | 66 | `packages/ai/test/mistral-tool-schema.test.ts` | ported | Mistral tool schema tests | Tool schema conversion and validation error behavior. |
@@ -94,7 +94,7 @@ The v0.84.2 changed-test slice contains exactly 21 paths total: 18 existing test
 | 82 | `packages/ai/test/openai-completions-retry.test.ts` | ported | Provider retry tests + Completions transport retry wiring | Retryable provider errors and capped retry delays. |
 | 83 | `packages/ai/test/openai-completions-thinking-as-text.test.ts` | ported | thinking-as-text tests | Reasoning text/chunks as thinking content. |
 | 84 | `packages/ai/test/openai-completions-thinking-token-budget.test.ts` | ported | `testOpenAICompletionsThinkingTokenBudgetEdges` | vLLM `thinking_token_budget` capability, budgets and clamping. |
-| 85 | `packages/ai/test/openai-completions-tool-choice.test.ts` | ported | OpenAI Completions tool-choice/strict tests | Strict JSON-schema and max_tokens/deepseek compat covered. |
+| 85 | `packages/ai/test/openai-completions-tool-choice.test.ts` | ported | `testUpstream0842StrictSchemaAndNullableNullOmission`, `testUpstream0842DeepSeekMixedCaseMaxTokensCompat`, OpenAI Completions tests | Strict JSON-schema and mixed-case DeepSeek max_tokens compat covered. |
 | 86 | `packages/ai/test/openai-completions-tool-result-images.test.ts` | ported | OpenAI tool-result image tests | Image tool-result batching/routing. |
 | 87 | `packages/ai/test/openai-responses-cache-affinity-e2e.test.ts` | live-only | N/A live credential-gated E2E | OpenAI cache affinity E2E requires live account/network; deterministic tests cover session/cache request fields. |
 | 88 | `packages/ai/test/openai-responses-compat.test.ts` | ported | Responses compat/catalog tests | supportsAdditionalTools/ToolSearch/compat fields decoded and request-shaped. |

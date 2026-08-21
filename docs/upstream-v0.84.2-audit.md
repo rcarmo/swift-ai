@@ -15,22 +15,22 @@ The bounded `packages/ai` delta is exactly 42 changed paths: 18 source, 21 tests
 | 1 | `packages/ai/CHANGELOG.md` | Package/release metadata; recorded in STATUS/PARITY/RELEASE/audit docs. |
 | 2 | `packages/ai/package.json` | Package/release metadata; recorded in STATUS/PARITY/RELEASE/audit docs. |
 | 3 | `packages/ai/scripts/generate-models.ts` | Ported via exact generated text catalog and Swift compat structs/enums; audit enforces 1267 full records and +71/-24/85 delta. |
-| 4 | `packages/ai/src/api/anthropic-messages.ts` | Package/release metadata; recorded in STATUS/PARITY/RELEASE/audit docs. |
+| 4 | `packages/ai/src/api/anthropic-messages.ts` | Runtime change: Kimi runtime `User-Agent` and strict tool schema handling; covered by `testUpstream0842UserAgentAndRetryClassifier` and strict schema tests. |
 | 5 | `packages/ai/src/api/bedrock-converse-stream.ts` | Ported: Bedrock strict schema and empty-key replay sanitization covered; no live AWS transport bundled. |
 | 6 | `packages/ai/src/api/cloudflare-gateway-binding.ts` | N/A/adapted transport: Cloudflare Workers gateway binding is JS Workers object semantics; Swift already exposes request-transport injection and Cloudflare gateway URL/env routing, with tokenless binding object intentionally not shipped. |
 | 7 | `packages/ai/src/api/constrained-sampling.ts` | Ported: strict JSON-schema conversion and optional non-nullable null omission covered by focused tests. |
 | 8 | `packages/ai/src/api/google-generative-ai.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
 | 9 | `packages/ai/src/api/google-shared.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
 | 10 | `packages/ai/src/api/google-vertex.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
-| 11 | `packages/ai/src/api/mistral-conversations.ts` | Ported/adapted: Swift has native URLSession HTTP/SSE Mistral path; request/replay, UTF-8-safe framing, usage/raw stop/error behavior covered by focused tests. |
+| 11 | `packages/ai/src/api/mistral-conversations.ts` | Ported/adapted: Swift exposes an injectable raw streaming transport seam with URLSession fallback, sends `x-affinity`, bounds non-2xx bodies, and covers UTF-8 split bytes, abort, timeout, headers/status/body, request/replay/tool/thinking/usage behavior. |
 | 12 | `packages/ai/src/api/openai-codex-responses.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
-| 13 | `packages/ai/src/api/openai-completions.ts` | Package/release metadata; recorded in STATUS/PARITY/RELEASE/audit docs. |
+| 13 | `packages/ai/src/api/openai-completions.ts` | Runtime change: strict JSON-schema conversion plus case-insensitive DeepSeek hostname detection and `max_tokens`; covered by `testUpstream0842StrictSchemaAndNullableNullOmission` and `testUpstream0842DeepSeekMixedCaseMaxTokensCompat`. |
 | 14 | `packages/ai/src/api/openai-responses-shared.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
 | 15 | `packages/ai/src/api/openai-responses.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
-| 16 | `packages/ai/src/auth/oauth/github-copilot.ts` | Adapted: bounded policy update/task behavior and model filtering covered; live Copilot endpoint remains mocked/adapted. |
+| 16 | `packages/ai/src/auth/oauth/github-copilot.ts` | Ported/adapted: policy updates are capped at 4 concurrent structured tasks with cancellation checks; `testUpstream0842CopilotPolicyUpdateConcurrencyCap` verifies max in-flight. |
 | 17 | `packages/ai/src/image-models.generated.ts` | Ported: image catalog regenerated exactly to 45 full records with +3/0/0 delta. |
 | 18 | `packages/ai/src/types.ts` | Ported via exact generated text catalog and Swift compat structs/enums; audit enforces 1267 full records and +71/-24/85 delta. |
-| 19 | `packages/ai/src/utils/pi-user-agent.ts` | Package/release metadata; recorded in STATUS/PARITY/RELEASE/audit docs. |
+| 19 | `packages/ai/src/utils/pi-user-agent.ts` | Runtime change: shared pi runtime `User-Agent` for Kimi/Codex paths; covered by `testUpstream0842UserAgentAndRetryClassifier` and Codex header tests. |
 | 20 | `packages/ai/src/utils/retry.ts` | Ported: retry classifier includes upstream buffer-limit phrase. |
 | 21 | `packages/ai/src/utils/validation.ts` | Ported: strict JSON-schema conversion and optional non-nullable null omission covered by focused tests. |
 | 22 | `packages/ai/test/anthropic-auth-token.test.ts` | Covered in the exact 131-file crosswalk with live/N/A separation. |
@@ -43,8 +43,8 @@ The bounded `packages/ai` delta is exactly 42 changed paths: 18 source, 21 tests
 | 29 | `packages/ai/test/github-copilot-oauth.test.ts` | Adapted: bounded policy update/task behavior and model filtering covered; live Copilot endpoint remains mocked/adapted. |
 | 30 | `packages/ai/test/google-raw-stop-reason.test.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
 | 31 | `packages/ai/test/lazy-module-load.test.ts` | Covered in the exact 131-file crosswalk with live/N/A separation. |
-| 32 | `packages/ai/test/mistral-http-transport.test.ts` | Ported/adapted: Swift has native URLSession HTTP/SSE Mistral path; request/replay, UTF-8-safe framing, usage/raw stop/error behavior covered by focused tests. |
-| 33 | `packages/ai/test/mistral-raw-stop-reason.test.ts` | Ported/adapted: Swift has native URLSession HTTP/SSE Mistral path; request/replay, UTF-8-safe framing, usage/raw stop/error behavior covered by focused tests. |
+| 32 | `packages/ai/test/mistral-http-transport.test.ts` | Ported/adapted: focused Swift wire tests cover raw streaming seam, UTF-8 split bytes, x-affinity, non-2xx body, timeout, and abort. |
+| 33 | `packages/ai/test/mistral-raw-stop-reason.test.ts` | Ported/adapted: raw stop reason and usage behavior retained in Mistral parser/request tests. |
 | 34 | `packages/ai/test/openai-codex-stream.test.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
 | 35 | `packages/ai/test/openai-completions-tool-choice.test.ts` | Covered in the exact 131-file crosswalk with live/N/A separation. |
 | 36 | `packages/ai/test/openai-responses-compat.test.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
@@ -84,8 +84,8 @@ Implemented/adapted in Swift:
 - Strict JSON-schema tool conversion and optional non-nullable null omission.
 - Kimi/Codex runtime `User-Agent` handling.
 - Responses/Codex message-anchored `additional_tools`, tool-search fallback, namespace preservation, and `AssistantMessage.endTurn`.
-- Mistral native HTTP/SSE request/replay path, usage/raw stop/error behavior, and UTF-8-safe SSE chunk framing.
-- Copilot policy/model update remains bounded by structured task groups and cancellation checks.
+- Mistral injectable raw streaming transport seam, `x-affinity`, bounded non-2xx response bodies, timeout/abort handling, request/replay behavior, usage/raw stop/error behavior, and UTF-8-safe SSE chunk framing.
+- Copilot policy/model update is capped at 4 concurrent structured tasks and remains cancellation-safe.
 - Retry classifier includes `exceeded request buffer limit while retrying upstream`.
 - Case-insensitive DeepSeek detection/max-token compatibility is represented in generated catalog compat and request builders.
 - Google/Vertex STOP/MAX_TOKENS/raw reason behavior is covered by existing parser tests.

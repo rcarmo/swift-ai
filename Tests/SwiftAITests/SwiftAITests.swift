@@ -3596,6 +3596,98 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError(retryable))
     }
 
+    func testUpstream0842CopilotPolicyUpdateConcurrencyCap() async {
+        let provider = GitHubCopilotOAuthProvider()
+        actor Gauge {
+            var current = 0
+            var maxSeen = 0
+            func enter() { current += 1; maxSeen = Swift.max(maxSeen, current) }
+            func leave() { current -= 1 }
+            func maximum() -> Int { maxSeen }
+        }
+        let gauge = Gauge()
+        await provider.enableModels(token: "token", modelIDs: (0..<12).map { "m\($0)" }, enterpriseDomain: "", maxConcurrent: 4) { _ in
+            await gauge.enter()
+            try? await Task.sleep(nanoseconds: 10_000_000)
+            await gauge.leave()
+            return true
+        }
+        let maxSeen = await gauge.maximum()
+        XCTAssertLessThanOrEqual(maxSeen, 4)
+    }
+
+    func testUpstream0842MistralStreamingTransportHeadersAndUTF8() async throws {
+        final class Box: @unchecked Sendable { var request: URLRequest? }
+        let box = Box()
+        MistralConversationsProvider.requestTransport = { request in
+            box.request = request
+            let json = #"{"id":"r","choices":[{"delta":{"content":"hé"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}"#
+            let frame = "data: \(json)\n\ndata: [DONE]\n\n"
+            let bytes = Array(frame.data(using: .utf8)!)
+            let stream = AsyncThrowingStream<UInt8, Error> { continuation in
+                for byte in bytes { continuation.yield(byte) }
+                continuation.finish()
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!
+            return (stream, response)
+        }
+        defer { MistralConversationsProvider.requestTransport = nil }
+        var options = StreamOptions(); options.apiKey = "key"; options.sessionId = "session-1"; options.cacheRetention = .short
+        let model = Model(id: "mistral-small-latest", name: "Mistral", api: .mistralConversations, provider: .mistral, baseUrl: "https://api.mistral.ai/v1", cost: ModelCost(input: 1, output: 2))
+        let events = MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        var done: Message?
+        for await event in events { if case .done(_, let message) = event { done = message } }
+        XCTAssertEqual(box.request?.value(forHTTPHeaderField: "x-affinity"), "session-1")
+        XCTAssertEqual(done?.content.first?.text, "hé")
+        XCTAssertEqual(done?.usage?.input, 2)
+        XCTAssertEqual(done?.usage?.output, 3)
+        XCTAssertEqual(done?.usage?.totalTokens, 5)
+    }
+
+    func testUpstream0842MistralTransportErrorBodyTimeoutAndAbort() async throws {
+        let model = Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral, baseUrl: "https://api.mistral.ai/v1")
+        var options = StreamOptions(); options.apiKey = "key"; options.timeoutMs = 5
+
+        MistralConversationsProvider.requestTransport = { request in
+            XCTAssertEqual(request.timeoutInterval, 0.005, accuracy: 0.001)
+            let stream = AsyncThrowingStream<UInt8, Error> { continuation in
+                for byte in Data("provider body".utf8) { continuation.yield(byte) }
+                continuation.finish()
+            }
+            return (stream, HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: [:])!)
+        }
+        var sawBody = false
+        for await event in MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {
+            if case .error(_, _, let error) = event { sawBody = String(describing: error).contains("provider body") }
+        }
+        XCTAssertTrue(sawBody)
+
+        MistralConversationsProvider.requestTransport = { _ in throw URLError(.timedOut) }
+        var sawTimeout = false
+        for await event in MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {
+            if case .error = event { sawTimeout = true }
+        }
+        XCTAssertTrue(sawTimeout)
+
+        MistralConversationsProvider.requestTransport = { request in
+            let stream = AsyncThrowingStream<UInt8, Error> { continuation in continuation.finish(throwing: CancellationError()) }
+            return (stream, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!)
+        }
+        var sawAbort = false
+        for await event in MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {
+            if case .error = event { sawAbort = true }
+        }
+        XCTAssertTrue(sawAbort)
+        MistralConversationsProvider.requestTransport = nil
+    }
+
+    func testUpstream0842DeepSeekMixedCaseMaxTokensCompat() {
+        let model = Model(id: "deepseek-v4-pro", name: "DeepSeek", api: .openAICompletions, provider: .openRouter, baseUrl: "https://Proxy.DeepSeek.COM/v1")
+        let compat = Compat.detect(for: model)
+        XCTAssertEqual(compat.thinkingFormat, "deepseek")
+        XCTAssertEqual(compat.maxTokensField, "max_tokens")
+    }
+
 }
 
 private actor CleanupBox {

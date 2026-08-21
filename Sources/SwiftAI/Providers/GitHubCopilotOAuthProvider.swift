@@ -152,10 +152,28 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
     }
 
     public func enableAllModels(token: String, enterpriseDomain: String) async {
-        let models = (try? BuiltinModels.all()) ?? []
+        let ids = ((try? BuiltinModels.all()) ?? []).filter { $0.provider == .githubCopilot }.map(\.id)
+        await enableModels(token: token, modelIDs: ids, enterpriseDomain: enterpriseDomain)
+    }
+
+    public func enableModels(token: String, modelIDs: [String], enterpriseDomain: String, maxConcurrent: Int = 4, operation: (@Sendable (String) async -> Bool)? = nil) async {
+        let limit = max(1, maxConcurrent)
+        var iterator = modelIDs.makeIterator()
         await withTaskGroup(of: Void.self) { group in
-            for model in models where model.provider == .githubCopilot {
-                group.addTask { _ = await enableModel(token: token, modelID: model.id, enterpriseDomain: enterpriseDomain) }
+            var inFlight = 0
+            func submit(_ modelID: String) {
+                inFlight += 1
+                group.addTask {
+                    if let operation { _ = await operation(modelID) }
+                    else { _ = await enableModel(token: token, modelID: modelID, enterpriseDomain: enterpriseDomain) }
+                }
+            }
+            while inFlight < limit, let next = iterator.next(), !Task.isCancelled { submit(next) }
+            while inFlight > 0 {
+                await group.next()
+                inFlight -= 1
+                if Task.isCancelled { continue }
+                if let next = iterator.next() { submit(next) }
             }
         }
     }

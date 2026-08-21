@@ -4,6 +4,9 @@ import FoundationNetworking
 #endif
 
 public enum MistralConversationsProvider {
+    public typealias StreamingTransport = @Sendable (URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse)
+    nonisolated(unsafe) public static var requestTransport: StreamingTransport?
+
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
             Task {
@@ -35,14 +38,16 @@ public enum MistralConversationsProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none { request.setValue(session, forHTTPHeaderField: "x-affinity") }
+        if let timeoutMs = options?.timeoutMs, timeoutMs > 0 { request.timeoutInterval = Double(timeoutMs) / 1000.0 }
         AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)
-        let (bytes, response) = try await HTTPRetry.bytes(for: request, policy: RetryPolicy(options: options))
+        let (bytes, response) = try await streamingBytes(for: request)
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }
-        guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: "HTTP \(http.statusCode)") }
+        guard (200..<300).contains(http.statusCode) else { throw AIError.apiError(status: http.statusCode, body: try await boundedBody(bytes: bytes)) }
         var state = MistralStreamState(model: model)
         var buffer = Data()
         for try await byte in bytes {
@@ -55,6 +60,19 @@ public enum MistralConversationsProvider {
             }
         }
         finish(state: &state) { continuation.yield($0) }
+    }
+
+    private static func streamingBytes(for request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        if let requestTransport { return try await requestTransport(request) }
+        return try await HTTPRetry.bytes(for: request, policy: .noRetry())
+    }
+
+    private static func boundedBody(bytes: AsyncThrowingStream<UInt8, Error>) async throws -> String {
+        var data = Data()
+        for try await byte in bytes {
+            if data.count < AIUtilities.maxProviderErrorBodyChars { data.append(byte) }
+        }
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     private static func firstSSEFrameDelimiter(in data: Data) -> Range<Data.Index>? {

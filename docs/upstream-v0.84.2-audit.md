@@ -22,7 +22,7 @@ The bounded `packages/ai` delta is exactly 42 changed paths: 18 source, 21 tests
 | 8 | `packages/ai/src/api/google-generative-ai.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
 | 9 | `packages/ai/src/api/google-shared.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
 | 10 | `packages/ai/src/api/google-vertex.ts` | Ported: Google/Vertex STOP/MAX_TOKENS/raw reason behavior covered by existing raw stop tests. |
-| 11 | `packages/ai/src/api/mistral-conversations.ts` | Ported/adapted: Swift exposes an injectable raw streaming transport seam with URLSession fallback, sends `x-affinity`, bounds non-2xx bodies, and covers UTF-8 split bytes, abort, timeout, headers/status/body, request/replay/tool/thinking/usage behavior. |
+| 11 | `packages/ai/src/api/mistral-conversations.ts` | Ported/adapted: Swift uses an incremental delegate-based URLSession streaming transport by default, also exposes an injectable raw stream seam, sends `x-affinity`, bounds non-2xx bodies, maps cancellation to aborted, and covers production first-event-before-completion plus UTF-8 split bytes, abort, timeout, headers/status/body, cached usage, request/replay/tool/thinking behavior. |
 | 12 | `packages/ai/src/api/openai-codex-responses.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
 | 13 | `packages/ai/src/api/openai-completions.ts` | Runtime change: strict JSON-schema conversion plus case-insensitive DeepSeek hostname detection and `max_tokens`; covered by `testUpstream0842StrictSchemaAndNullableNullOmission` and `testUpstream0842DeepSeekMixedCaseMaxTokensCompat`. |
 | 14 | `packages/ai/src/api/openai-responses-shared.ts` | Ported: Responses/Codex additional_tools, namespace/endTurn, User-Agent, stream/replay behavior covered by focused tests and exact catalog compat. |
@@ -84,7 +84,7 @@ Implemented/adapted in Swift:
 - Strict JSON-schema tool conversion and optional non-nullable null omission.
 - Kimi/Codex runtime `User-Agent` handling.
 - Responses/Codex message-anchored `additional_tools`, tool-search fallback, namespace preservation, and `AssistantMessage.endTurn`.
-- Mistral injectable raw streaming transport seam, `x-affinity`, bounded non-2xx response bodies, timeout/abort handling, request/replay behavior, usage/raw stop/error behavior, and UTF-8-safe SSE chunk framing.
+- Mistral incremental default URLSession streaming transport, injectable raw streaming seam, `x-affinity`, bounded non-2xx response bodies, timeout/abort handling, cancellation-to-aborted mapping, cached-token usage, request/replay behavior, raw stop/error behavior, and UTF-8-safe SSE chunk framing.
 - Copilot policy/model update is capped at 4 concurrent structured tasks and remains cancellation-safe.
 - Retry classifier includes `exceeded request buffer limit while retrying upstream`.
 - Case-insensitive DeepSeek detection/max-token compatibility is represented in generated catalog compat and request builders.

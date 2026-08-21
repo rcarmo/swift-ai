@@ -72,7 +72,7 @@ The v0.84.2 changed-test slice contains exactly 21 paths total: 18 existing test
 | 60 | `packages/ai/test/lax-message-content.test.ts` | ported | message transform/content tests | Lax content/unknown blocks handled safely. |
 | 61 | `packages/ai/test/lazy-module-load.test.ts` | adapted | static-check/source import guards | JS lazy module loading is package/runtime wiring; Swift has direct static provider modules. |
 | 62 | `packages/ai/test/max-thinking.test.ts` | ported | thinking helpers and provider payload tests | Max/xhigh thinking mapping and clamps. |
-| 63 | `packages/ai/test/mistral-http-transport.test.ts` | ported | `testUpstream0842MistralStreamingTransportHeadersAndUTF8`, `testUpstream0842MistralTransportErrorBodyTimeoutAndAbort`, Mistral parser tests | Raw streaming seam, UTF-8 split bytes, x-affinity, non-2xx body, timeout, abort, usage/errors covered. |
+| 63 | `packages/ai/test/mistral-http-transport.test.ts` | ported | `testUpstream0842MistralStreamingTransportHeadersAndUTF8`, `testUpstream0842MistralTransportErrorBodyTimeoutAndAbort`, Mistral parser tests | Production first-event-before-completion, raw streaming seam, UTF-8 split bytes, x-affinity suppression/override, non-2xx body, timeout, aborted cancellation, cached usage/errors covered. |
 | 64 | `packages/ai/test/mistral-raw-stop-reason.test.ts` | ported | Mistral raw stop reason tests | Raw reason mapping retained. |
 | 65 | `packages/ai/test/mistral-reasoning-mode.test.ts` | ported | `ProviderMetadataTests.testMistralReasoningModeAndPromptCacheKey` | Mistral reasoning mode/effort and prompt cache key. |
 | 66 | `packages/ai/test/mistral-tool-schema.test.ts` | ported | Mistral tool schema tests | Tool schema conversion and validation error behavior. |

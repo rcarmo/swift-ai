@@ -3621,7 +3621,7 @@ final class SwiftAITests: XCTestCase {
         let box = Box()
         MistralConversationsProvider.requestTransport = { request in
             box.request = request
-            let json = #"{"id":"r","choices":[{"delta":{"content":"hé"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}"#
+            let json = #"{"id":"r","choices":[{"delta":{"content":"héllo 🌍"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14,"prompt_tokens_details":{"cached_tokens":3}}}"#
             let frame = "data: \(json)\n\ndata: [DONE]\n\n"
             let bytes = Array(frame.data(using: .utf8)!)
             let stream = AsyncThrowingStream<UInt8, Error> { continuation in
@@ -3632,16 +3632,20 @@ final class SwiftAITests: XCTestCase {
             return (stream, response)
         }
         defer { MistralConversationsProvider.requestTransport = nil }
-        var options = StreamOptions(); options.apiKey = "key"; options.sessionId = "session-1"; options.cacheRetention = .short
+        var options = StreamOptions(); options.apiKey = "key"; options.sessionId = "session-1"; options.cacheRetention = .short; options.headers = ["X-Affinity": nil]
         let model = Model(id: "mistral-small-latest", name: "Mistral", api: .mistralConversations, provider: .mistral, baseUrl: "https://api.mistral.ai/v1", cost: ModelCost(input: 1, output: 2))
         let events = MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options)
         var done: Message?
         for await event in events { if case .done(_, let message) = event { done = message } }
-        XCTAssertEqual(box.request?.value(forHTTPHeaderField: "x-affinity"), "session-1")
-        XCTAssertEqual(done?.content.first?.text, "hé")
-        XCTAssertEqual(done?.usage?.input, 2)
-        XCTAssertEqual(done?.usage?.output, 3)
-        XCTAssertEqual(done?.usage?.totalTokens, 5)
+        XCTAssertNil(box.request?.value(forHTTPHeaderField: "x-affinity"))
+        options.headers = ["X-Affinity": "override-session"]
+        for await _ in MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {}
+        XCTAssertEqual(box.request?.value(forHTTPHeaderField: "x-affinity"), "override-session")
+        XCTAssertEqual(done?.content.first?.text, "héllo 🌍")
+        XCTAssertEqual(done?.usage?.input, 7)
+        XCTAssertEqual(done?.usage?.cacheRead, 3)
+        XCTAssertEqual(done?.usage?.output, 4)
+        XCTAssertEqual(done?.usage?.totalTokens, 14)
     }
 
     func testUpstream0842MistralTransportErrorBodyTimeoutAndAbort() async throws {
@@ -3665,7 +3669,7 @@ final class SwiftAITests: XCTestCase {
         MistralConversationsProvider.requestTransport = { _ in throw URLError(.timedOut) }
         var sawTimeout = false
         for await event in MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {
-            if case .error = event { sawTimeout = true }
+            if case .error(let reason, let message, _) = event { sawTimeout = reason == .error && message?.errorMessage?.isEmpty == false }
         }
         XCTAssertTrue(sawTimeout)
 
@@ -3675,10 +3679,32 @@ final class SwiftAITests: XCTestCase {
         }
         var sawAbort = false
         for await event in MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options) {
-            if case .error = event { sawAbort = true }
+            if case .error(let reason, let message, _) = event { sawAbort = reason == .aborted && message?.stopReason == .aborted }
         }
         XCTAssertTrue(sawAbort)
         MistralConversationsProvider.requestTransport = nil
+    }
+
+    func testUpstream0842MistralProductionURLProtocolStreamsBeforeCompletion() async throws {
+        MistralStreamingURLProtocol.completed = false
+        MistralStreamingURLProtocol.requests = []
+        _ = URLProtocol.registerClass(MistralStreamingURLProtocol.self)
+        defer { URLProtocol.unregisterClass(MistralStreamingURLProtocol.self) }
+        MistralConversationsProvider.requestTransport = nil
+        MistralConversationsProvider.urlSessionConfiguration = { let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [MistralStreamingURLProtocol.self]; return config }
+        defer { MistralConversationsProvider.urlSessionConfiguration = { .default } }
+        var options = StreamOptions(); options.apiKey = "key"; options.sessionId = "prod-session"; options.cacheRetention = .short
+        let model = Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral, baseUrl: "https://mistral.test/v1")
+        let events = MistralConversationsProvider.stream(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        var sawEarlyDelta = false
+        for await event in events {
+            if case .textDelta(_, let delta, _) = event, delta.contains("hé") {
+                sawEarlyDelta = !MistralStreamingURLProtocol.completed
+                break
+            }
+        }
+        XCTAssertTrue(sawEarlyDelta)
+        XCTAssertEqual(MistralStreamingURLProtocol.requests.last?.value(forHTTPHeaderField: "x-affinity"), "prod-session")
     }
 
     func testUpstream0842DeepSeekMixedCaseMaxTokensCompat() {
@@ -3722,4 +3748,22 @@ private struct FakeCodexTransport: CodexTransport {
             continuation.finish()
         }
     }
+}
+
+private final class MistralStreamingURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var completed = false
+    nonisolated(unsafe) static var requests: [URLRequest] = []
+
+    override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "mistral.test" }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        Self.requests.append(request)
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/event-stream"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        let first = #"data: {"id":"r","choices":[{"delta":{"content":"hé"}}]}"# + "\n\n"
+        client?.urlProtocol(self, didLoad: Data(first.utf8))
+        // Leave the response body open; consumer termination calls stopLoading(),
+        // proving the first event was yielded before completion.
+    }
+    override func stopLoading() { Self.completed = true }
 }

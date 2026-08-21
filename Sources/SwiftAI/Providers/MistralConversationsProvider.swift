@@ -6,14 +6,17 @@ import FoundationNetworking
 public enum MistralConversationsProvider {
     public typealias StreamingTransport = @Sendable (URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse)
     nonisolated(unsafe) public static var requestTransport: StreamingTransport?
+    nonisolated(unsafe) public static var urlSessionConfiguration: @Sendable () -> URLSessionConfiguration = { .default }
 
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 do { try await streamRequest(model: model, context: context, options: options, continuation: continuation) }
-                catch { continuation.yield(.error(reason: .error, message: nil, error: error)) }
+                catch is CancellationError { continuation.yield(.error(reason: .aborted, message: errorMessage(model: model, stopReason: .aborted, message: nil), error: CancellationError())) }
+                catch { continuation.yield(.error(reason: .error, message: errorMessage(model: model, stopReason: .error, message: String(describing: error)), error: error)) }
                 continuation.finish()
             }
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -64,7 +67,8 @@ public enum MistralConversationsProvider {
 
     private static func streamingBytes(for request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
         if let requestTransport { return try await requestTransport(request) }
-        return try await HTTPRetry.bytes(for: request, policy: .noRetry())
+        let transport = MistralURLSessionStreamingTransport(configuration: urlSessionConfiguration())
+        return try await transport.stream(request: request)
     }
 
     private static func boundedBody(bytes: AsyncThrowingStream<UInt8, Error>) async throws -> String {
@@ -95,7 +99,7 @@ public enum MistralConversationsProvider {
         guard let raw = data.data(using: .utf8), let chunk = try? JSONDecoder().decode(MistralChunk.self, from: raw) else { return }
         if let id = chunk.id, !id.isEmpty { state.partial.responseId = id }
         if let model = chunk.model, !model.isEmpty, model != state.model.id, state.partial.responseModel == nil { state.partial.responseModel = model }
-        if let usage = chunk.usage { var u = state.partial.usage ?? Usage(); u.input = usage.promptTokens ?? 0; u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
+        if let usage = chunk.usage { var u = state.partial.usage ?? Usage(); let cached = usage.promptTokensDetails?.cachedTokens ?? 0; u.cacheRead = cached; u.input = max(0, (usage.promptTokens ?? 0) - cached); u.output = usage.completionTokens ?? 0; u.totalTokens = usage.totalTokens ?? (u.input + u.output + u.cacheRead); AIUtilities.applyCost(model: state.model, usage: &u); state.partial.usage = u }
         guard let choice = chunk.choices.first else { return }
         if let finish = choice.finishReason { state.finishReason = finish; state.partial.rawStopReason = finish }
         if let content = choice.delta.content, !content.isEmpty {
@@ -172,8 +176,43 @@ public enum MistralConversationsProvider {
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "stop", "end": return .stop; case "length", "model_length": return .length; case "tool_calls": return .toolUse; case "error": return .error; case nil: return .error; default: return .error } }
     private static func normalizeToolCallID(_ id: String) -> String { let filtered = id.filter { $0.isLetter || $0.isNumber }; if filtered.count == 9 { return String(filtered) }; return String(AIUtilities.shortHash(id).filter { $0.isLetter || $0.isNumber }.prefix(9)).padding(toLength: 9, withPad: "0", startingAt: 0) }
+    private static func errorMessage(model: Model, stopReason: StopReason, message: String?) -> Message { var out = Message(role: .assistant, content: []); out.api = model.api; out.provider = model.provider; out.model = model.id; out.stopReason = stopReason; out.errorMessage = message; return out }
 }
 
 private struct MistralStreamState { var model: Model; var partial: Message; var started = false; var finishReason: String?; var activeTools: [Int: MistralActiveTool] = [:]; init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
 private struct MistralActiveTool { var id: String?; var name: String?; var args: String; var contentIndex: Int }
-private struct MistralChunk: Decodable { var id: String?; var model: String?; var choices: [Choice]; var usage: UsagePayload?; struct Choice: Decodable { var delta: Delta; var finishReason: String?; enum CodingKeys: String, CodingKey { case delta; case finishReason = "finish_reason" } }; struct Delta: Decodable { var content: String?; var reasoning: String?; var toolCalls: [ToolCall]?; enum CodingKeys: String, CodingKey { case content; case reasoning = "reasoning_content"; case toolCalls = "tool_calls" } }; struct ToolCall: Decodable { var index: Int; var id: String?; var function: Function? }; struct Function: Decodable { var name: String?; var arguments: String? }; struct UsagePayload: Decodable { var promptTokens: Int?; var completionTokens: Int?; var totalTokens: Int?; enum CodingKeys: String, CodingKey { case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens" } } }
+private struct MistralChunk: Decodable { var id: String?; var model: String?; var choices: [Choice]; var usage: UsagePayload?; struct Choice: Decodable { var delta: Delta; var finishReason: String?; enum CodingKeys: String, CodingKey { case delta; case finishReason = "finish_reason" } }; struct Delta: Decodable { var content: String?; var reasoning: String?; var toolCalls: [ToolCall]?; enum CodingKeys: String, CodingKey { case content; case reasoning = "reasoning_content"; case toolCalls = "tool_calls" } }; struct ToolCall: Decodable { var index: Int; var id: String?; var function: Function? }; struct Function: Decodable { var name: String?; var arguments: String? }; struct UsagePayload: Decodable { var promptTokens: Int?; var completionTokens: Int?; var totalTokens: Int?; var promptTokensDetails: PromptTokensDetails?; enum CodingKeys: String, CodingKey { case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens"; case promptTokensDetails = "prompt_tokens_details" }; struct PromptTokensDetails: Decodable { var cachedTokens: Int?; enum CodingKeys: String, CodingKey { case cachedTokens = "cached_tokens" } } } }
+
+private final class MistralURLSessionStreamingTransport: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var responseContinuation: CheckedContinuation<URLResponse, Error>?
+    private var streamContinuation: AsyncThrowingStream<UInt8, Error>.Continuation?
+    private var task: URLSessionDataTask?
+    private var session: URLSession?
+    private let configuration: URLSessionConfiguration
+
+    init(configuration: URLSessionConfiguration = .default) { self.configuration = configuration }
+
+    func stream(request: URLRequest) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+        let stream = AsyncThrowingStream<UInt8, Error> { continuation in
+            lock.lock(); streamContinuation = continuation; lock.unlock()
+            continuation.onTermination = { [weak self] _ in self?.cancel() }
+        }
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        let task = session.dataTask(with: request)
+        set(session: session, task: task)
+        task.resume()
+        let response = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URLResponse, Error>) in
+            lock.lock(); responseContinuation = continuation; lock.unlock()
+        }
+        return (stream, response)
+    }
+
+    private func set(session: URLSession, task: URLSessionDataTask) { lock.lock(); self.session = session; self.task = task; lock.unlock() }
+    private func cancel() { lock.lock(); let task = task; let session = session; lock.unlock(); task?.cancel(); session?.invalidateAndCancel() }
+    private func resumeResponse(_ result: Result<URLResponse, Error>) { lock.lock(); let cont = responseContinuation; responseContinuation = nil; lock.unlock(); cont?.resume(with: result) }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) { resumeResponse(.success(response)); completionHandler(.allow) }
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) { lock.lock(); let cont = streamContinuation; lock.unlock(); for byte in data { cont?.yield(byte) } }
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) { if let error { resumeResponse(.failure(error)); streamContinuation?.finish(throwing: error) } else { streamContinuation?.finish() }; session.invalidateAndCancel() }
+}

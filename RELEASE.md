@@ -94,7 +94,7 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.2 tests: passed (`8` tests, including Copilot concurrency and Mistral wire tests).
+- focused v0.84.2 tests: passed, including Copilot concurrency and Mistral production/injected wire tests.
 - `swift test`: `240` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`240` tests each run).
 - `make check`: passed (`240` tests, `0` failures).

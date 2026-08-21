@@ -44,6 +44,9 @@ public enum MistralConversationsProvider {
         if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none { request.setValue(session, forHTTPHeaderField: "x-affinity") }
         if let timeoutMs = options?.timeoutMs, timeoutMs > 0 { request.timeoutInterval = Double(timeoutMs) / 1000.0 }
         AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
+        if let affinityOverride = options?.headers?.first(where: { $0.key.lowercased() == "x-affinity" }) {
+            request.setValue(affinityOverride.value, forHTTPHeaderField: "x-affinity")
+        }
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)

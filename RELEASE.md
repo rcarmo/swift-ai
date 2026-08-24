@@ -14,7 +14,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Swift parity branch: `main`
 - Current Swift parity commits for v0.84.3:
   - `663467a106896c9f8fa3796e393d1996eab1f5ff` — `Sync upstream v0.84.3 parity`
-  - This evidence commit — records green hosted CI evidence for `663467a`.
+  - `57f96f6c56462d1875c4e8f5a6a0c04f9c6d36ec` — `Close v0.84.3 Copilot policy gaps`
+  - This focused correction commit — closes final Copilot policy POST, Grok 4.6 transport, and Bedrock transport evidence gaps; green hosted CI must be captured after push.
 
 ## Exact upstream delta
 
@@ -63,11 +64,11 @@ Implemented/adapted:
 - Added provider-neutral `toolChoice` forwarding for Responses/Azure/Pi and retained OpenAI-compatible support.
 - Added default Pi `User-Agent` across HTTP adapters with explicit header override support.
 - Added Anthropic server-side fallback request/beta metadata and fallback compatibility metadata decoding.
-- Preserved/adapted Bedrock redacted reasoning/replay and raw response headers through pluggable transport/onResponse seams.
+- Preserved/adapted Bedrock redacted reasoning/replay and raw response headers through pluggable transport/onResponse seams, including fake production-transport streaming coverage.
 - Added Google thinking level mapping and configurable token budgets.
 - Preserved OpenAI-compatible configurable thinking budgets and reasoning-details replay.
-- Updated built-in xAI catalog to Responses/Grok 4.6/default endpoint/reasoning/UA behavior through exact catalog and request tests.
-- Preserved Copilot throttling/retry/policy-update/login budget/persistence via bounded structured concurrency and cancellation-aware sleep/retry evidence.
+- Updated built-in xAI catalog to Responses/Grok 4.6/default endpoint/reasoning/UA behavior through exact catalog and actual transport request tests.
+- Preserved Copilot throttling/retry/policy-update/login budget/persistence via bounded structured concurrency and cancellation-aware sleep/retry evidence, including policy POST retry/failure continuation.
 - Added ZAI Coding Plan China/global and DeepSeek V4 Pro 0813 generated compatibility.
 
 N/A/adapted:
@@ -93,10 +94,10 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.3 correction tests: passed, including Copilot policy catalog/retry filtering.
-- `swift test`: `253` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`253` tests each run).
-- `make check`: passed (`253` tests, `0` failures).
+- focused v0.84.3 correction tests: passed, including Copilot policy catalog/retry filtering, policy POST retry/failure continuation, Grok 4.6 actual transport assertions, and fake Bedrock transport redacted-reasoning/header streaming.
+- `swift test`: `255` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`255` tests each run).
+- `make check`: passed (`255` tests, `0` failures).
 - `scripts/audit-parity.py`: passed with exact v0.84.3 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
 - `scripts/static-check.py`: passed, including self-test.

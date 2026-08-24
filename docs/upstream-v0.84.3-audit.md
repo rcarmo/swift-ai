@@ -18,7 +18,7 @@ The bounded `packages/ai` delta is exactly 48 changed paths: 19 source, 25 tests
 | 4 | `packages/ai/scripts/generate-models.ts` | Package/docs/generated metadata recorded in STATUS/PARITY/RELEASE/audit. |
 | 5 | `packages/ai/src/api/anthropic-messages.ts` | Ported: default Pi User-Agent, server-side fallback body/beta metadata, and fallback pricing metadata decoded. |
 | 6 | `packages/ai/src/api/azure-openai-responses.ts` | Ported: provider-neutral toolChoice, User-Agent, Responses/Codex/xAI replay behavior. |
-| 7 | `packages/ai/src/api/bedrock-converse-stream.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered; live AWS headers remain transport-owned. |
+| 7 | `packages/ai/src/api/bedrock-converse-stream.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered, including fake production-transport streaming; live AWS headers remain transport-owned. |
 | 8 | `packages/ai/src/api/google-generative-ai.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
 | 9 | `packages/ai/src/api/google-shared.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
 | 10 | `packages/ai/src/api/google-vertex.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
@@ -32,17 +32,17 @@ The bounded `packages/ai` delta is exactly 48 changed paths: 19 source, 25 tests
 | 18 | `packages/ai/src/auth/oauth/github-copilot.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests. |
 | 19 | `packages/ai/src/auth/oauth/kimi-coding.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests. |
 | 20 | `packages/ai/src/index.ts` | Package/docs/generated metadata recorded in STATUS/PARITY/RELEASE/audit. |
-| 21 | `packages/ai/src/providers/xai.ts` | Ported: built-in xAI Responses migration, Grok 4.6/default endpoint/reasoning/UA via exact catalog and request tests. |
+| 21 | `packages/ai/src/providers/xai.ts` | Ported: built-in xAI Responses migration, Grok 4.6/default endpoint/reasoning/UA via exact catalog and actual transport request tests. |
 | 22 | `packages/ai/src/types.ts` | Package/docs/generated metadata recorded in STATUS/PARITY/RELEASE/audit. |
 | 23 | `packages/ai/src/utils/sleep.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests. |
 | 24 | `packages/ai/test/anthropic-auth-token.test.ts` | Ported: default Pi User-Agent, server-side fallback body/beta metadata, and fallback pricing metadata decoded. |
 | 25 | `packages/ai/test/azure-openai-base-url.test.ts` | Ported: provider-neutral toolChoice, User-Agent, Responses/Codex/xAI replay behavior. |
 | 26 | `packages/ai/test/azure-openai-tool-choice.test.ts` | Ported: provider-neutral toolChoice, User-Agent, Responses/Codex/xAI replay behavior. |
 | 27 | `packages/ai/test/baseten-models.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
-| 28 | `packages/ai/test/bedrock-redacted-reasoning.test.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered; live AWS headers remain transport-owned. |
-| 29 | `packages/ai/test/bedrock-response-headers.test.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered; live AWS headers remain transport-owned. |
+| 28 | `packages/ai/test/bedrock-redacted-reasoning.test.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered, including fake production-transport streaming; live AWS headers remain transport-owned. |
+| 29 | `packages/ai/test/bedrock-response-headers.test.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered, including fake production-transport streaming; live AWS headers remain transport-owned. |
 | 30 | `packages/ai/test/generate-models-strict.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
-| 31 | `packages/ai/test/github-copilot-oauth.test.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests. |
+| 31 | `packages/ai/test/github-copilot-oauth.test.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests, including policy POST retry/failure continuation. |
 | 32 | `packages/ai/test/google-raw-stop-reason.test.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
 | 33 | `packages/ai/test/google-thinking-level-map.test.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
 | 34 | `packages/ai/test/google-vertex-api-key-resolution.test.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
@@ -57,7 +57,7 @@ The bounded `packages/ai` delta is exactly 48 changed paths: 19 source, 25 tests
 | 43 | `packages/ai/test/qwen-token-plan-models.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
 | 44 | `packages/ai/test/stream.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
 | 45 | `packages/ai/test/supports-xhigh.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
-| 46 | `packages/ai/test/xai-responses.test.ts` | Ported: built-in xAI Responses migration, Grok 4.6/default endpoint/reasoning/UA via exact catalog and request tests. |
+| 46 | `packages/ai/test/xai-responses.test.ts` | Ported: built-in xAI Responses migration, Grok 4.6/default endpoint/reasoning/UA via exact catalog and actual transport request tests. |
 | 47 | `packages/ai/test/xiaomi-models.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
 | 48 | `packages/ai/test/zai-coding-plan-models.test.ts` | Ported: ZAI Coding Plan global/CN and DeepSeek V4 Pro 0813 via exact catalog/tests. |
 
@@ -74,11 +74,11 @@ Implemented/adapted in Swift:
 - Provider-neutral `toolChoice` through OpenAI Responses/Azure/Pi/OpenAI-compatible requests.
 - Default Pi `User-Agent` with explicit override via provider headers across HTTP adapters.
 - Anthropic server-side fallbacks/refusal metadata and fallback pricing compatibility metadata.
-- Bedrock redacted reasoning/replay and raw response header/onResponse transport surfaces; live AWS transport remains pluggable.
+- Bedrock redacted reasoning/replay and raw response header/onResponse transport surfaces, including fake production-transport streaming; live AWS transport remains pluggable.
 - Google thinking-level resolved mapping and configurable token budgets.
 - Configurable OpenAI-compatible thinking budgets and reasoning-details preservation.
-- xAI built-in migration to Responses, Grok 4.6/default/endpoint/reasoning/UA and encrypted reasoning replay.
-- Copilot throttling/retry/policy-update/login budget/persistence fixes through bounded structured concurrency and cancellation-aware sleep/retry.
+- xAI built-in migration to Responses, Grok 4.6/default/endpoint/reasoning/UA and encrypted reasoning replay through actual transport assertions.
+- Copilot throttling/retry/policy-update/login budget/persistence fixes through bounded structured concurrency and cancellation-aware sleep/retry, including policy POST retry/failure continuation.
 - ZAI Coding Plan China/global and DeepSeek V4 Pro 0813 generated compatibility.
 
 JS-only/N/A decisions are limited to package docs/exports/lazy module mechanics and live/provider credential matrices captured in the crosswalk.

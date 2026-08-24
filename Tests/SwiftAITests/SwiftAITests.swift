@@ -2530,6 +2530,22 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(captured.body["prompt_cache_retention"])
         guard case .array(let input)? = captured.body["input"] else { return XCTFail("missing input") }
         XCTAssertTrue(input.contains { if case .object(let item) = $0 { return item["role"] == .string("developer") && item["content"] == .string("You are a careful coding assistant.") }; return false })
+
+        let grok46 = try XCTUnwrap(models.first { $0.provider == .xai && $0.id == "grok-4.6" })
+        XCTAssertEqual(Set(AIUtilities.supportedThinkingLevels(model: grok46)), Set([.low, .medium, .high, .xhigh]))
+        var assistant = Message(role: .assistant, content: [.thinking("encrypted", signature: "{\"id\":\"rs1\",\"type\":\"reasoning\",\"encrypted_content\":\"enc\"}")])
+        assistant.api = .openAIResponses; assistant.provider = .xai; assistant.model = "grok-4.6"
+        options.reasoning = .xhigh
+        options.headers = ["User-Agent": "xai-custom-agent"]
+        for await event in OpenAIResponsesProvider.stream(model: grok46, context: AIContext(messages: [assistant, .user("continue")]), options: options) { last = event }
+        guard case .done = last else { return XCTFail("missing grok 4.6 done event") }
+        XCTAssertEqual(captured.url, "https://api.x.ai/v1/responses")
+        XCTAssertEqual(captured.headers["user-agent"], "xai-custom-agent")
+        XCTAssertEqual(captured.body["model"], .string("grok-4.6"))
+        XCTAssertEqual(captured.body["reasoning"], .object(["effort": .string("xhigh")]))
+        XCTAssertEqual(captured.body["include"], .array([.string("reasoning.encrypted_content")]))
+        guard case .array(let secondInput)? = captured.body["input"] else { return XCTFail("missing grok 4.6 input") }
+        XCTAssertTrue(secondInput.contains { $0.objectValue?["encrypted_content"] == .string("enc") })
     }
 
     func testCodexResponsesActualRequestClampsUnicodeSessionHeaders() async throws {
@@ -3879,6 +3895,63 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(fetched.policyModelIds, ["needs-policy"])
     }
 
+    func testFinalBedrockTransportStreamsRedactedReasoningAndHeaders() async throws {
+        await SwiftAI.bootstrap()
+        await BedrockTransportRegistry.shared.setTransport(RedactedBedrockTransport())
+        defer { Task { await BedrockTransportRegistry.shared.setTransport(nil) } }
+        final class Box: @unchecked Sendable { var response: HTTPResponseMetadata? }
+        let box = Box()
+        var options = StreamOptions(); options.onResponse = { response, _ in box.response = response }
+        let model = Model(id: "anthropic.claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock)
+        let message = try await SwiftAI.complete(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(box.response?.status, 299)
+        XCTAssertEqual(box.response?.headers["x-bedrock-request"], "ok")
+        XCTAssertEqual(message.content.map(\.type), ["thinking", "thinking", "text"])
+        XCTAssertEqual(message.content[0].redacted, true)
+        XCTAssertEqual(message.content[0].thinking, "opaque")
+        XCTAssertEqual(message.content[1].thinkingSignature, "sig")
+        let replay = BedrockProvider.buildConverseRequest(model: model, context: AIContext(messages: [message]), options: nil)
+        guard case .array(let messages)? = replay["messages"], case .object(let first) = messages.first, case .array(let content)? = first["content"] else { return XCTFail("missing replay") }
+        XCTAssertTrue(content.contains { $0.objectValue?["reasoningContent"]?.objectValue?["redactedContent"] == .string("opaque") })
+        XCTAssertTrue(content.contains { $0.objectValue?["reasoningContent"]?.objectValue?["reasoningText"]?.objectValue?["signature"] == .string("sig") })
+    }
+
+    func testFinalCopilotPolicyPostRetryFailureContinuation() async throws {
+        final class Box: @unchecked Sendable {
+            private let lock = NSLock()
+            private var storedRequests: [URLRequest] = []
+            private var storedAttempts: [String: Int] = [:]
+            func record(_ request: URLRequest) -> (String, Int) {
+                lock.lock(); defer { lock.unlock() }
+                storedRequests.append(request)
+                let id = request.url?.lastPathComponent == "policy" ? request.url?.deletingLastPathComponent().lastPathComponent ?? "" : ""
+                storedAttempts[id, default: 0] += 1
+                return (id, storedAttempts[id] ?? 0)
+            }
+            func attempts(for id: String) -> Int? { lock.lock(); defer { lock.unlock() }; return storedAttempts[id] }
+            func requests() -> [URLRequest] { lock.lock(); defer { lock.unlock() }; return storedRequests }
+        }
+        let box = Box()
+        GitHubCopilotOAuthProvider.dataTransport = { request in
+            let (id, attempt) = box.record(request)
+            if id == "retry" && attempt == 1 {
+                return (Data(), HTTPURLResponse(url: request.url!, statusCode: 429, httpVersion: nil, headerFields: ["Retry-After": "0"])!)
+            }
+            if id == "throw" { throw URLError(.cannotConnectToHost) }
+            if id == "huge" { return (Data(), HTTPURLResponse(url: request.url!, statusCode: 429, httpVersion: nil, headerFields: ["Retry-After": "120"])!) }
+            return (Data(), HTTPURLResponse(url: request.url!, statusCode: 204, httpVersion: nil, headerFields: [:])!)
+        }
+        defer { GitHubCopilotOAuthProvider.dataTransport = nil }
+        let provider = GitHubCopilotOAuthProvider()
+        let enabled = await provider.enableModels(token: "tok", modelIDs: ["retry", "throw", "ok", "huge", "after"], enterpriseDomain: "", maxConcurrent: 4)
+        XCTAssertEqual(Set(enabled), ["retry", "ok", "after"])
+        XCTAssertEqual(box.attempts(for: "retry"), 2)
+        let post = try XCTUnwrap(box.requests().first { $0.httpMethod == "POST" && $0.url?.absoluteString.contains("/models/retry/policy") == true })
+        XCTAssertEqual(post.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
+        XCTAssertEqual(post.value(forHTTPHeaderField: "openai-intent"), "chat-policy")
+        XCTAssertEqual(String(data: post.httpBody ?? Data(), encoding: .utf8), "{\"state\":\"enabled\"}")
+    }
+
 }
 
 private actor CleanupBox {
@@ -3895,6 +3968,18 @@ private struct FakeBedrockTransport: BedrockTransport {
             message.provider = model.provider
             message.model = model.id
             message.stopReason = .stop
+            continuation.yield(.done(reason: .stop, message: message))
+            continuation.finish()
+        }
+    }
+}
+
+private struct RedactedBedrockTransport: BedrockTransport {
+    func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
+        AsyncStream { continuation in
+            Task { await BedrockProvider.notifyResponse(BedrockResponseMetadata(status: 299, headers: ["x-bedrock-request": "ok", "x-extra": "1"]), model: model, options: options) }
+            var message = Message(role: .assistant, content: [.thinking("opaque", redacted: true), .thinking("visible", signature: "sig"), .text("done")])
+            message.api = model.api; message.provider = model.provider; message.model = model.id; message.stopReason = .stop
             continuation.yield(.done(reason: .stop, message: message))
             continuation.finish()
         }

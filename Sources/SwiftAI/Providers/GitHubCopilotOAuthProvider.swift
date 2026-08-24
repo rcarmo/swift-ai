@@ -202,8 +202,12 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         request.setValue("chat-policy", forHTTPHeaderField: "x-interaction-type")
         for (k, v) in copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
         request.httpBody = try? JSONEncoder().encode(JSONValue.object(["state": .string("enabled")]))
-        guard let (_, response) = try? await URLSession.shared.data(for: request), let http = response as? HTTPURLResponse else { return false }
-        return (200..<300).contains(http.statusCode)
+        do {
+            let (_, response) = try await Self.fetchWithRateLimitRetry(request: request, maxRetries: 2, maxElapsedMs: 5_000)
+            return (200..<300).contains(response.statusCode)
+        } catch {
+            return false
+        }
     }
 
     public static func parseModelCatalog(_ models: [CopilotModel], allowPolicyFallback: Bool) -> CopilotModelCatalog {

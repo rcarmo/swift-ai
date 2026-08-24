@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.2")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1267)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.3")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1312)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 45)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.2")
-        XCTAssertEqual(BuiltinModels.modelCount, 1267)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.3")
+        XCTAssertEqual(BuiltinModels.modelCount, 1312)
         XCTAssertEqual(BuiltinModels.providerCount, 39)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1267)
+        XCTAssertEqual(models.count, 1312)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -204,14 +204,14 @@ final class SwiftAITests: XCTestCase {
 
     func testXiaomiMiMoModelPlacement() throws {
         let models = try BuiltinModels.all()
-        XCTAssertNotNil(models.first { $0.provider == .xiaomi && $0.id == "mimo-v2-flash" })
+        XCTAssertNotNil(models.first { $0.provider == .xiaomi && $0.id == "mimo-v2.5" })
         for provider in [Provider.xiaomiTokenPlanCN, .xiaomiTokenPlanAMS, .xiaomiTokenPlanSGP] {
-            XCTAssertFalse(models.contains { $0.provider == provider && $0.id == "mimo-v2-flash" }, provider.rawValue)
+            XCTAssertTrue(models.contains { $0.provider == provider && $0.id == "mimo-v2.5" }, provider.rawValue)
         }
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.2")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.3")
         XCTAssertEqual(BuiltinImageModels.modelCount, 45)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -2501,7 +2501,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(model.thinkingLevelMap?[.minimal]!)
         XCTAssertNil(model.thinkingLevelMap?[.xhigh]!)
         XCTAssertNil(model.thinkingLevelMap?[.max]!)
-        XCTAssertEqual(models.first { $0.provider == .xai && $0.id == "grok-4.3" }?.api, .openAICompletions)
+        XCTAssertEqual(models.first { $0.provider == .xai && $0.id == "grok-4.3" }?.api, .openAIResponses)
 
         final class CapturedGrokRequest: @unchecked Sendable { var url = ""; var headers: [String: String] = [:]; var body: [String: JSONValue] = [:] }
         let captured = CapturedGrokRequest()
@@ -3712,6 +3712,36 @@ final class SwiftAITests: XCTestCase {
         let compat = Compat.detect(for: model)
         XCTAssertEqual(compat.thinkingFormat, "deepseek")
         XCTAssertEqual(compat.maxTokensField, "max_tokens")
+    }
+
+    func testUpstream0843ToolChoiceUserAgentAndAnthropicFallbacks() throws {
+        var responseOptions = StreamOptions()
+        responseOptions.toolChoice = .object(["type": .string("function"), "name": .string("lookup")])
+        let responseBody = OpenAIResponsesProvider.buildRequestBody(model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI), context: AIContext(messages: [.user("hi")]), options: responseOptions)
+        XCTAssertEqual(responseBody["tool_choice"], responseOptions.toolChoice)
+
+        let fallback = AnthropicFallbackModel(provider: "anthropic", model: "claude-opus-4-8", cost: ModelCost(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25))
+        let anthropic = Model(id: "claude-fable-5", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: AnthropicMessagesCompat(allowedFallbackModels: [fallback]))
+        let body = AnthropicMessagesProvider.buildRequestBody(model: anthropic, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(body["fallbacks"], .array([.object(["model": .string("claude-opus-4-8")])]))
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: anthropic, context: AIContext(), apiKey: "key", options: nil)
+        XCTAssertEqual(headers["User-Agent"], AIUtilities.piUserAgent())
+        XCTAssertTrue(headers["Anthropic-Beta"]?.contains("server-side-fallback-2026-07-01") == true)
+    }
+
+    func testUpstream0843GoogleThinkingLevelMapAndBudgets() {
+        let model = Model(id: "gemini-3-pro", name: "Gemini", api: .googleGenerativeAI, provider: .google, reasoning: true, thinkingLevelMap: [.low: "LOW", .medium: "MEDIUM", .high: "HIGH"])
+        var options = StreamOptions()
+        options.reasoning = .medium
+        let body = GoogleGenerativeAIProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["generationConfig"]?.objectValue?["thinkingConfig"], .object(["includeThoughts": .bool(true), "thinkingLevel": .string("MEDIUM")]))
+
+        let budgeted = Model(id: "gemini-2.5-flash", name: "Gemini", api: .googleGenerativeAI, provider: .google, reasoning: true)
+        var budgetOptions = StreamOptions()
+        budgetOptions.reasoning = .high
+        budgetOptions.thinkingBudgets = ThinkingBudgets(high: 12345)
+        let budgetBody = GoogleGenerativeAIProvider.buildRequestBody(model: budgeted, context: AIContext(messages: [.user("hi")]), options: budgetOptions)
+        XCTAssertEqual(budgetBody["generationConfig"]?.objectValue?["thinkingConfig"], .object(["includeThoughts": .bool(true), "thinkingBudget": .number(12345)]))
     }
 
 }

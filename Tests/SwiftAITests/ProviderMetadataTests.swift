@@ -440,7 +440,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     func testUpstream0811QwenTokenPlanCatalogMetadata() throws {
         for provider in [Provider.qwenTokenPlan, Provider.qwenTokenPlanCN] {
             let ids = Set(try BuiltinModels.all().filter { $0.provider == provider }.map(\.id))
-            XCTAssertEqual(ids.count, 16)
+            XCTAssertEqual(ids.count, 17)
             XCTAssertTrue(ids.contains("qwen3.8-max"))
             XCTAssertTrue(ids.contains("glm-5.2"))
             let model = try self.model(provider, "qwen3.8-max")
@@ -458,6 +458,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(individualIDs, [
             "deepseek-v4-flash-0731",
             "deepseek-v4-pro",
+            "deepseek-v4-pro-0813",
             "glm-5.2",
             "qwen3.6-flash",
             "qwen3.7-max",

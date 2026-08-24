@@ -25,7 +25,7 @@ public enum GoogleGenerativeAIProvider {
             if let reasoning = options?.reasoning {
                 let mapped = mappedThinkingEffort(model: model, effort: reasoning.rawValue)
                 if usesThinkingLevel(model) { gen["thinkingConfig"] = .object(["includeThoughts": .bool(true), "thinkingLevel": .string(googleThinkingLevel(mapped, model: model))]) }
-                else { gen["thinkingConfig"] = .object(["includeThoughts": .bool(true), "thinkingBudget": .number(Double(googleBudget(mapped)))]) }
+                else { gen["thinkingConfig"] = .object(["includeThoughts": .bool(true), "thinkingBudget": .number(Double(googleBudget(mapped, options: options)))]) }
             } else {
                 gen["thinkingConfig"] = disabledThinkingConfig(model: model)
             }
@@ -56,6 +56,7 @@ public enum GoogleGenerativeAIProvider {
         var request = URLRequest(url: URL(string: try buildStreamURL(model: model, apiKey: key, options: options))!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent")
         AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
@@ -176,7 +177,7 @@ public enum GoogleGenerativeAIProvider {
     private static func usesThinkingLevel(_ model: Model) -> Bool { model.id.lowercased().contains("gemini-3") || model.id.lowercased().contains("gemma-4") || model.id == "gemini-flash-latest" || model.id == "gemini-flash-lite-latest" }
     private static func supportsMultimodalFunctionResponse(_ modelID: String) -> Bool { let lower = modelID.lowercased(); if lower.hasPrefix("gemini-") { return lower.contains("gemini-3") }; return true }
     private static func googleThinkingLevel(_ effort: String, model: Model) -> String { switch effort { case "minimal": return "MINIMAL"; case "low": return model.id.lowercased().contains("gemini-3") && model.id.lowercased().contains("pro") ? "LOW" : "LOW"; case "medium": return "MEDIUM"; case "high": return "HIGH"; default: return effort.uppercased() } }
-    private static func googleBudget(_ effort: String) -> Int { switch effort { case "minimal": return 1024; case "low": return 2048; case "medium": return 8192; case "high": return 24576; default: return 8192 } }
+    private static func googleBudget(_ effort: String, options: StreamOptions?) -> Int { switch effort { case "minimal": return options?.thinkingBudgets?.minimal ?? 1024; case "low": return options?.thinkingBudgets?.low ?? 2048; case "medium": return options?.thinkingBudgets?.medium ?? 8192; case "high": return options?.thinkingBudgets?.high ?? 24576; default: return options?.thinkingBudgets?.medium ?? 8192 } }
     private static func disabledThinkingConfig(model: Model) -> JSONValue { usesThinkingLevel(model) ? .object(["thinkingLevel": .string(model.id.lowercased().contains("pro") ? "LOW" : "MINIMAL")]) : .object(["thinkingBudget": .number(0)]) }
     public static func convertTools(_ tools: [Tool], useParameters: Bool = false) -> JSONValue? {
         guard !tools.isEmpty else { return nil }

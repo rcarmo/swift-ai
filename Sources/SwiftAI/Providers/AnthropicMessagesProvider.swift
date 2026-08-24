@@ -35,6 +35,7 @@ public enum AnthropicMessagesProvider {
         }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
         if !plan.tools.isEmpty { body["tools"] = .array(plan.tools.enumerated().map { idx, entry in toolJSON(entry.tool, model: model, isOAuthToken: isOAuth, deferred: entry.deferred, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == plan.tools.count - 1) ? cc : nil) }) }
+        if let fallbacks = model.anthropicCompat?.allowedFallbackModels, !fallbacks.isEmpty { body["fallbacks"] = .array(fallbacks.map { .object(["model": .string($0.model)]) }) }
         if model.reasoning {
             if let reasoning = options?.reasoning {
                 let effort = AIUtilities.mapThinkingLevel(model: model, level: ModelThinkingLevel(rawValue: reasoning.rawValue) ?? .high) ?? reasoning.rawValue
@@ -54,7 +55,7 @@ public enum AnthropicMessagesProvider {
     }
 
     public static func buildRequestHeaders(model: Model, context: AIContext, apiKey key: String, options: StreamOptions?) -> [String: String] {
-        var headers: [String: String] = ["Content-Type": "application/json", "Accept": "text/event-stream", "Anthropic-Version": apiVersion]
+        var headers: [String: String] = ["Content-Type": "application/json", "Accept": "text/event-stream", "Anthropic-Version": apiVersion, "User-Agent": AIUtilities.piUserAgent()]
         if model.provider == .githubCopilot {
             headers["Authorization"] = "Bearer \(key)"
             for (k, v) in AIUtilities.copilotHeaders() { headers[k] = v }
@@ -63,10 +64,6 @@ public enum AnthropicMessagesProvider {
             headers["Authorization"] = key.hasPrefix("Bearer ") ? key : "Bearer \(key)"
         } else {
             headers["X-Api-Key"] = key
-        }
-        if model.provider == .kimiCoding {
-            for key in headers.keys where key.lowercased() == "user-agent" { headers.removeValue(forKey: key) }
-            headers["User-Agent"] = AIUtilities.piUserAgent()
         }
         if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none, model.anthropicCompat?.sendSessionAffinityHeaders == true { headers["x-session-affinity"] = session }
         let betas = betaHeaders(model: model, context: context)
@@ -261,7 +258,7 @@ public enum AnthropicMessagesProvider {
         return out
     }
     public static func normalizeBaseURL(_ base: String) -> String { let b = base.isEmpty ? "https://api.anthropic.com/v1" : base.trimmingCharacters(in: CharacterSet(charactersIn: "/")); return b.hasSuffix("/v1") ? b : b + "/v1" }
-    private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; return out }
+    private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; if model.anthropicCompat?.allowedFallbackModels?.isEmpty == false { out.append("server-side-fallback-2026-07-01") }; return out }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh, .max: return options?.thinkingBudgets?.high ?? 16384 } }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "end_turn", "stop_sequence": return .stop; case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; case nil: return .pending; default: return .error } }
     private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false, deferredMarkers: [Int64: [String]] = [:]) -> [JSONValue] {

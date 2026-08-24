@@ -64,8 +64,6 @@ public enum SwiftAI {
         await OAuthRegistry.shared.register(XAIOAuthProvider())
         await OAuthRegistry.shared.register(OpenRouterOAuthProvider())
         await OAuthRegistry.shared.register(KimiCodingOAuthProvider())
-        await ModelRuntime.shared.register(RuntimeProvider(id: .xai, name: "xAI", fallbackModels: [Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536)]))
-        await AIRegistry.shared.register(Model(id: "grok-4.5", name: "Grok 4.5", api: .openAIResponses, provider: .xai, baseUrl: "https://api.x.ai/v1", reasoning: true, thinkingLevelMap: [.high: "high"], input: ["text"], cost: ModelCost(input: 3, output: 15, cacheRead: 0, cacheWrite: 0), contextWindow: 256000, maxTokens: 65536))
     }
 
     public static func stream(model: Model?, context: AIContext = AIContext(), options: StreamOptions? = nil) async -> AsyncStream<AIEvent> {

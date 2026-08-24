@@ -41,6 +41,7 @@ public enum MistralConversationsProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent")
         if let session = options?.sessionId, !session.isEmpty, options?.cacheRetention != CacheRetention.none { request.setValue(session, forHTTPHeaderField: "x-affinity") }
         if let timeoutMs = options?.timeoutMs, timeoutMs > 0 { request.timeoutInterval = Double(timeoutMs) / 1000.0 }
         AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)

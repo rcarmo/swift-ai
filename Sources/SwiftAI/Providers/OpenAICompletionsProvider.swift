@@ -314,6 +314,7 @@ public enum OpenAICompletionsProvider {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent")
         if stream { request.setValue("text/event-stream", forHTTPHeaderField: "Accept") }
         let compat = Compat.detect(for: model)
         try validateConstrainedSampling(tools: context.tools, compat: compat)

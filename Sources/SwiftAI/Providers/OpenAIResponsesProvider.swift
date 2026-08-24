@@ -57,6 +57,7 @@ public enum OpenAIResponsesProvider {
         } else if let reasoning = options?.reasoning {
             body["reasoning"] = reasoningPayload(model: model, effort: mappedThinkingEffort(model: model, effort: reasoning.rawValue), options: options); body["include"] = .array([.string("reasoning.encrypted_content")])
         }
+        if let toolChoice = options?.toolChoice { body["tool_choice"] = toolChoice }
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
@@ -179,7 +180,8 @@ public enum OpenAIResponsesProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        if model.api == .openAICodexResponses { for (k, v) in try codexHeaders(apiKey: key) { request.setValue(v, forHTTPHeaderField: k) }; request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent") }
+        request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent")
+        if model.api == .openAICodexResponses { for (k, v) in try codexHeaders(apiKey: key) { request.setValue(v, forHTTPHeaderField: k) } }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none {
             if model.api == .azureOpenAIResponses {

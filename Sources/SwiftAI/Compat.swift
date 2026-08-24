@@ -50,6 +50,8 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
     public var sessionAffinityFormat: String?
     public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil, supportsAdditionalTools: Bool? = nil, supportsExplicitPromptCacheMode: Bool? = nil, sessionAffinityFormat: String? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools; self.supportsAdditionalTools = supportsAdditionalTools; self.supportsExplicitPromptCacheMode = supportsExplicitPromptCacheMode; self.sessionAffinityFormat = sessionAffinityFormat }
 }
+public struct AnthropicFallbackModel: Codable, Equatable, Sendable { public var provider: String?; public var model: String; public var cost: ModelCost?; public init(provider: String? = nil, model: String, cost: ModelCost? = nil) { self.provider = provider; self.model = model; self.cost = cost } }
+
 public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?
     public var supportsLongCacheRetention: Bool?
@@ -60,7 +62,8 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var forceAdaptiveThinking: Bool?
     public var supportsToolReferences: Bool?
     public var supportsStrictTools: Bool?
-    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil) {
+    public var allowedFallbackModels: [AnthropicFallbackModel]?
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil, allowedFallbackModels: [AnthropicFallbackModel]? = nil) {
         self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
         self.supportsLongCacheRetention = supportsLongCacheRetention
         self.sendSessionAffinityHeaders = sendSessionAffinityHeaders
@@ -70,6 +73,7 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
         self.forceAdaptiveThinking = forceAdaptiveThinking
         self.supportsToolReferences = supportsToolReferences
         self.supportsStrictTools = supportsStrictTools
+        self.allowedFallbackModels = allowedFallbackModels
     }
 }
 

@@ -16,7 +16,7 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
   - `663467a106896c9f8fa3796e393d1996eab1f5ff` — `Sync upstream v0.84.3 parity`
   - `57f96f6c56462d1875c4e8f5a6a0c04f9c6d36ec` — `Close v0.84.3 Copilot policy gaps`
   - `e9735bc0116e69909764f0f4b53f4304188d4bb7` — `Close v0.84.3 final transport gaps`
-  - This final semantic correction commit — preserves credential persistence while stopping later Copilot policy POSTs after exhausted 429/elapsed budget; green hosted CI must be captured after push.
+  - `3cd3a869845310a0f9a3970a904e8ff76ca4d22e` — `Close v0.84.3 Copilot rate-limit semantics`
 
 ## Exact upstream delta
 
@@ -104,7 +104,17 @@ Latest local results before this commit:
 - `scripts/static-check.py`: passed, including self-test.
 - hidden skip scan: no `XCTSkip` matches.
 
-GitHub Actions evidence for `663467a106896c9f8fa3796e393d1996eab1f5ff`:
+GitHub Actions evidence for final v0.84.3 runtime commit `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`:
+
+- Run: <https://github.com/rcarmo/swift-ai/actions/runs/32770344240>
+- Status: `completed`
+- Conclusion: `success`
+- Jobs:
+  - `static-check`: success
+  - `swift-test (ubuntu-latest)`: success
+  - `swift-test (macos-14)`: success
+
+Prior implementation evidence for `663467a106896c9f8fa3796e393d1996eab1f5ff`:
 
 - Run: <https://github.com/rcarmo/swift-ai/actions/runs/32761084973>
 - Status: `completed`
@@ -113,8 +123,6 @@ GitHub Actions evidence for `663467a106896c9f8fa3796e393d1996eab1f5ff`:
   - `static-check`: success
   - `swift-test (ubuntu-latest)`: success
   - `swift-test (macos-14)`: success
-
-Fresh GitHub Actions evidence for this final evidence commit must be captured from the pushed commit and reported with the final handoff.
 
 ## Future release-audit checklist
 

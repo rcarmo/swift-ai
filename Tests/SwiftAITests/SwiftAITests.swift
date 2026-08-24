@@ -3626,7 +3626,7 @@ final class SwiftAITests: XCTestCase {
             await gauge.enter()
             try? await Task.sleep(nanoseconds: 10_000_000)
             await gauge.leave()
-            return true
+            return .enabled
         }
         let maxSeen = await gauge.maximum()
         XCTAssertLessThanOrEqual(maxSeen, 4)
@@ -3916,7 +3916,13 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(content.contains { $0.objectValue?["reasoningContent"]?.objectValue?["reasoningText"]?.objectValue?["signature"] == .string("sig") })
     }
 
-    func testFinalCopilotPolicyPostRetryFailureContinuation() async throws {
+    func testFinalCopilotPolicyPostRetryStopsAfterBudgetButContinuesTransportFailure() async throws {
+        let provider = GitHubCopilotOAuthProvider()
+        let failureContinues = await provider.enableModels(token: "tok", modelIDs: ["throw", "after"], enterpriseDomain: "", maxConcurrent: 1) { id in
+            id == "throw" ? .failed : .enabled
+        }
+        XCTAssertEqual(failureContinues, ["after"])
+
         final class Box: @unchecked Sendable {
             private let lock = NSLock()
             private var storedRequests: [URLRequest] = []
@@ -3942,14 +3948,37 @@ final class SwiftAITests: XCTestCase {
             return (Data(), HTTPURLResponse(url: request.url!, statusCode: 204, httpVersion: nil, headerFields: [:])!)
         }
         defer { GitHubCopilotOAuthProvider.dataTransport = nil }
-        let provider = GitHubCopilotOAuthProvider()
-        let enabled = await provider.enableModels(token: "tok", modelIDs: ["retry", "throw", "ok", "huge", "after"], enterpriseDomain: "", maxConcurrent: 4)
-        XCTAssertEqual(Set(enabled), ["retry", "ok", "after"])
+        let enabled = await provider.enableModels(token: "tok", modelIDs: ["retry", "throw", "ok", "huge", "after"], enterpriseDomain: "", maxConcurrent: 1)
+        XCTAssertEqual(Set(enabled), ["retry", "ok"])
         XCTAssertEqual(box.attempts(for: "retry"), 2)
+        XCTAssertNil(box.attempts(for: "after"))
         let post = try XCTUnwrap(box.requests().first { $0.httpMethod == "POST" && $0.url?.absoluteString.contains("/models/retry/policy") == true })
         XCTAssertEqual(post.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
         XCTAssertEqual(post.value(forHTTPHeaderField: "openai-intent"), "chat-policy")
         XCTAssertEqual(String(data: post.httpBody ?? Data(), encoding: .utf8), "{\"state\":\"enabled\"}")
+    }
+
+    func testFinalCopilotPostAuthFinalizationPersistsAfterBudgetExhaustionAndHTTPDateRetryAfter() async throws {
+        let provider = GitHubCopilotOAuthProvider()
+        final class Box: @unchecked Sendable { var requests: [URLRequest] = []; func append(_ request: URLRequest) { requests.append(request) } }
+        let box = Box()
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        let retryAfter = formatter.string(from: Date().addingTimeInterval(120))
+        GitHubCopilotOAuthProvider.dataTransport = { request in
+            box.append(request)
+            return (Data(), HTTPURLResponse(url: request.url!, statusCode: 429, httpVersion: nil, headerFields: ["Retry-After": retryAfter])!)
+        }
+        defer { GitHubCopilotOAuthProvider.dataTransport = nil }
+        let credentials = OAuthCredentials(refresh: "refresh", access: "tok", expires: 123, extra: ["enterpriseUrl": .string("")])
+        let catalog = CopilotModelCatalog(availableModelIds: ["available"], policyModelIds: ["huge", "after"])
+        let finalized = await provider.finalizePostAuthCredentials(credentials, catalog: catalog, enterpriseDomain: "", maxConcurrent: 1)
+        let store = InMemoryCredentialStore()
+        _ = try await store.modify(providerId: provider.id) { _ in .oauth(finalized) }
+        guard case .oauth(let saved)? = try await store.read(providerId: provider.id) else { return XCTFail("missing saved credentials") }
+        XCTAssertEqual(saved.access, "tok")
+        XCTAssertEqual(saved.extra?["availableModelIds"], .array([.string("available")]))
+        XCTAssertEqual(box.requests.count, 1)
+        XCTAssertTrue(box.requests.first?.url?.absoluteString.contains("/models/huge/policy") == true)
     }
 
 }
@@ -3977,11 +4006,13 @@ private struct FakeBedrockTransport: BedrockTransport {
 private struct RedactedBedrockTransport: BedrockTransport {
     func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
-            Task { await BedrockProvider.notifyResponse(BedrockResponseMetadata(status: 299, headers: ["x-bedrock-request": "ok", "x-extra": "1"]), model: model, options: options) }
-            var message = Message(role: .assistant, content: [.thinking("opaque", redacted: true), .thinking("visible", signature: "sig"), .text("done")])
-            message.api = model.api; message.provider = model.provider; message.model = model.id; message.stopReason = .stop
-            continuation.yield(.done(reason: .stop, message: message))
-            continuation.finish()
+            Task {
+                await BedrockProvider.notifyResponse(BedrockResponseMetadata(status: 299, headers: ["x-bedrock-request": "ok", "x-extra": "1"]), model: model, options: options)
+                var message = Message(role: .assistant, content: [.thinking("opaque", redacted: true), .thinking("visible", signature: "sig"), .text("done")])
+                message.api = model.api; message.provider = model.provider; message.model = model.id; message.stopReason = .stop
+                continuation.yield(.done(reason: .stop, message: message))
+                continuation.finish()
+            }
         }
     }
 }

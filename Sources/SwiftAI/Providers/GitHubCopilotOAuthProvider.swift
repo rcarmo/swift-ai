@@ -22,13 +22,7 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         let githubToken = try await pollForAccessToken(domain: domain, device: device)
         var credentials = try await refreshGitHubCopilotAccessToken(refreshToken: githubToken, enterpriseDomain: enterpriseDomain)
         let catalog = try await fetchAvailableModelCatalog(token: credentials.access, enterpriseDomain: enterpriseDomain, maxRetries: 2, maxElapsedMs: 5_000)
-        var ids = catalog.availableModelIds
-        if !catalog.policyModelIds.isEmpty {
-            if let onProgress = callbacks.onProgress { await onProgress("Enabling models...") }
-            let enabled = await enableModels(token: credentials.access, modelIDs: catalog.policyModelIds, enterpriseDomain: enterpriseDomain)
-            ids = Array(Set(ids).union(enabled)).sorted()
-        }
-        credentials.extra = (credentials.extra ?? [:]).merging(["availableModelIds": .array(ids.map { .string($0) })]) { _, new in new }
+        credentials = await finalizePostAuthCredentials(credentials, catalog: catalog, enterpriseDomain: enterpriseDomain, callbacks: callbacks)
         return credentials
     }
 
@@ -167,26 +161,49 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         _ = await enableModels(token: token, modelIDs: ids, enterpriseDomain: enterpriseDomain)
     }
 
-    @discardableResult public func enableModels(token: String, modelIDs: [String], enterpriseDomain: String, maxConcurrent: Int = 4, operation: (@Sendable (String) async -> Bool)? = nil) async -> [String] {
+    public func finalizePostAuthCredentials(_ credentials: OAuthCredentials, catalog: CopilotModelCatalog, enterpriseDomain: String, callbacks: OAuthLoginCallbacks = OAuthLoginCallbacks(), maxConcurrent: Int = 1) async -> OAuthCredentials {
+        var ids = catalog.availableModelIds
+        if !catalog.policyModelIds.isEmpty {
+            if let onProgress = callbacks.onProgress { await onProgress("Enabling models...") }
+            let enabled = await enableModels(token: credentials.access, modelIDs: catalog.policyModelIds, enterpriseDomain: enterpriseDomain, maxConcurrent: maxConcurrent)
+            ids = Array(Set(ids).union(enabled)).sorted()
+        }
+        var finalized = credentials
+        finalized.extra = (finalized.extra ?? [:]).merging(["availableModelIds": .array(ids.map { .string($0) })]) { _, new in new }
+        return finalized
+    }
+
+    @discardableResult public func enableModels(token: String, modelIDs: [String], enterpriseDomain: String, maxConcurrent: Int = 1, operation: (@Sendable (String) async -> CopilotPolicyUpdateOutcome)? = nil) async -> [String] {
         let limit = max(1, maxConcurrent)
         var iterator = modelIDs.makeIterator()
         var enabled: [String] = []
-        await withTaskGroup(of: (String, Bool).self) { group in
+        var stoppedForRateLimit = false
+        await withTaskGroup(of: (String, CopilotPolicyUpdateOutcome).self) { group in
             var inFlight = 0
             func submit(_ modelID: String) {
                 inFlight += 1
                 group.addTask {
-                    let ok: Bool
-                    if let operation { ok = await operation(modelID) }
-                    else { ok = await enableModel(token: token, modelID: modelID, enterpriseDomain: enterpriseDomain) }
-                    return (modelID, ok)
+                    let outcome: CopilotPolicyUpdateOutcome
+                    if let operation { outcome = await operation(modelID) }
+                    else { outcome = await enableModelPolicy(token: token, modelID: modelID, enterpriseDomain: enterpriseDomain) }
+                    return (modelID, outcome)
                 }
             }
             while inFlight < limit, let next = iterator.next(), !Task.isCancelled { submit(next) }
             while inFlight > 0 {
-                if let result = await group.next(), result.1 { enabled.append(result.0) }
+                if let result = await group.next() {
+                    switch result.1 {
+                    case .enabled:
+                        enabled.append(result.0)
+                    case .failed:
+                        break
+                    case .rateLimitExhausted:
+                        stoppedForRateLimit = true
+                        group.cancelAll()
+                    }
+                }
                 inFlight -= 1
-                if Task.isCancelled { continue }
+                guard !Task.isCancelled, !stoppedForRateLimit else { continue }
                 if let next = iterator.next() { submit(next) }
             }
         }
@@ -194,6 +211,10 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
     }
 
     public func enableModel(token: String, modelID: String, enterpriseDomain: String) async -> Bool {
+        await enableModelPolicy(token: token, modelID: modelID, enterpriseDomain: enterpriseDomain) == .enabled
+    }
+
+    public func enableModelPolicy(token: String, modelID: String, enterpriseDomain: String) async -> CopilotPolicyUpdateOutcome {
         var request = URLRequest(url: URL(string: Self.baseURL(token: token, enterpriseDomain: enterpriseDomain) + "/models/\(modelID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? modelID)/policy")!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -203,10 +224,16 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         for (k, v) in copilotHeaders() { request.setValue(v, forHTTPHeaderField: k) }
         request.httpBody = try? JSONEncoder().encode(JSONValue.object(["state": .string("enabled")]))
         do {
-            let (_, response) = try await Self.fetchWithRateLimitRetry(request: request, maxRetries: 2, maxElapsedMs: 5_000)
-            return (200..<300).contains(response.statusCode)
+            let (_, response) = try await Self.fetchWithRateLimitRetry(request: request, maxRetries: 2, maxElapsedMs: 5_000, exhaustionThrows: true)
+            if (200..<300).contains(response.statusCode) { return .enabled }
+            if response.statusCode == 429 { return .rateLimitExhausted }
+            return .failed
+        } catch let error as CopilotPolicyUpdateError {
+            switch error {
+            case .rateLimitExhausted: return .rateLimitExhausted
+            }
         } catch {
-            return false
+            return .failed
         }
     }
 
@@ -226,14 +253,21 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
         return (data, http)
     }
 
-    private static func fetchWithRateLimitRetry(request: URLRequest, maxRetries: Int, maxElapsedMs: Int) async throws -> (Data, HTTPURLResponse) {
+    private static func fetchWithRateLimitRetry(request: URLRequest, maxRetries: Int, maxElapsedMs: Int, exhaustionThrows: Bool = false) async throws -> (Data, HTTPURLResponse) {
         let deadline = maxElapsedMs > 0 ? Date().addingTimeInterval(Double(maxElapsedMs) / 1000.0) : nil
         var attempt = 0
         while true {
             let (data, response) = try await performData(request)
-            guard response.statusCode == 429, attempt < maxRetries else { return (data, response) }
+            guard response.statusCode == 429 else { return (data, response) }
+            guard attempt < maxRetries else {
+                if exhaustionThrows { throw CopilotPolicyUpdateError.rateLimitExhausted }
+                return (data, response)
+            }
             let retryAfter = retryAfterMilliseconds(response: response) ?? 500
-            if let deadline, Date().addingTimeInterval(Double(retryAfter) / 1000.0) > deadline { return (data, response) }
+            if let deadline, Date().addingTimeInterval(Double(retryAfter) / 1000.0) > deadline {
+                if exhaustionThrows { throw CopilotPolicyUpdateError.rateLimitExhausted }
+                return (data, response)
+            }
             try await Task.sleep(nanoseconds: UInt64(max(0, retryAfter)) * 1_000_000)
             attempt += 1
         }
@@ -256,6 +290,8 @@ public struct GitHubCopilotOAuthProvider: OAuthProvider {
     }
 }
 
+public enum CopilotPolicyUpdateOutcome: Equatable, Sendable { case enabled, failed, rateLimitExhausted }
+private enum CopilotPolicyUpdateError: Error { case rateLimitExhausted }
 public struct CopilotModelCatalog: Equatable, Sendable { public var availableModelIds: [String]; public var policyModelIds: [String]; public init(availableModelIds: [String], policyModelIds: [String]) { self.availableModelIds = availableModelIds; self.policyModelIds = policyModelIds } }
 private struct CopilotTokenResponse: Decodable { var token: String; var expiresAt: Int64; enum CodingKeys: String, CodingKey { case token; case expiresAt = "expires_at" } }
 private struct CopilotModelsResponse: Decodable { var data: [CopilotModel] }

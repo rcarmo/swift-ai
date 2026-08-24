@@ -15,7 +15,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Current Swift parity commits for v0.84.3:
   - `663467a106896c9f8fa3796e393d1996eab1f5ff` — `Sync upstream v0.84.3 parity`
   - `57f96f6c56462d1875c4e8f5a6a0c04f9c6d36ec` — `Close v0.84.3 Copilot policy gaps`
-  - This focused correction commit — closes final Copilot policy POST, Grok 4.6 transport, and Bedrock transport evidence gaps; green hosted CI must be captured after push.
+  - `e9735bc0116e69909764f0f4b53f4304188d4bb7` — `Close v0.84.3 final transport gaps`
+  - This final semantic correction commit — preserves credential persistence while stopping later Copilot policy POSTs after exhausted 429/elapsed budget; green hosted CI must be captured after push.
 
 ## Exact upstream delta
 
@@ -68,7 +69,7 @@ Implemented/adapted:
 - Added Google thinking level mapping and configurable token budgets.
 - Preserved OpenAI-compatible configurable thinking budgets and reasoning-details replay.
 - Updated built-in xAI catalog to Responses/Grok 4.6/default endpoint/reasoning/UA behavior through exact catalog and actual transport request tests.
-- Preserved Copilot throttling/retry/policy-update/login budget/persistence via bounded structured concurrency and cancellation-aware sleep/retry evidence, including policy POST retry/failure continuation.
+- Preserved Copilot throttling/retry/policy-update/login budget/persistence via bounded structured concurrency and cancellation-aware sleep/retry evidence, including policy POST retry/failure continuation and stop-after-exhausted-rate-limit semantics without blocking credential persistence.
 - Added ZAI Coding Plan China/global and DeepSeek V4 Pro 0813 generated compatibility.
 
 N/A/adapted:
@@ -94,10 +95,10 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.3 correction tests: passed, including Copilot policy catalog/retry filtering, policy POST retry/failure continuation, Grok 4.6 actual transport assertions, and fake Bedrock transport redacted-reasoning/header streaming.
-- `swift test`: `255` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`255` tests each run).
-- `make check`: passed (`255` tests, `0` failures).
+- focused v0.84.3 correction tests: passed, including Copilot policy catalog/retry filtering, policy POST retry/failure continuation, stop-after-exhausted-rate-limit semantics, HTTP-date `Retry-After`, post-auth credential persistence, Grok 4.6 actual transport assertions, and fake Bedrock transport redacted-reasoning/header streaming.
+- `swift test`: `256` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`256` tests each run).
+- `make check`: passed (`256` tests, `0` failures).
 - `scripts/audit-parity.py`: passed with exact v0.84.3 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
 - `scripts/static-check.py`: passed, including self-test.

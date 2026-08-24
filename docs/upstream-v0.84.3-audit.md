@@ -42,7 +42,7 @@ The bounded `packages/ai` delta is exactly 48 changed paths: 19 source, 25 tests
 | 28 | `packages/ai/test/bedrock-redacted-reasoning.test.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered, including fake production-transport streaming; live AWS headers remain transport-owned. |
 | 29 | `packages/ai/test/bedrock-response-headers.test.ts` | Adapted/ported: redacted reasoning/replay and response-header transport surfaces covered, including fake production-transport streaming; live AWS headers remain transport-owned. |
 | 30 | `packages/ai/test/generate-models-strict.test.ts` | Covered in exact 136-file crosswalk with live/N/A separation. |
-| 31 | `packages/ai/test/github-copilot-oauth.test.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests, including policy POST retry/failure continuation. |
+| 31 | `packages/ai/test/github-copilot-oauth.test.ts` | Ported/adapted: cancellation-aware retry sleep and Copilot throttling/retry/policy/login budget/persistence behavior via structured concurrency tests, including policy POST retry/failure continuation, HTTP-date Retry-After, and stop-after-exhausted-rate-limit semantics without blocking credential persistence. |
 | 32 | `packages/ai/test/google-raw-stop-reason.test.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
 | 33 | `packages/ai/test/google-thinking-level-map.test.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
 | 34 | `packages/ai/test/google-vertex-api-key-resolution.test.ts` | Ported: Google thinking level mapping, custom budgets, raw stop/Vertex behavior, and Pi User-Agent covered by focused tests. |
@@ -78,7 +78,7 @@ Implemented/adapted in Swift:
 - Google thinking-level resolved mapping and configurable token budgets.
 - Configurable OpenAI-compatible thinking budgets and reasoning-details preservation.
 - xAI built-in migration to Responses, Grok 4.6/default/endpoint/reasoning/UA and encrypted reasoning replay through actual transport assertions.
-- Copilot throttling/retry/policy-update/login budget/persistence fixes through bounded structured concurrency and cancellation-aware sleep/retry, including policy POST retry/failure continuation.
+- Copilot throttling/retry/policy-update/login budget/persistence fixes through bounded structured concurrency and cancellation-aware sleep/retry, including policy POST retry/failure continuation, HTTP-date Retry-After, and stop-after-exhausted-rate-limit semantics without blocking credential persistence.
 - ZAI Coding Plan China/global and DeepSeek V4 Pro 0813 generated compatibility.
 
 JS-only/N/A decisions are limited to package docs/exports/lazy module mechanics and live/provider credential matrices captured in the crosswalk.

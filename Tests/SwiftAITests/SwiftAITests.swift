@@ -3744,6 +3744,114 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(budgetBody["generationConfig"]?.objectValue?["thinkingConfig"], .object(["includeThoughts": .bool(true), "thinkingBudget": .number(12345)]))
     }
 
+    func testUpstream0843AnthropicFallbackModelCostAndHeaders() throws {
+        let fallback = AnthropicFallbackModel(provider: "anthropic", model: "claude-opus-4-8", cost: ModelCost(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25))
+        let model = Model(id: "claude-fable-5", name: "Claude", api: .anthropicMessages, provider: .anthropic, cost: ModelCost(input: 1, output: 1), anthropicCompat: AnthropicMessagesCompat(allowedFallbackModels: [fallback]))
+        var opts = StreamOptions(); opts.headers = ["User-Agent": "custom-agent"]
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(), apiKey: "key", options: opts)
+        XCTAssertEqual(headers["User-Agent"], "custom-agent")
+        XCTAssertTrue(headers["Anthropic-Beta"]?.contains("server-side-fallback-2026-07-01") == true)
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(body["fallbacks"], .array([.object(["model": .string("claude-opus-4-8")])]))
+        let sse = """
+        event: message_start
+        data: {"message":{"id":"m1","model":"claude-opus-4-8","usage":{"input_tokens":10}}}
+
+        event: content_block_start
+        data: {"index":0,"content_block":{"type":"text"}}
+
+        event: content_block_delta
+        data: {"index":0,"delta":{"type":"text_delta","text":"ok"}}
+
+        event: content_block_stop
+        data: {"index":0}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}
+
+        event: message_stop
+        data: {}
+
+        """
+        let events = AnthropicMessagesProvider.processSSEText(sse, model: model)
+        guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.responseModel, "claude-opus-4-8")
+        XCTAssertEqual(message.usage?.cost.input, 0.00005)
+        XCTAssertEqual(message.usage?.cost.output, 0.00005)
+    }
+
+    func testUpstream0843BedrockRedactedReasoningAndResponseHeaders() async {
+        let model = Model(id: "anthropic.claude", name: "Claude", api: .bedrockConverseStream, provider: .amazonBedrock)
+        var assistant = Message(role: .assistant, content: [.thinking("opaque-redacted", redacted: true), .thinking("visible", signature: "sig")])
+        assistant.api = .bedrockConverseStream; assistant.provider = .amazonBedrock; assistant.model = model.id
+        let request = BedrockProvider.buildConverseRequest(model: model, context: AIContext(messages: [assistant]), options: nil)
+        guard case .array(let messages)? = request["messages"], case .object(let message) = messages.first, case .array(let content)? = message["content"] else { return XCTFail("missing bedrock content") }
+        XCTAssertTrue(content.contains { $0.objectValue?["reasoningContent"]?.objectValue?["redactedContent"] == .string("opaque-redacted") })
+        XCTAssertTrue(content.contains { $0.objectValue?["reasoningContent"]?.objectValue?["reasoningText"]?.objectValue?["signature"] == .string("sig") })
+        final class Box: @unchecked Sendable { var response: HTTPResponseMetadata? }
+        let box = Box()
+        var options = StreamOptions(); options.onResponse = { response, _ in box.response = response }
+        await BedrockProvider.notifyResponse(BedrockResponseMetadata(status: 200, headers: ["x-amzn-requestid": "rid"]), model: model, options: options)
+        XCTAssertEqual(box.response?.status, 200)
+        XCTAssertEqual(box.response?.headers["x-amzn-requestid"], "rid")
+    }
+
+    func testUpstream0843XAI46EncryptedReasoningAndUA() throws {
+        let model = try XCTUnwrap(try BuiltinModels.all().first { $0.provider == .xai && $0.id == "grok-4.6" })
+        XCTAssertEqual(model.api, .openAIResponses)
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: model).contains(.xhigh))
+        var assistant = Message(role: .assistant, content: [.thinking("reasoning", signature: "{\"id\":\"rs1\",\"type\":\"reasoning\",\"encrypted_content\":\"enc\"}")])
+        assistant.provider = .xai; assistant.api = .openAIResponses; assistant.model = "grok-4.6"
+        var options = StreamOptions(); options.reasoning = .high
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant]), options: options)
+        XCTAssertEqual(body["include"], .array([.string("reasoning.encrypted_content")]))
+        guard case .array(let input)? = body["input"] else { return XCTFail("missing input") }
+        XCTAssertTrue(input.contains { $0.objectValue?["encrypted_content"] == .string("enc") })
+    }
+
+    func testUpstream0843OpenAIReasoningDetailsAndBudgetClamp() {
+        var compat = OpenAICompletionsCompat(); compat.supportsThinkingTokenBudget = true
+        let model = Model(id: "vllm", name: "vLLM", api: .openAICompletions, provider: .openAI, reasoning: true, maxTokens: 1400, completionsCompat: compat)
+        var options = StreamOptions(); options.reasoning = .high; options.thinkingBudgets = ThinkingBudgets(high: 10_000)
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["thinking_token_budget"], .number(376))
+        let sse = """
+        data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"lookup","arguments":"{}"}}],"reasoning_details":[{"type":"reasoning.encrypted","id":"call_1","encrypted_content":"abc"}]}}]}
+
+        data: {"choices":[{"finish_reason":"tool_calls","delta":{}}]}
+
+        """
+        let events = OpenAICompletionsProvider.processSSEText(sse, model: model)
+        guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.content.first?.thoughtSignature?.contains("encrypted_content"), true)
+    }
+
+    func testUpstream0843AzureActualTransportToolChoiceAndRetrySleepCancellation() async throws {
+        final class Capture: @unchecked Sendable { var body: [String: JSONValue] = [:] }
+        let capture = Capture()
+        OpenAIResponsesProvider.requestTransport = { request, _ in
+            if let data = request.httpBody { capture.body = (try? JSONDecoder().decode([String: JSONValue].self, from: data)) ?? [:] }
+            let stream = AsyncThrowingStream<UInt8, Error> { c in for byte in Array("event: response.completed\ndata: {\"response\":{\"status\":\"completed\"}}\n\n".utf8) { c.yield(byte) }; c.finish() }
+            return (stream, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!)
+        }
+        defer { OpenAIResponsesProvider.requestTransport = nil }
+        var options = StreamOptions(); options.apiKey = "key"; options.azureBaseUrl = "https://res.openai.azure.com/openai/v1"; options.toolChoice = .object(["type": .string("function"), "name": .string("lookup")])
+        for await _ in OpenAIResponsesProvider.stream(model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI), context: AIContext(messages: [.user("hi")]), options: options) {}
+        XCTAssertEqual(capture.body["tool_choice"], options.toolChoice)
+
+        let task = Task { () -> Message in
+            await RetryRunner.retryAssistantCall(policy: RetryPolicy(maxRetries: 1, baseDelayMs: 5_000), produce: {
+                var msg = Message(role: .assistant, content: [])
+                msg.stopReason = .error; msg.errorMessage = "rate limit 429"
+                return msg
+            })
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        task.cancel()
+        let result = await task.value
+        XCTAssertEqual(result.stopReason, .aborted)
+    }
+
 }
 
 private actor CleanupBox {

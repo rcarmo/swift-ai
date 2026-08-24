@@ -4,6 +4,8 @@ public protocol BedrockTransport: Sendable {
     func stream(request: [String: JSONValue], model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent>
 }
 
+public struct BedrockResponseMetadata: Equatable, Sendable { public var status: Int; public var headers: [String: String]; public init(status: Int, headers: [String: String]) { self.status = status; self.headers = headers } }
+
 public struct BedrockFailureMetadata: Equatable, Sendable {
     public var status: Int?
     public var errorCode: String?
@@ -36,6 +38,8 @@ public enum BedrockProvider {
             }
         }
     }
+
+    public static func notifyResponse(_ metadata: BedrockResponseMetadata, model: Model, options: StreamOptions?) async { await options?.onResponse?(HTTPResponseMetadata(status: metadata.status, headers: metadata.headers), model) }
 
     public static func failureMessage(model: Model, errorMessage: String, metadata: BedrockFailureMetadata? = nil, aborted: Bool = false) -> Message {
         var message = Message(role: .assistant, content: [])
@@ -172,7 +176,11 @@ public enum BedrockProvider {
         case "text": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])
         case "image": return createImageBlock(data: block.data ?? "", mimeType: block.mimeType ?? "image/png")
         case "toolCall": return .object(["toolUse": .object(["toolUseId": .string(block.id ?? ""), "name": .string(block.name ?? ""), "input": sanitizeEmptyObjectKeys(.object(block.arguments ?? [:]))])])
-        case "thinking": return .object(["text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))])
+        case "thinking":
+            if block.redacted == true { return .object(["reasoningContent": .object(["redactedContent": .string(block.thinking ?? "")])]) }
+            var reasoning: [String: JSONValue] = ["text": .string(AIUtilities.sanitizeSurrogates(block.thinking ?? ""))]
+            if let signature = block.thinkingSignature, !signature.isEmpty { reasoning["signature"] = .string(signature) }
+            return .object(["reasoningContent": .object(["reasoningText": .object(reasoning)])])
         default: return nil
         }
     }

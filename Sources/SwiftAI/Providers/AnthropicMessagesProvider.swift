@@ -123,6 +123,7 @@ public enum AnthropicMessagesProvider {
         case "message_start":
             if let raw = try? JSONDecoder().decode(AnthropicMessageStart.self, from: data) {
                 state.partial.responseId = raw.message.id
+                if let responseModel = raw.message.model, !responseModel.isEmpty { state.partial.responseModel = responseModel }
                 state.partial.usage?.input = raw.message.usage?.inputTokens ?? 0
                 state.partial.usage?.cacheRead = raw.message.usage?.cacheReadInputTokens ?? 0
                 state.partial.usage?.cacheWrite = raw.message.usage?.cacheCreationInputTokens ?? 0
@@ -163,7 +164,7 @@ public enum AnthropicMessagesProvider {
             if let cacheWrite = raw.usage?.cacheCreationInputTokens { usage.cacheWrite = cacheWrite }
             if let cacheWrite1h = raw.usage?.cacheCreation?.ephemeral1hInputTokens { usage.cacheWrite1h = cacheWrite1h }
             usage.totalTokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite
-            AIUtilities.applyCost(model: state.model, usage: &usage)
+            AIUtilities.applyCost(model: state.costModel, usage: &usage)
             state.partial.usage = usage
             state.partial.rawStopReason = raw.delta.stopReason
             state.partial.stopReason = stopReason(raw.delta.stopReason)
@@ -362,8 +363,8 @@ public enum AnthropicMessagesProvider {
     fileprivate static func claudeCodeToolNameMap(_ tools: [Tool]) -> [String: String] { Dictionary(uniqueKeysWithValues: tools.map { (toClaudeCodeName($0.name).lowercased(), $0.name) }) }
 }
 
-private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; var toolsByClaudeCodeName: [String: String]; init(model: Model, tools: [Tool] = []) { self.model = model; self.toolsByClaudeCodeName = AnthropicMessagesProvider.claudeCodeToolNameMap(tools); var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
-private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var usage: AnthropicUsage? } }
+private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; var toolsByClaudeCodeName: [String: String]; var costModel: Model { if let responseModel = partial.responseModel, responseModel != model.id, let fallback = model.anthropicCompat?.allowedFallbackModels?.first(where: { $0.model == responseModel }), let cost = fallback.cost { var copy = model; copy.id = responseModel; copy.cost = cost; return copy }; return model }; init(model: Model, tools: [Tool] = []) { self.model = model; self.toolsByClaudeCodeName = AnthropicMessagesProvider.claudeCodeToolNameMap(tools); var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg } }
+private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var model: String?; var usage: AnthropicUsage? } }
 private struct AnthropicUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var outputTokensDetails: OutputTokensDetails?; var cacheReadInputTokens: Int?; var cacheCreationInputTokens: Int?; var cacheCreation: CacheCreation?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case outputTokensDetails = "output_tokens_details"; case cacheReadInputTokens = "cache_read_input_tokens"; case cacheCreationInputTokens = "cache_creation_input_tokens"; case cacheCreation = "cache_creation" }; struct OutputTokensDetails: Decodable { var thinkingTokens: Int?; enum CodingKeys: String, CodingKey { case thinkingTokens = "thinking_tokens" } }; struct CacheCreation: Decodable { var ephemeral1hInputTokens: Int?; enum CodingKeys: String, CodingKey { case ephemeral1hInputTokens = "ephemeral_1h_input_tokens" } } }
 private struct AnthropicContentBlockStart: Decodable { var index: Int; var contentBlock: Block; enum CodingKeys: String, CodingKey { case index; case contentBlock = "content_block" }; struct Block: Decodable { var type: String; var id: String?; var name: String? } }
 private struct AnthropicContentBlockDelta: Decodable { var index: Int; var delta: Delta; struct Delta: Decodable { var type: String; var text: String?; var thinking: String?; var partialJSON: String?; enum CodingKeys: String, CodingKey { case type, text, thinking; case partialJSON = "partial_json" } } }

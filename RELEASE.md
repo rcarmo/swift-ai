@@ -93,12 +93,12 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.3 tests: passed.
-- `swift test`: `247` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`247` tests each run).
-- `make check`: passed (`247` tests, `0` failures).
+- focused v0.84.3 correction tests: passed.
+- `swift test`: `252` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`252` tests each run).
+- `make check`: passed (`252` tests, `0` failures).
 - `scripts/audit-parity.py`: passed with exact v0.84.3 full-record counts and text/image deltas.
-- `scripts/audit-parity.py --self-test`: passed, metadata fault injection caught.
+- `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
 - `scripts/static-check.py`: passed, including self-test.
 - hidden skip scan: no `XCTSkip` matches.
 

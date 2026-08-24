@@ -165,13 +165,16 @@ def main() -> int:
     if self_test:
         mutated_failures, _ = collect_failures(self_test_mutation=True)
         if not any("full records differ" in failure for failure in mutated_failures):
-            failures.append("self-test metadata mutation did not trigger full-record comparator")
+            failures.append("self-test text metadata mutation did not trigger full-record comparator")
+        image_mutated_failures, _ = collect_failures(image_self_test_mutation=True)
+        if not any("image" in failure and "full records differ" in failure for failure in image_mutated_failures):
+            failures.append("self-test image metadata mutation did not trigger full-record comparator")
 
     if failures:
         for failure in failures:
             print("FAIL:", failure)
         return 1
-    suffix = "; self-test metadata mutation caught" if self_test else ""
+    suffix = "; self-test text/image metadata mutations caught" if self_test else ""
     print(
         f"ok: {summary['text_models']} text models / {summary['text_providers']} providers / {summary['text_apis']} APIs; "
         f"{summary['image_models']} image models / {summary['image_providers']} providers / {summary['image_apis']} APIs; "
@@ -181,7 +184,7 @@ def main() -> int:
     return 0
 
 
-def collect_failures(self_test_mutation: bool = False) -> tuple[list[str], dict[str, int]]:
+def collect_failures(self_test_mutation: bool = False, image_self_test_mutation: bool = False) -> tuple[list[str], dict[str, int]]:
     text = json.loads(TEXT_MODELS.read_text())
     upstream_text = json.loads(UPSTREAM_TEXT_MODELS.read_text())
     previous_text = json.loads(PREVIOUS_TEXT_MODELS.read_text())
@@ -191,6 +194,9 @@ def collect_failures(self_test_mutation: bool = False) -> tuple[list[str], dict[
     if self_test_mutation:
         text = copy.deepcopy(text)
         text[0]["name"] = str(text[0].get("name", "")) + " fault-injected"
+    if image_self_test_mutation:
+        images = copy.deepcopy(images)
+        images[0]["name"] = str(images[0].get("name", "")) + " fault-injected"
 
     status = json.loads(STATUS.read_text())
     swift_status = SWIFT_STATUS.read_text()

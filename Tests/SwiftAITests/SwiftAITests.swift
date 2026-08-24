@@ -3852,6 +3852,33 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(result.stopReason, .aborted)
     }
 
+    func testUpstream0843CopilotCatalogPolicyAndRetryContract() async throws {
+        let catalog = GitHubCopilotOAuthProvider.parseModelCatalog([
+            CopilotModel(id: "known", modelPickerEnabled: true, policy: .init(state: "enabled"), capabilities: .init(supports: .init(toolCalls: true))),
+            CopilotModel(id: "chat-only", modelPickerEnabled: true, policy: .init(state: "enabled"), capabilities: .init(supports: .init(toolCalls: false))),
+            CopilotModel(id: "needs-policy", modelPickerEnabled: true, policy: .init(state: "unconfigured"), capabilities: .init(supports: .init(toolCalls: true))),
+            CopilotModel(id: "disabled", modelPickerEnabled: true, policy: .init(state: "disabled"), capabilities: .init(supports: .init(toolCalls: true)))
+        ], allowPolicyFallback: false)
+        XCTAssertEqual(catalog.availableModelIds, ["known", "needs-policy"])
+        XCTAssertEqual(catalog.policyModelIds, ["needs-policy"])
+
+        final class Box: @unchecked Sendable { var attempts = 0 }
+        let box = Box()
+        GitHubCopilotOAuthProvider.dataTransport = { request in
+            box.attempts += 1
+            if box.attempts == 1 {
+                return (Data("rate".utf8), HTTPURLResponse(url: request.url!, statusCode: 429, httpVersion: nil, headerFields: ["Retry-After": "0"])!)
+            }
+            let body = #"{"data":[{"id":"known","model_picker_enabled":true,"policy":{"state":"enabled"},"capabilities":{"supports":{"tool_calls":true}}},{"id":"needs-policy","model_picker_enabled":true,"policy":{"state":"unconfigured"},"capabilities":{"supports":{"tool_calls":true}}}]}"#
+            return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!)
+        }
+        defer { GitHubCopilotOAuthProvider.dataTransport = nil }
+        let provider = GitHubCopilotOAuthProvider()
+        let fetched = try await provider.fetchAvailableModelCatalog(token: "tok", enterpriseDomain: "", maxRetries: 2, maxElapsedMs: 1_000)
+        XCTAssertEqual(box.attempts, 2)
+        XCTAssertEqual(fetched.policyModelIds, ["needs-policy"])
+    }
+
 }
 
 private actor CleanupBox {

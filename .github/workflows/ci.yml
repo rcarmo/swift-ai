@@ -18,6 +18,7 @@ jobs:
   swift-test:
     strategy:
       matrix:
+        # macOS hosted CI is disabled by project policy; routine CI keeps Ubuntu + static checks only.
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:

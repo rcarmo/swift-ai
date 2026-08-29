@@ -14,7 +14,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Previous accepted Swift docs HEAD: `92d5c47f18deed495ecd6752966fb704047e8099`
 - Verified npm artifact SHA-256: `dfd3c929cee5a7387199a0a24dfc1be2096f1ea8f59ffb8285198a0ed01ebf93`
 - Swift parity branch: `main`
-- Current Swift parity commit for v0.84.4: this release update commit; final SHA and CI run are reported after push.
+- Current Swift parity commit for v0.84.4:
+  - `015543adb6bf7fb54348f0c0a3d14146ee94c28f` — `Sync upstream v0.84.4 parity`
 
 ## Exact upstream delta
 
@@ -99,7 +100,15 @@ Latest local results before this commit:
 - `scripts/static-check.py`: passed, including text/image mutation self-test.
 - hidden skip scan: no `XCTSkip` matches.
 
-Hosted GitHub Actions evidence for this v0.84.4 commit must be captured after push and reported with the final handoff.
+Hosted GitHub Actions evidence for v0.84.4 runtime/catalog commit `015543adb6bf7fb54348f0c0a3d14146ee94c28f`:
+
+- Run: <https://github.com/rcarmo/swift-ai/actions/runs/33251959680>
+- Status: `completed`
+- Conclusion: `success`
+- Jobs:
+  - `static-check`: success
+  - `swift-test (ubuntu-latest)`: success
+  - `swift-test (macos-14)`: success
 
 ## Prior accepted v0.84.3 evidence
 

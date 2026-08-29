@@ -53,7 +53,8 @@
 ## CI policy
 
 * Local-first workflow is mandatory: complete all local implementation, tests, static checks, docs, and Git hygiene before pushing.
-* Run hosted CI only once at the end after all local work is complete. Do not use hosted CI as an iterative debugging loop.
+* Run hosted CI only once at the end after all local work is complete. Do not use hosted CI as an iterative debugging loop for developer push cycles.
+* Weekly scheduled maintenance CI is independent of developer final-only CI: it exists to rerun pinned SBOM, OSV, license, static, and Ubuntu checks between releases without implying a new release candidate.
 * Batch reviewer/auditor corrections locally unless explicitly told otherwise, then make a single final push/CI run.
 * Evidence-only follow-up commits after a green tested candidate must be docs-only and use `[skip ci]` in the commit title when possible, or otherwise rely on proven `paths-ignore` semantics. Such commits must clearly record the tested runtime/SBOM SHA, CI run, artifact digest, and distinct docs-only SHA without pretending the docs commit was the tested runtime candidate.
 * macOS hosted CI is disabled for the foreseeable future. Routine CI retains Ubuntu Swift tests and static checks only.

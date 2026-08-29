@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly dependency/SBOM/OSV maintenance run; independent of developer final-only CI policy.
+    - cron: '17 4 * * 1'
 
 jobs:
   static-check:
@@ -17,13 +20,14 @@ jobs:
       - run: make sbom-check
       - uses: actions/upload-artifact@v5
         with:
-          name: swift-ai-sbom
+          name: swift-ai-sbom-${{ github.sha }}
           path: |
             .artifacts/sbom/swift-ai.cdx.json
             .artifacts/sbom/swift-ai.cdx.json.sha256
             .artifacts/sbom/swift-ai-security-scan.json
             .artifacts/sbom/swift-ai-license-review.json
             .artifacts/sbom/osv-scanner.json
+          if-no-files-found: error
           retention-days: 30
 
   swift-test:

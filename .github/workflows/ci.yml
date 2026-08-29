@@ -23,6 +23,7 @@ jobs:
             .artifacts/sbom/swift-ai.cdx.json.sha256
             .artifacts/sbom/swift-ai-security-scan.json
             .artifacts/sbom/swift-ai-license-review.json
+            .artifacts/sbom/osv-scanner.json
           retention-days: 30
 
   swift-test:

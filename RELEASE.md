@@ -97,11 +97,12 @@ Latest local results before this commit:
 - deterministic `swift test` ×3: passed (`260` tests each run).
 - `make check`: passed (`260` tests, `0` failures).
 - `make sbom-check`: passed; generated `.artifacts/sbom/swift-ai.cdx.json` and `.artifacts/sbom/swift-ai.cdx.json.sha256`.
-- SBOM tool/version: `swift-ai-sbom` `1.0.0` (pinned local policy `scripts/sbom-policy.json`).
-- SBOM SHA-256: `f854c6d9c279658e00d0c732c14acf8ce2e0719c07d54ab7a60d71bd1b137c9f`.
-- SBOM scan/license disposition: pinned local vulnerability scan passed with 0 high/critical advisories; license review passed for `swift-asn1` and `swift-crypto` under `Apache-2.0`.
-- SBOM artifact retention: final Ubuntu CI uploads SBOM, checksum, scan, and license review artifacts with 30-day retention.
-- Dependency-lock policy: SBOM derives the resolved SwiftPM graph from local `Package.resolved`; volatile SBOM output under `.artifacts/` is not committed.
+- SBOM tool/version: `swift-ai-sbom` `1.1.0` (pinned local policy `scripts/sbom-policy.json`) plus pinned OSV Scanner `2.5.1`.
+- SBOM SHA-256 for the accepted candidate is generated from exact `git rev-parse HEAD`; for dirty local candidates the SBOM records `git.dirty=true` and must be regenerated after commit before final evidence is reported.
+- SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved` resolution policy; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` → direct `swift-crypto` → transitive `swift-asn1`.
+- SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`); license review passed for `swift-asn1` and `swift-crypto` under `Apache-2.0`.
+- SBOM artifact retention: final Ubuntu CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention.
+- Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
 - `scripts/audit-parity.py`: passed with exact v0.84.4 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.

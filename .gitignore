@@ -2,3 +2,6 @@
 .build/
 .swiftpm/
 .artifacts/
+
+__pycache__/
+*.pyc

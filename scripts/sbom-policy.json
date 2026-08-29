@@ -1,7 +1,8 @@
 {
   "policyVersion": "2026-08-29",
   "toolName": "swift-ai-sbom",
-  "toolVersion": "1.0.0",
+  "toolVersion": "1.1.0",
+  "osvScannerVersion": "2.5.1",
   "allowedLicenses": ["Apache-2.0", "MIT"],
   "rootLicense": "MIT",
   "componentLicenses": {
@@ -9,6 +10,5 @@
     "swift-crypto": "Apache-2.0"
   },
   "directDependencies": ["swift-crypto"],
-  "advisories": [],
   "waivers": []
 }

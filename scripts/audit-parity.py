@@ -24,12 +24,12 @@ IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.4.json"
 UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.b79e4cc.json"
 PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.3.json"
 STATUS = ROOT / "STATUS.json"
-TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
-IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
-REGISTRY = ROOT / "Sources" / "SwiftAI" / "Registry.swift"
-MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
-IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
-SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
+TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
+IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
+REGISTRY = ROOT / "Sources" / "SwiftAI" / "Core" / "Registry.swift"
+MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ModelsGenerated.swift"
+IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ImageModelsGenerated.swift"
+SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
 EXPECTED_TEXT_MODELS = 1290
 EXPECTED_TEXT_PROVIDERS = 39
@@ -50,11 +50,11 @@ REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/MistralConversationsProvider.swift",
     "Sources/SwiftAI/Providers/OpenRouterImagesProvider.swift",
     "Sources/SwiftAI/Providers/BedrockProvider.swift",
-    "Sources/SwiftAI/OAuth.swift",
-    "Sources/SwiftAI/AzureHelpers.swift",
-    "Sources/SwiftAI/Harness.swift",
-    "Sources/SwiftAI/PartialJSON.swift",
-    "Sources/SwiftAI/Retry.swift",
+    "Sources/SwiftAI/Auth/OAuth.swift",
+    "Sources/SwiftAI/Support/AzureHelpers.swift",
+    "Sources/SwiftAI/Support/Harness.swift",
+    "Sources/SwiftAI/Support/PartialJSON.swift",
+    "Sources/SwiftAI/Transport/Retry.swift",
     "docs/TRANSPORTS.md",
     "docs/USAGE.md",
     "docs/upstream-parity-gaps.md",

@@ -33,7 +33,7 @@ Text catalog:
 
 - Swift source snapshot: `scripts/models.v0.84.4.json`
 - Exact upstream comparator source: `scripts/upstream-models.b79e4cc.json`
-- Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
+- Embedded Swift registry: `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`
 - Full records: `1290/1290`
 - Providers: `39`
 - APIs: `9`
@@ -43,7 +43,7 @@ Image catalog:
 
 - Swift source snapshot: `scripts/image-models.v0.84.4.json`
 - Exact upstream comparator source: `scripts/upstream-image-models.b79e4cc.json`
-- Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
+- Embedded Swift registry: `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`
 - Full records: `50/50`
 - Providers: `1`
 - APIs: `1`

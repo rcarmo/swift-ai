@@ -72,12 +72,12 @@ def check_delimiters() -> None:
 
 def grep_guard() -> None:
     sources = "\n".join(p.read_text() for root in [ROOT / "Sources", ROOT / "Tests"] for p in root.rglob("*.swift"))
-    types = (ROOT / "Sources" / "SwiftAI" / "Types.swift").read_text()
+    types = (ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift").read_text()
     if "public indirect enum JSONValue" not in types:
         raise SystemExit("JSONValue is recursive and must remain an indirect enum")
     if "public struct StreamOptions: Sendable" not in types:
         raise SystemExit("StreamOptions contains closures and must not synthesize Codable/Equatable")
-    images = (ROOT / "Sources" / "SwiftAI" / "Images.swift").read_text()
+    images = (ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift").read_text()
     if "public struct ImagesOptions: Sendable" not in images:
         raise SystemExit("ImagesOptions contains closures and must not synthesize Codable/Equatable")
     faux = (ROOT / "Sources" / "SwiftAI" / "Providers" / "FauxProvider.swift").read_text()

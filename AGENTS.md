@@ -10,6 +10,20 @@
 * Use pinned inputs only: official upstream tag/artifact, committed snapshots, `Package.resolved`, and checked-in policy files. Do not rely on upstream `main`, live provider catalogs, local machine state, or secrets.
 * Keep deterministic tests independent of network, wall clock, hidden environment, ordering accidents, and hosted CI side effects.
 
+## Source tree layout
+
+* `Sources/SwiftAI/Core/`: public core types, contexts, events, registries, images surface, and status constants.
+* `Sources/SwiftAI/Auth/`: credential stores, OAuth protocols/providers support, and environment/API-key resolution.
+* `Sources/SwiftAI/Transport/`: HTTP/SSE/proxy/retry/session-resource transport helpers.
+* `Sources/SwiftAI/Models/Generated/`: generated text/image registries only. Do not edit by hand; update generators/checkers when this path changes.
+* `Sources/SwiftAI/Support/`: shared compatibility, diagnostics, logging, runtime, parsing, harness, and utility helpers.
+* `Sources/SwiftAI/Providers/`: provider implementations and OAuth provider implementations.
+* `Sources/CZstd/`: C shim target for zstd support.
+* `Tests/SwiftAITests/Core/`: core utility, environment, and overflow tests.
+* `Tests/SwiftAITests/Models/`: generated registry/image model tests.
+* `Tests/SwiftAITests/Providers/`: provider, metadata, OAuth, and broad parity tests. Do not split the large provider test file unless explicitly requested.
+* `Tests/SwiftAITests/Integration/`: reserved for integration-style tests.
+
 ## Upstream release parity audits
 
 * Maintain root `RELEASE.md` for every upstream `@earendil-works/pi-ai` release audit.

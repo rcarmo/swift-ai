@@ -19,21 +19,21 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 
 | Upstream export/module | Swift status | Swift path |
 |---|---:|---|
-| `types.ts` core model/message/event option types | DONE | `Sources/SwiftAI/Types.swift`, `Sources/SwiftAI/Events.swift` |
-| `models.ts`, `models.generated.ts`, provider model registries | DONE | `Sources/SwiftAI/ModelsGenerated.swift`, `scripts/models.v0.80.2.json` |
-| `images-models.ts`, image generated registry | DONE | `Sources/SwiftAI/ImageModelsGenerated.swift`, `Sources/SwiftAI/Images.swift` |
-| `api/lazy.ts` lazy wrappers | PARTIAL | Registry/provider protocols in `Sources/SwiftAI/Registry.swift`; no lazy module loader needed for SwiftPM static linking |
-| `auth/types.ts`, `auth/context.ts`, `auth/credential-store.ts`, `auth/helpers.ts`, `auth/resolve.ts` | PARTIAL | `Sources/SwiftAI/Auth.swift`, `Sources/SwiftAI/Env.swift`, OAuth providers. Full app-owned auth orchestration is host responsibility. |
+| `types.ts` core model/message/event option types | DONE | `Sources/SwiftAI/Core/Types.swift`, `Sources/SwiftAI/Core/Events.swift` |
+| `models.ts`, `models.generated.ts`, provider model registries | DONE | `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`, `scripts/models.v0.80.2.json` |
+| `images-models.ts`, image generated registry | DONE | `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`, `Sources/SwiftAI/Core/Images.swift` |
+| `api/lazy.ts` lazy wrappers | PARTIAL | Registry/provider protocols in `Sources/SwiftAI/Core/Registry.swift`; no lazy module loader needed for SwiftPM static linking |
+| `auth/types.ts`, `auth/context.ts`, `auth/credential-store.ts`, `auth/helpers.ts`, `auth/resolve.ts` | PARTIAL | `Sources/SwiftAI/Auth/Auth.swift`, `Sources/SwiftAI/Auth/Env.swift`, OAuth providers. Full app-owned auth orchestration is host responsibility. |
 | `providers/faux.ts` | DONE | `Sources/SwiftAI/Providers/FauxProvider.swift` |
-| `session-resources.ts` | DONE | `Sources/SwiftAI/SessionResources.swift` |
-| `utils/diagnostics.ts` | DONE | `Sources/SwiftAI/Diagnostics.swift` |
-| `utils/event-stream.ts` | DONE | `Sources/SwiftAI/Events.swift`, provider `AsyncStream<AIEvent>` implementations |
-| `utils/json-parse.ts` | DONE | `Sources/SwiftAI/PartialJSON.swift` |
-| `utils/overflow.ts` | DONE | `Sources/SwiftAI/Context.swift` |
-| `utils/typebox-helpers.ts` / TypeBox exports | PARTIAL | `JSONValue` schemas in `Sources/SwiftAI/Types.swift`; no TypeBox runtime in Swift |
-| `utils/validation.ts` | DONE | `Sources/SwiftAI/Context.swift` |
-| `utils/hash.ts`, `utils/sanitize-unicode.ts`, headers | DONE | `Sources/SwiftAI/Utilities.swift`, `Sources/SwiftAI/HTTPMetadata.swift` |
-| OAuth public types/providers | DONE | `Sources/SwiftAI/OAuth.swift`, provider OAuth files |
+| `session-resources.ts` | DONE | `Sources/SwiftAI/Transport/SessionResources.swift` |
+| `utils/diagnostics.ts` | DONE | `Sources/SwiftAI/Support/Diagnostics.swift` |
+| `utils/event-stream.ts` | DONE | `Sources/SwiftAI/Core/Events.swift`, provider `AsyncStream<AIEvent>` implementations |
+| `utils/json-parse.ts` | DONE | `Sources/SwiftAI/Support/PartialJSON.swift` |
+| `utils/overflow.ts` | DONE | `Sources/SwiftAI/Core/Context.swift` |
+| `utils/typebox-helpers.ts` / TypeBox exports | PARTIAL | `JSONValue` schemas in `Sources/SwiftAI/Core/Types.swift`; no TypeBox runtime in Swift |
+| `utils/validation.ts` | DONE | `Sources/SwiftAI/Core/Context.swift` |
+| `utils/hash.ts`, `utils/sanitize-unicode.ts`, headers | DONE | `Sources/SwiftAI/Support/Utilities.swift`, `Sources/SwiftAI/Transport/HTTPMetadata.swift` |
+| OAuth public types/providers | DONE | `Sources/SwiftAI/Auth/OAuth.swift`, provider OAuth files |
 
 ## Provider/API runtime parity
 
@@ -41,7 +41,7 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 |---|---:|---|---|
 | `api/openai-completions.ts` | DONE | `Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift` | Includes streaming, tool calls, multimodal replay, compat thinking, cache/session headers, v0.80.2 auth-header/empty-tools behavior. |
 | `api/openai-responses.ts` | DONE | `Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift` | Includes replay items, reasoning defaults, cache usage, failed/generic errors, status mapping. |
-| `api/azure-openai-responses.ts` | DONE | `Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift`, `Sources/SwiftAI/AzureHelpers.swift` | Includes Azure URL/deployment helpers, tool-call trimming, reasoning event normalization. |
+| `api/azure-openai-responses.ts` | DONE | `Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift`, `Sources/SwiftAI/Support/AzureHelpers.swift` | Includes Azure URL/deployment helpers, tool-call trimming, reasoning event normalization. |
 | `api/openai-codex-responses.ts` | PARTIAL | `Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift` | SSE path bundled; WebSocket/session-cache exposed via `CodexTransport`. |
 | `api/anthropic-messages.ts` | DONE | `Sources/SwiftAI/Providers/AnthropicMessagesProvider.swift` | Includes cache control, tool_use/tool_result, truncated stream errors, compat flags. |
 | `api/google-generative-ai.ts` | DONE | `Sources/SwiftAI/Providers/GoogleGenerativeAIProvider.swift` | Includes Gemini/Vertex request and SSE semantics, signatures, tool results/images. |
@@ -55,8 +55,8 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 
 | Upstream provider model family | Status | Swift path |
 |---|---:|---|
-| All 35 text providers in `dist/providers/*.models.js` | DONE | `Sources/SwiftAI/ModelsGenerated.swift`; verified by `scripts/audit-parity.py` |
-| OpenRouter image provider models | DONE | `Sources/SwiftAI/ImageModelsGenerated.swift`; verified by `scripts/audit-parity.py` |
+| All 35 text providers in `dist/providers/*.models.js` | DONE | `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`; verified by `scripts/audit-parity.py` |
+| OpenRouter image provider models | DONE | `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`; verified by `scripts/audit-parity.py` |
 | Provider aliases/wrappers under `dist/providers/*.js` | DONE/PARTIAL | Runtime is API-based in Swift; all generated APIs have bootstrap registrations. |
 
 ## OAuth/auth parity
@@ -67,13 +67,13 @@ Generated for the standing parity audit. Source of truth: extracted upstream pac
 | `utils/oauth/openai-codex.ts` | DONE | `Sources/SwiftAI/Providers/OpenAICodexOAuthProvider.swift` | Device flow and refresh. |
 | `utils/oauth/anthropic.ts` | DONE/PARTIAL | `Sources/SwiftAI/Providers/AnthropicOAuthProvider.swift` | Uses host-prompted callback code for SwiftPM portability instead of local server. |
 | `google-gemini-cli` / Antigravity OAuth | DONE/PARTIAL | `Sources/SwiftAI/Providers/GoogleOAuthProviders.swift` | Uses host-prompted callback code for SwiftPM portability. |
-| `auth/*` credential store/context types | PARTIAL | `Sources/SwiftAI/Auth.swift` | Types and in-memory serialized store implemented; full app persistence is host-owned as upstream intends. |
+| `auth/*` credential store/context types | PARTIAL | `Sources/SwiftAI/Auth/Auth.swift` | Types and in-memory serialized store implemented; full app persistence is host-owned as upstream intends. |
 
 ## Event types / stream protocol
 
 | Event/protocol area | Status | Swift path |
 |---|---:|---|
-| start/done/error/text/thinking/tool event stream | DONE | `Sources/SwiftAI/Events.swift` |
+| start/done/error/text/thinking/tool event stream | DONE | `Sources/SwiftAI/Core/Events.swift` |
 | OpenAI SSE chunks | DONE | `OpenAICompletionsProvider.swift` |
 | Responses SSE chunks | DONE | `OpenAIResponsesProvider.swift` |
 | Anthropic SSE chunks | DONE | `AnthropicMessagesProvider.swift` |

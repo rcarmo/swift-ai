@@ -61,7 +61,7 @@ Text catalog:
 
 - Swift source snapshot: `scripts/models.v0.84.2.json`
 - Exact upstream comparator source: `scripts/upstream-models.914cf14.json`
-- Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
+- Embedded Swift registry: `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`
 - Full records: `1267/1267`
 - Providers: `39`
 - APIs: `9`
@@ -71,7 +71,7 @@ Image catalog:
 
 - Swift source snapshot: `scripts/image-models.v0.84.2.json`
 - Exact upstream comparator source: `scripts/upstream-image-models.914cf14.json`
-- Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
+- Embedded Swift registry: `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`
 - Full records: `45/45`
 - Providers: `1`
 - APIs: `1`

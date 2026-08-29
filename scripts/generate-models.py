@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate Sources/SwiftAI/ModelsGenerated.swift from exported go-ai model JSON.
+"""Generate Sources/SwiftAI/Models/Generated/ModelsGenerated.swift from exported go-ai model JSON.
 
 Usage:
-    python3 scripts/generate-models.py scripts/models.v0.80.3.json Sources/SwiftAI/ModelsGenerated.swift
+    python3 scripts/generate-models.py scripts/models.v0.80.3.json Sources/SwiftAI/Models/Generated/ModelsGenerated.swift
 
 The input JSON is produced from the audited Go registry:
 

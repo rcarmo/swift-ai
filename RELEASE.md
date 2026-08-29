@@ -82,6 +82,7 @@ swift build -Xswiftc -warnings-as-errors
 swift test
 for i in 1 2 3; do swift test; done
 make check
+make sbom-check
 python3 scripts/audit-parity.py
 python3 scripts/audit-parity.py --self-test
 python3 scripts/static-check.py
@@ -95,6 +96,12 @@ Latest local results before this commit:
 - `swift test`: `260` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`260` tests each run).
 - `make check`: passed (`260` tests, `0` failures).
+- `make sbom-check`: passed; generated `.artifacts/sbom/swift-ai.cdx.json` and `.artifacts/sbom/swift-ai.cdx.json.sha256`.
+- SBOM tool/version: `swift-ai-sbom` `1.0.0` (pinned local policy `scripts/sbom-policy.json`).
+- SBOM SHA-256: `f854c6d9c279658e00d0c732c14acf8ce2e0719c07d54ab7a60d71bd1b137c9f`.
+- SBOM scan/license disposition: pinned local vulnerability scan passed with 0 high/critical advisories; license review passed for `swift-asn1` and `swift-crypto` under `Apache-2.0`.
+- SBOM artifact retention: final Ubuntu CI uploads SBOM, checksum, scan, and license review artifacts with 30-day retention.
+- Dependency-lock policy: SBOM derives the resolved SwiftPM graph from local `Package.resolved`; volatile SBOM output under `.artifacts/` is not committed.
 - `scripts/audit-parity.py`: passed with exact v0.84.4 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.
@@ -133,5 +140,5 @@ Final v0.84.3 runtime commit: `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`.
 5. Update comparator sources and expected counts/deltas.
 6. Implement all applicable Swift production deltas with executable tests.
 7. Document every adaptation and N/A decision here and in the per-release audit doc.
-8. Run local gates and require green GitHub Actions on Ubuntu, macOS, and static-check.
+8. Run local gates and require green GitHub Actions on Ubuntu and static-check; macOS hosted CI is disabled for the foreseeable future.
 9. Commit/push cleanly as Rui Carmo.

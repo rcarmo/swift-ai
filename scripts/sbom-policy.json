@@ -1,0 +1,14 @@
+{
+  "policyVersion": "2026-08-29",
+  "toolName": "swift-ai-sbom",
+  "toolVersion": "1.0.0",
+  "allowedLicenses": ["Apache-2.0", "MIT"],
+  "rootLicense": "MIT",
+  "componentLicenses": {
+    "swift-asn1": "Apache-2.0",
+    "swift-crypto": "Apache-2.0"
+  },
+  "directDependencies": ["swift-crypto"],
+  "advisories": [],
+  "waivers": []
+}

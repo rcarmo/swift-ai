@@ -14,6 +14,16 @@ jobs:
         with:
           python-version: '3.x'
       - run: make static-check
+      - run: make sbom-check
+      - uses: actions/upload-artifact@v5
+        with:
+          name: swift-ai-sbom
+          path: |
+            .artifacts/sbom/swift-ai.cdx.json
+            .artifacts/sbom/swift-ai.cdx.json.sha256
+            .artifacts/sbom/swift-ai-security-scan.json
+            .artifacts/sbom/swift-ai-license-review.json
+          retention-days: 30
 
   swift-test:
     strategy:

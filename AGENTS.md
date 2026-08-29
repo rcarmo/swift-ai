@@ -20,6 +20,7 @@
   - `swift test`
   - deterministic `swift test` repeats when doing release parity work
   - `make check`
+  - `make sbom-check`
   - `python3 scripts/audit-parity.py`
   - `python3 scripts/audit-parity.py --self-test`
   - `python3 scripts/static-check.py`
@@ -41,6 +42,22 @@
 * Batch reviewer/auditor corrections locally unless explicitly told otherwise, then make a single final push/CI run.
 * macOS hosted CI is disabled for the foreseeable future. Routine CI retains Ubuntu Swift tests and static checks only.
 * If workflow syntax/static policy changes are made, validate them locally with `python3 scripts/static-check.py` and `git diff --check` before pushing.
+
+## Supply chain, SBOM, and security
+
+* `make sbom` must generate CycloneDX JSON and SHA-256 checksum artifacts under `.artifacts/sbom/` using the pinned local generator policy in `scripts/sbom-policy.json`.
+* `make sbom-check` must validate SBOM schema, checksum, required components, Package.resolved consistency, no secrets/absolute paths, license policy, and pinned local vulnerability/advisory policy.
+* Do not commit volatile SBOM artifacts; `.artifacts/` remains gitignored.
+* SBOM contents must identify the root Swift package/revision and resolved direct/transitive SwiftPM graph from `Package.resolved`. If the dependency policy changes, document the dependency-free/resolution policy explicitly.
+* High/critical vulnerabilities or incompatible/unknown licenses require owner, rationale, and expiry before completion.
+* Final Ubuntu CI must generate/validate/scan and upload SBOM, checksum, scan, and license review artifacts with retention.
+* `RELEASE.md` must record SBOM tool/version, artifact paths, digest, scan disposition, license disposition, and artifact retention for release parity work.
+
+## Lifecycle and Definition of Done
+
+* Keep `Package.swift` and `Package.resolved` consistent; dependency/security review is required on scheduled maintenance and urgent advisories.
+* Check generated catalog drift, API/deprecation/removal compatibility, release/tag/changelog evidence, provenance/evidence retention, rollback SHA, and post-release verification/issues.
+* Definition of Done for release parity: exact scope/crosswalk, production runtime evidence, clean+fault catalog gates, Swift gates/no hidden skips, SBOM+scan+license evidence, current `RELEASE.md`, one green Ubuntu/static hosted CI run, clean sync, and documented rollback/evidence.
 
 ## Git workflow
 

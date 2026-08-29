@@ -127,7 +127,7 @@ public enum MistralConversationsProvider {
             }
             guard var active = state.activeTools[tool.index] else { continue }
             if let id = tool.id { active.id = id; state.partial.content[active.contentIndex].id = id }
-            if let name = tool.function?.name { active.name = name; state.partial.content[active.contentIndex].name = name }
+            if let name = tool.function?.name, !name.isEmpty { active.name = name; state.partial.content[active.contentIndex].name = name }
             if let args = tool.function?.arguments, !args.isEmpty { active.args += args; yield(.toolCallDelta(contentIndex: active.contentIndex, delta: args, partial: state.partial)) }
             state.activeTools[tool.index] = active
         }

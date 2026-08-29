@@ -5,81 +5,76 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 ## Current upstream parity baseline
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.84.3`
-- Current upstream tag commit: `4e58f324fae8ebfa98a3d45181fb248072a2afac`
-- Previous accepted upstream release: `v0.84.2`
-- Previous accepted upstream tag commit: `914cf1472e715297caa30db4b9535d534a9eb718`
-- Previous accepted Swift baseline: `a0d7277982b5725e93a3a8eb71e4ae7b4be8dbff`
-- Verified npm artifact SHA-256: `9c40af2f43950f8e94e7bbcd0c1b3548f000972da00c4fb9c0d0529d4d7d5431`
+- Current upstream release: `v0.84.4`
+- Current upstream tag commit: `b79e4cc834970cca69daebffab7df1da7d1e52c4`
+- Published: `2026-08-28T22:05:13.974Z`
+- Previous accepted upstream release: `v0.84.3`
+- Previous accepted upstream tag commit: `4e58f324fae8ebfa98a3d45181fb248072a2afac`
+- Previous accepted Swift runtime: `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`
+- Previous accepted Swift docs HEAD: `92d5c47f18deed495ecd6752966fb704047e8099`
+- Verified npm artifact SHA-256: `dfd3c929cee5a7387199a0a24dfc1be2096f1ea8f59ffb8285198a0ed01ebf93`
 - Swift parity branch: `main`
-- Current Swift parity commits for v0.84.3:
-  - `663467a106896c9f8fa3796e393d1996eab1f5ff` — `Sync upstream v0.84.3 parity`
-  - `57f96f6c56462d1875c4e8f5a6a0c04f9c6d36ec` — `Close v0.84.3 Copilot policy gaps`
-  - `e9735bc0116e69909764f0f4b53f4304188d4bb7` — `Close v0.84.3 final transport gaps`
-  - `3cd3a869845310a0f9a3970a904e8ff76ca4d22e` — `Close v0.84.3 Copilot rate-limit semantics`
+- Current Swift parity commit for v0.84.4: this release update commit; final SHA and CI run are reported after push.
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from `914cf1472e715297caa30db4b9535d534a9eb718` to `4e58f324fae8ebfa98a3d45181fb248072a2afac`.
+Release-only audit scope: `packages/ai` diff from `4e58f324fae8ebfa98a3d45181fb248072a2afac` to `b79e4cc834970cca69daebffab7df1da7d1e52c4`.
 
-Exact changed-path count: **48**.
+Exact changed-path count: **15**.
 
-Changed test paths: **25** total = **20 modified + 5 new** (`azure-openai-tool-choice.test.ts`, `bedrock-redacted-reasoning.test.ts`, `bedrock-response-headers.test.ts`, `google-thinking-level-map.test.ts`, `zai-coding-plan-models.test.ts`).
+Changed test paths: **6** total = **5 modified + 1 added** (`fireworks-models.test.ts`, `mistral-http-transport.test.ts`, `openai-completions-reasoning-details.test.ts`, `openai-completions-tool-choice.test.ts`, `zai-coding-plan-models.test.ts`, plus added `openrouter-reasoning-options.test.ts`).
 
-The detailed disposition matrix is in [`docs/upstream-v0.84.3-audit.md`](docs/upstream-v0.84.3-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.3-test-crosswalk.md`](docs/upstream-v0.84.3-test-crosswalk.md) and covers all **136** upstream `packages/ai/test/*.test.ts` files.
+The detailed disposition matrix is in [`docs/upstream-v0.84.4-audit.md`](docs/upstream-v0.84.4-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.4-test-crosswalk.md`](docs/upstream-v0.84.4-test-crosswalk.md) and covers all **137** upstream `packages/ai/test/*.test.ts` files.
 
 ## Exact catalog parity
 
 Text catalog:
 
-- Swift source snapshot: `scripts/models.v0.84.3.json`
-- Exact upstream comparator source: `scripts/upstream-models.4e58f32.json`
+- Swift source snapshot: `scripts/models.v0.84.4.json`
+- Exact upstream comparator source: `scripts/upstream-models.b79e4cc.json`
 - Embedded Swift registry: `Sources/SwiftAI/ModelsGenerated.swift`
-- Full records: `1312/1312`
+- Full records: `1290/1290`
 - Providers: `39`
 - APIs: `9`
-- Full-record delta vs committed v0.84.2 snapshot: `+81/-36/88 changed`
+- Full-record delta vs committed v0.84.3 snapshot: `+57/-79/227 changed`
 
 Image catalog:
 
-- Swift source snapshot: `scripts/image-models.v0.84.3.json`
-- Exact upstream comparator source: `scripts/upstream-image-models.4e58f32.json`
+- Swift source snapshot: `scripts/image-models.v0.84.4.json`
+- Exact upstream comparator source: `scripts/upstream-image-models.b79e4cc.json`
 - Embedded Swift registry: `Sources/SwiftAI/ImageModelsGenerated.swift`
-- Full records: `45/45`
+- Full records: `50/50`
 - Providers: `1`
 - APIs: `1`
-- Full-record delta vs committed v0.84.2 snapshot: `+0/0/0 changed`
+- Full-record delta vs committed v0.84.3 snapshot: `+5/-0/0 changed`
 
 Expected comparator output:
 
 ```text
-ok: 1312 text models / 39 providers / 9 APIs; 45 image models / 1 providers / 1 APIs; text delta +81/-36/88 changed; image delta +0/-0/0 changed
+ok: 1290 text models / 39 providers / 9 APIs; 50 image models / 1 providers / 1 APIs; text delta +57/-79/227 changed; image delta +5/-0/0 changed
 ```
 
 ## Swift implementation, adaptations, and N/A decisions
 
 Implemented/adapted:
 
-- Regenerated v0.84.3 text and image catalogs from the verified npm artifact.
-- Extended full-record audit/self-test gates to v0.84.3 text and image deltas.
-- Added provider-neutral `toolChoice` forwarding for Responses/Azure/Pi and retained OpenAI-compatible support.
-- Added default Pi `User-Agent` across HTTP adapters with explicit header override support.
-- Added Anthropic server-side fallback request/beta metadata and fallback compatibility metadata decoding.
-- Preserved/adapted Bedrock redacted reasoning/replay and raw response headers through pluggable transport/onResponse seams, including fake production-transport streaming coverage.
-- Added Google thinking level mapping and configurable token budgets.
-- Preserved OpenAI-compatible configurable thinking budgets and reasoning-details replay.
-- Updated built-in xAI catalog to Responses/Grok 4.6/default endpoint/reasoning/UA behavior through exact catalog and actual transport request tests.
-- Preserved Copilot throttling/retry/policy-update/login budget/persistence via bounded structured concurrency and cancellation-aware sleep/retry evidence, including policy POST retry/failure continuation and stop-after-exhausted-rate-limit semantics without blocking credential persistence.
-- Added ZAI Coding Plan China/global and DeepSeek V4 Pro 0813 generated compatibility.
+- Regenerated v0.84.4 text and image catalogs from the verified npm artifact.
+- Extended full-record audit/self-test gates to v0.84.4 text and image deltas.
+- Added exact generated catalog coverage for Cloudflare Gateway `workers-ai/` `/compat` mirror entries, ZAI GLM-5.3 cost metadata, Fireworks removal, DeepSeek V4 Flash Vision Exp, and OpenRouter image additions.
+- OpenAI-compatible Chat Completions now serializes explicit `toolChoice`, including `"none"`, even when no tools are present.
+- OpenAI-compatible streaming now merges adjacent `reasoning.text` and `reasoning.summary` reasoning-detail deltas while preserving metadata/order, then replays them exactly once through `reasoning_details` from the thinking signature.
+- Mistral fragmented indexed tool-call chunks now merge when later chunks omit tool-call ID and carry an empty function name.
+- OpenRouter `supported_efforts` metadata is represented as Swift `thinkingLevelMap`, with mandatory/optional/off semantics and request payload omission/`none`/explicit effort behavior covered by tests.
 
 N/A/adapted:
 
-- JS package docs/exports/lazy module mechanics are not SwiftPM runtime behavior.
+- JS package docs/changelog/package version mechanics are recorded in this ledger and `STATUS.json`.
+- Generator implementation changes are represented by exact generated Swift snapshots and full-record text/image comparator/self-test gates.
 - Live/provider credential matrices remain classified in the crosswalk and are not faked.
 
 ## Tests and gates
 
-Local validation for v0.84.3 parity work uses Swift `6.3.2`:
+Local validation for v0.84.4 parity work uses Swift `6.3.2`:
 
 ```bash
 swift build -Xswiftc -warnings-as-errors
@@ -95,28 +90,24 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.3 correction tests: passed, including Copilot policy catalog/retry filtering, policy POST retry/failure continuation, stop-after-exhausted-rate-limit semantics, HTTP-date `Retry-After`, post-auth credential persistence, Grok 4.6 actual transport assertions, and fake Bedrock transport redacted-reasoning/header streaming.
-- `swift test`: `256` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`256` tests each run).
-- `make check`: passed (`256` tests, `0` failures).
-- `scripts/audit-parity.py`: passed with exact v0.84.3 full-record counts and text/image deltas.
+- focused v0.84.4 correction tests: passed for explicit no-tools `toolChoice`, OpenAI-compatible reasoning-details merge/replay, Mistral fragmented tool-call merge, OpenRouter reasoning option semantics, and generated catalog metadata.
+- `swift test`: `260` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`260` tests each run).
+- `make check`: passed (`260` tests, `0` failures).
+- `scripts/audit-parity.py`: passed with exact v0.84.4 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
-- `scripts/static-check.py`: passed, including self-test.
+- `scripts/static-check.py`: passed, including text/image mutation self-test.
 - hidden skip scan: no `XCTSkip` matches.
 
-GitHub Actions evidence for final v0.84.3 runtime commit `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`:
+Hosted GitHub Actions evidence for this v0.84.4 commit must be captured after push and reported with the final handoff.
+
+## Prior accepted v0.84.3 evidence
+
+Final v0.84.3 docs HEAD: `92d5c47f18deed495ecd6752966fb704047e8099`.
+
+Final v0.84.3 runtime commit: `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`.
 
 - Run: <https://github.com/rcarmo/swift-ai/actions/runs/32770344240>
-- Status: `completed`
-- Conclusion: `success`
-- Jobs:
-  - `static-check`: success
-  - `swift-test (ubuntu-latest)`: success
-  - `swift-test (macos-14)`: success
-
-Prior implementation evidence for `663467a106896c9f8fa3796e393d1996eab1f5ff`:
-
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/32761084973>
 - Status: `completed`
 - Conclusion: `success`
 - Jobs:

@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.3")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1312)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 45)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.4")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1290)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 50)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.3")
-        XCTAssertEqual(BuiltinModels.modelCount, 1312)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.4")
+        XCTAssertEqual(BuiltinModels.modelCount, 1290)
         XCTAssertEqual(BuiltinModels.providerCount, 39)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1312)
+        XCTAssertEqual(models.count, 1290)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -144,7 +144,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .vercelAIGateway && $0.id == "thinkingmachines/inkling" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlan && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanCN && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
-        XCTAssertTrue(models.contains { $0.provider == .openCodeGo && $0.id == "grok-4.5" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .openCodeGo && $0.id == "grok-4.6" && $0.api == .openAIResponses })
         XCTAssertTrue(models.contains { $0.provider == .google && $0.id == "gemini-2.5-computer-use-preview-10-2025" })
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.id == "inclusionai/ling-3.0-flash" })
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanIndividual && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
@@ -211,11 +211,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.3")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 45)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.4")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 50)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 45)
+        XCTAssertEqual(models.count, 50)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -407,6 +407,53 @@ final class SwiftAITests: XCTestCase {
         var budgetCompat = OpenAICompletionsCompat(); budgetCompat.supportsThinkingTokenBudget = true
         let budgetOnly = Model(id: "budget", name: "Budget", api: .openAICompletions, provider: .openAI, reasoning: true, completionsCompat: budgetCompat)
         XCTAssertNil(budgetOnly.thinkingLevelMap)
+    }
+
+    func testUpstream0844GeneratedCatalogMetadata() throws {
+        let models = try BuiltinModels.all()
+        XCTAssertEqual(models.count, 1290)
+        XCTAssertEqual(Set(models.map(\.provider)).count, 39)
+        XCTAssertEqual(Set(models.map(\.api)).count, 9)
+        let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
+        XCTAssertEqual(cloudflare.baseUrl, "https://gateway.ai.cloudflare.com/v1/{CLOUDFLARE_ACCOUNT_ID}/{CLOUDFLARE_GATEWAY_ID}/compat")
+        XCTAssertEqual(cloudflare.api, .openAICompletions)
+        let resolvedBase = AIUtilities.resolveCloudflareBaseURL(model: cloudflare, env: ["CLOUDFLARE_ACCOUNT_ID": "acct", "CLOUDFLARE_GATEWAY_ID": "gw"])
+        XCTAssertEqual(resolvedBase, "https://gateway.ai.cloudflare.com/v1/acct/gw/compat")
+        XCTAssertEqual(models.filter { $0.provider == .cloudflareAIGateway && $0.id.hasPrefix("workers-ai/") }.count, 18)
+        let zai = try XCTUnwrap(models.first { $0.provider == .zai && $0.id == "glm-5.3" })
+        XCTAssertEqual(zai.cost.input, 1.4)
+        XCTAssertEqual(zai.cost.output, 4.4)
+        XCTAssertEqual(zai.cost.cacheRead, 0.26)
+        let zaiCN = try XCTUnwrap(models.first { $0.provider == .zaiCodingCN && $0.id == "glm-5.3" })
+        XCTAssertEqual(zaiCN.cost, zai.cost)
+        XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
+
+        let images = try BuiltinImageModels.all()
+        XCTAssertEqual(images.count, 50)
+        XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
+        XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
+    }
+
+    func testUpstream0844OpenRouterReasoningOptionSemanticsAndCatalog() throws {
+        let models = try BuiltinModels.all()
+        let mandatory = try XCTUnwrap(models.first { $0.provider == .openRouter && $0.id == "aion-labs/aion-2.0" })
+        XCTAssertNil(mandatory.thinkingLevelMap?[.off]!)
+        let mandatoryBackground = OpenAICompletionsProvider.buildRequestBody(model: mandatory, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertNil(mandatoryBackground["reasoning"])
+        let supportedMandatory = Model(id: "mandatory", name: "Mandatory", api: .openAICompletions, provider: .openRouter, reasoning: true, thinkingLevelMap: [.off: nil, .minimal: nil, .low: "low", .medium: nil, .high: "high", .xhigh: nil, .max: "max"])
+        var options = StreamOptions(); options.reasoning = .low
+        let mandatoryLow = OpenAICompletionsProvider.buildRequestBody(model: supportedMandatory, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(mandatoryLow["reasoning"], .object(["effort": .string("low")]))
+
+        let optional = try XCTUnwrap(models.first { $0.provider == .openRouter && $0.id == "deepseek/deepseek-v4-flash-vision-exp" })
+        XCTAssertEqual(optional.input, ["text", "image"])
+        XCTAssertEqual(optional.thinkingLevelMap?[.off]!, "none")
+        XCTAssertNil(optional.thinkingLevelMap?[.low]!)
+        let optionalBackground = OpenAICompletionsProvider.buildRequestBody(model: optional, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertEqual(optionalBackground["reasoning"], .object(["effort": .string("none")]))
+        options.reasoning = .xhigh
+        let optionalXHigh = OpenAICompletionsProvider.buildRequestBody(model: optional, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(optionalXHigh["reasoning"], .object(["effort": .string("xhigh")]))
     }
 
     func testContextOverflowDiagnosticsNilSafety() {
@@ -1423,6 +1470,24 @@ final class SwiftAITests: XCTestCase {
 
         let unknown = MistralConversationsProvider.processSSEText("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"unmapped_error\"}]}\n\n", model: model)
         XCTAssertTrue(unknown.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "unmapped_error" && message?.errorMessage == "Provider stopped with: unmapped_error" }; return false })
+    }
+
+    func testUpstream0844MistralFragmentedToolCallMergesByIndex() throws {
+        let model = Model(id: "mistral-large-latest", name: "Mistral", api: .mistralConversations, provider: .mistral)
+        let sse = """
+        data: {"id":"response-1","choices":[{"index":0,"delta":{"tool_calls":[{"id":"abc123456","index":0,"function":{"name":"lookup","arguments":"{\\\"query\\\":"}}]}}]}
+
+        data: {"id":"response-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"","arguments":"\\\"pi\\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14,"prompt_tokens_details":{"cached_tokens":3}}}
+
+        """
+        guard case .done(let reason, let message)? = MistralConversationsProvider.processSSEText(sse, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .toolUse)
+        let tool = try XCTUnwrap(message.content.first { $0.type == "toolCall" })
+        XCTAssertEqual(tool.id, "abc123456")
+        XCTAssertEqual(tool.name, "lookup")
+        XCTAssertEqual(tool.arguments?["query"], .string("pi"))
+        XCTAssertEqual(message.usage?.input, 7)
+        XCTAssertEqual(message.usage?.cacheRead, 3)
     }
 
     func testOpenAICompletionsMalformedCustomPrefersFunctionPayload() throws {
@@ -3342,6 +3407,10 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(body["tool_choice"], .string("required"))
         guard case .array(let tools)? = body["tools"] else { return XCTFail("missing tools") }
         XCTAssertGreaterThan(tools.count, 0)
+        options.toolChoice = .string("none")
+        let noTools = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(noTools["tool_choice"], .string("none"))
+        XCTAssertNil(noTools["tools"])
     }
 
     func testOpenAICompletionsEmptyToolsAndMaxTokens() {
@@ -3840,6 +3909,33 @@ final class SwiftAITests: XCTestCase {
         let events = OpenAICompletionsProvider.processSSEText(sse, model: model)
         guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
         XCTAssertEqual(message.content.first?.thoughtSignature?.contains("encrypted_content"), true)
+    }
+
+    func testUpstream0844OpenAIReasoningDetailsMergeAndReplayOnce() throws {
+        var compat = OpenAICompletionsCompat(); compat.thinkingFormat = "openrouter"
+        let model = Model(id: "reasoning", name: "Reasoning", api: .openAICompletions, provider: .openRouter, reasoning: true, completionsCompat: compat)
+        let sse = """
+        data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","id":"r1","index":0,"text":"hel"}]}}]}
+
+        data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","text":"lo","signature":"sig"},{"type":"reasoning.summary","id":"s1","summary":"sum"}]}}]}
+
+        data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.summary","summary":"mary"}]}}]}
+
+        data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}
+
+        """
+        guard case .done(_, let message)? = OpenAICompletionsProvider.processSSEText(sse, model: model).last else { return XCTFail("missing done") }
+        let thinking = try XCTUnwrap(message.content.first { $0.type == "thinking" })
+        XCTAssertEqual(thinking.thinking, "hello")
+        guard let signature = thinking.thinkingSignature?.data(using: .utf8), let details = try JSONDecoder().decode(JSONValue.self, from: signature).arrayValue else { return XCTFail("missing reasoning details") }
+        XCTAssertEqual(details.count, 2)
+        XCTAssertEqual(details[0].objectValue?["text"], .string("hello"))
+        XCTAssertEqual(details[0].objectValue?["signature"], .string("sig"))
+        XCTAssertEqual(details[1].objectValue?["summary"], .string("summary"))
+        let replay = OpenAICompletionsProvider.buildRequestBody(model: model, context: AIContext(messages: [message]), options: nil)
+        guard case .array(let messages)? = replay["messages"], case .object(let assistant) = messages[0], case .array(let replayDetails)? = assistant["reasoning_details"] else { return XCTFail("missing replay details") }
+        XCTAssertEqual(replayDetails, details)
+        XCTAssertNil(assistant["reasoning"])
     }
 
     func testUpstream0843AzureActualTransportToolChoiceAndRetrySleepCancellation() async throws {

@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.84.3 counts, that every generated API/provider raw value is represented in
+v0.84.4 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -17,12 +17,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.84.3.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.4e58f32.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.2.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.3.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.4e58f32.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.2.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.84.4.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.b79e4cc.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.3.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.4.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.b79e4cc.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.3.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Images.swift"
@@ -31,14 +31,14 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ModelsGenerated.swift"
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1312
+EXPECTED_TEXT_MODELS = 1290
 EXPECTED_TEXT_PROVIDERS = 39
-EXPECTED_IMAGE_MODELS = 45
+EXPECTED_IMAGE_MODELS = 50
 EXPECTED_IMAGE_PROVIDERS = 1
-EXPECTED_TEXT_ADDED = 81
-EXPECTED_TEXT_REMOVED = 36
-EXPECTED_TEXT_CHANGED = 88
-EXPECTED_IMAGE_ADDED = 0
+EXPECTED_TEXT_ADDED = 57
+EXPECTED_TEXT_REMOVED = 79
+EXPECTED_TEXT_CHANGED = 227
+EXPECTED_IMAGE_ADDED = 5
 EXPECTED_IMAGE_REMOVED = 0
 EXPECTED_IMAGE_CHANGED = 0
 REQUIRED_SOURCES = [
@@ -236,13 +236,13 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     text_added, text_removed, text_changed = record_delta_counts(previous_text, text)
     if (text_added, text_removed, text_changed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED, EXPECTED_TEXT_CHANGED):
         failures.append(
-            f"v0.84.2..v0.84.3 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
+            f"v0.84.3..v0.84.4 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
             f"want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}/{EXPECTED_TEXT_CHANGED} changed"
         )
     image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
     if (image_added, image_removed, image_changed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED, EXPECTED_IMAGE_CHANGED):
         failures.append(
-            f"v0.84.2..v0.84.3 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
+            f"v0.84.3..v0.84.4 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
             f"want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}/{EXPECTED_IMAGE_CHANGED} changed"
         )
 
@@ -267,10 +267,13 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         ("qwen-token-plan-cn", "qwen3.8-max"),
         ("qwen-token-plan-individual", "qwen3.8-max"),
         ("qwen-token-plan-individual", "deepseek-v4-flash-0731"),
-        ("opencode-go", "grok-4.5"),
+        ("opencode-go", "grok-4.6"),
         ("baseten", "moonshotai/Kimi-K2.5"),
         ("google", "gemini-2.5-computer-use-preview-10-2025"),
-        ("openrouter", "inclusionai/ling-3.0-flash"),
+        ("openrouter", "deepseek/deepseek-v4-flash-vision-exp"),
+        ("zai", "glm-5.3"),
+        ("zai-coding-cn", "glm-5.3"),
+        ("cloudflare-ai-gateway", "workers-ai/@cf/zai-org/glm-5.3"),
     }
     missing_representatives = sorted(representative_ids - upstream_text_ids)
     if missing_representatives:
@@ -290,6 +293,8 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         ("openrouter", "openrouter/auto-beta"),
         ("openrouter", "microsoft/mai-image-2.5-pro"),
         ("openrouter", "qwen/qwen-image-3-pro"),
+        ("openrouter", "meta/muse-image"),
+        ("openrouter", "recraft/recraft-v4-styles-pro-vector"),
     }
     missing_image_representatives = sorted(representative_image_ids - upstream_image_ids)
     if missing_image_representatives:

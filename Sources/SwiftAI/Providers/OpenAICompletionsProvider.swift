@@ -55,7 +55,12 @@ public enum OpenAICompletionsProvider {
         case "qwen": body["enable_thinking"] = .bool(false)
         case "qwen-chat-template": body["chat_template_kwargs"] = .object(["enable_thinking": .bool(false), "preserve_thinking": .bool(true)])
         case "deepseek": if model.thinkingLevelMap?[.off] != nil { body["thinking"] = .object(["type": .string("disabled")]) }
-        case "openrouter": if let off = model.thinkingLevelMap?[.off] { body["reasoning"] = .object(["effort": .string(off ?? "none")]) }
+        case "openrouter":
+            if let map = model.thinkingLevelMap {
+                if let maybeOff = map[.off], let off = maybeOff { body["reasoning"] = .object(["effort": .string(off)]) }
+            } else {
+                body["reasoning"] = .object(["effort": .string("none")])
+            }
         case "string-thinking": if let off = model.thinkingLevelMap?[.off] { body["thinking"] = .string(off ?? "none") }
         default:
             if compat.supportsReasoningEffort == true, let off = model.thinkingLevelMap?[.off], let off { body["reasoning_effort"] = .string(off) }
@@ -160,13 +165,15 @@ public enum OpenAICompletionsProvider {
             }
             var obj: [String: JSONValue] = ["role": .string(role), "content": contentValue]
             if message.role == .assistant {
-                let reasoningDetails = message.content.compactMap { block -> JSONValue? in
-                    guard block.type == "toolCall", let sig = block.thoughtSignature, let data = sig.data(using: .utf8) else { return nil }
-                    return try? JSONDecoder().decode(JSONValue.self, from: data)
+                let reasoningDetails = message.content.flatMap { block -> [JSONValue] in
+                    guard let sig = block.thoughtSignature ?? block.thinkingSignature, let data = sig.data(using: .utf8) else { return [] }
+                    if let array = try? JSONDecoder().decode([JSONValue].self, from: data) { return array }
+                    if let value = try? JSONDecoder().decode(JSONValue.self, from: data) { return [value] }
+                    return []
                 }
                 if !reasoningDetails.isEmpty { obj["reasoning_details"] = .array(reasoningDetails) }
                 let thinkingBlocks = message.content.filter { $0.type == "thinking" && !($0.thinking ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                if let signature = thinkingBlocks.first?.thinkingSignature, !signature.isEmpty {
+                if let signature = thinkingBlocks.first?.thinkingSignature, !signature.isEmpty, !isReasoningDetailsSignature(signature) {
                     let key = model.provider == .openCodeGo && signature == "reasoning" ? "reasoning_content" : signature
                     obj[key] = .string(AIUtilities.sanitizeSurrogates(thinkingBlocks.compactMap(\.thinking).joined(separator: "\n")))
                 }
@@ -406,13 +413,21 @@ public enum OpenAICompletionsProvider {
         }
         let reasoning = delta.reasoningContent ?? delta.reasoning ?? delta.reasoningText
         if let reasoning, !reasoning.isEmpty {
+            state.flushReasoningDetails()
             if state.partial.content.last?.type != "thinking" { state.partial.content.append(ContentBlock(type: "thinking")); yield(.thinkingStart(contentIndex: state.partial.content.count - 1, partial: state.partial)) }
             let idx = state.partial.content.count - 1
             state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + reasoning
             yield(.thinkingDelta(contentIndex: idx, delta: reasoning, partial: state.partial))
         }
         for detail in delta.reasoningDetails ?? [] {
-            if let id = reasoningDetailID(detail) {
+            guard let detailType = reasoningDetailType(detail) else { continue }
+            if detailType == "reasoning.text" || detailType == "reasoning.summary" {
+                if state.partial.content.last?.type != "thinking" { state.partial.content.append(ContentBlock(type: "thinking")); yield(.thinkingStart(contentIndex: state.partial.content.count - 1, partial: state.partial)) }
+                let idx = state.partial.content.count - 1
+                if detailType == "reasoning.text" { state.partial.content[idx].thinking = (state.partial.content[idx].thinking ?? "") + (reasoningDetailString(detail, field: "text") ?? "") }
+                state.appendStreamedReasoningDetail(detail)
+            } else if let id = reasoningDetailID(detail) {
+                state.flushReasoningDetails()
                 if let idx = state.partial.content.firstIndex(where: { $0.type == "toolCall" && $0.id == id }) {
                     state.partial.content[idx].thoughtSignature = jsonString(detail)
                 } else {
@@ -447,6 +462,7 @@ public enum OpenAICompletionsProvider {
 
     private static func finishStream(state: inout StreamState, yield: (AIEvent) -> Void) {
         if !state.started { state.started = true; yield(.start(partial: state.partial)) }
+        state.flushReasoningDetails()
         for (idx, block) in state.partial.content.enumerated() {
             if block.type == "text" { yield(.textEnd(contentIndex: idx, content: block.text ?? "", partial: state.partial)) }
             if block.type == "thinking" { yield(.thinkingEnd(contentIndex: idx, content: block.thinking ?? "", partial: state.partial)) }
@@ -485,8 +501,11 @@ public enum OpenAICompletionsProvider {
         return delta
     }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
-    private static func jsonString(_ value: JSONValue) -> String { guard let data = try? JSONEncoder().encode(value) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+    fileprivate static func jsonString(_ value: JSONValue) -> String { guard let data = try? JSONEncoder().encode(value) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+    private static func isReasoningDetailsSignature(_ signature: String) -> Bool { guard let data = signature.data(using: .utf8) else { return false }; return (try? JSONDecoder().decode([JSONValue].self, from: data)) != nil }
     private static func reasoningDetailID(_ value: JSONValue) -> String? { if case .object(let object) = value, object["type"] == .string("reasoning.encrypted") { return object["id"]?.stringValue }; return nil }
+    private static func reasoningDetailType(_ value: JSONValue) -> String? { value.objectValue?["type"]?.stringValue }
+    private static func reasoningDetailString(_ value: JSONValue, field: String) -> String? { value.objectValue?[field]?.stringValue }
 
     private static func stopReason(from finish: String?) -> StopReason {
         switch finish {
@@ -507,8 +526,32 @@ private struct StreamState {
     var finishReason: String?
     var activeTools: [Int: ActiveTool] = [:]
     var pendingReasoningDetails: [String: JSONValue] = [:]
+    var streamedReasoningDetails: [JSONValue] = []
     init(model: Model) { self.model = model; var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.usage = Usage(); partial = msg }
     mutating func applyUsage(_ raw: SSEUsage) { var u = partial.usage ?? Usage(); u.input = raw.promptTokens ?? 0; u.output = raw.completionTokens ?? 0; u.reasoning = raw.completionTokensDetails?.reasoningTokens ?? 0; u.totalTokens = raw.totalTokens ?? (u.input + u.output); if let cached = raw.promptTokensDetails?.cachedTokens ?? raw.promptCacheHitTokens { u.cacheRead = cached; u.input = max(0, u.input - cached) }; if let written = raw.promptTokensDetails?.cacheWriteTokens { u.cacheWrite = written; u.input = max(0, u.input - written) }; AIUtilities.applyCost(model: model, usage: &u); partial.usage = u }
+    mutating func appendStreamedReasoningDetail(_ detail: JSONValue) {
+        guard let type = detail.objectValue?["type"]?.stringValue else { return }
+        if type == "reasoning.text", let last = streamedReasoningDetails.indices.last, streamedReasoningDetails[last].objectValue?["type"] == .string("reasoning.text") {
+            var object = streamedReasoningDetails[last].objectValue ?? [:]
+            object["text"] = .string((object["text"]?.stringValue ?? "") + (detail.objectValue?["text"]?.stringValue ?? ""))
+            if object["signature"] == nil, let signature = detail.objectValue?["signature"] { object["signature"] = signature }
+            for key in ["id", "format", "index"] where object[key] == nil { object[key] = detail.objectValue?[key] }
+            streamedReasoningDetails[last] = .object(object)
+            return
+        }
+        if type == "reasoning.summary", let last = streamedReasoningDetails.indices.last, streamedReasoningDetails[last].objectValue?["type"] == .string("reasoning.summary") {
+            var object = streamedReasoningDetails[last].objectValue ?? [:]
+            object["summary"] = .string((object["summary"]?.stringValue ?? "") + (detail.objectValue?["summary"]?.stringValue ?? ""))
+            for key in ["id", "format", "index"] where object[key] == nil { object[key] = detail.objectValue?[key] }
+            streamedReasoningDetails[last] = .object(object)
+            return
+        }
+        streamedReasoningDetails.append(detail)
+    }
+    mutating func flushReasoningDetails() {
+        guard !streamedReasoningDetails.isEmpty, let idx = partial.content.lastIndex(where: { $0.type == "thinking" }) else { return }
+        partial.content[idx].thinkingSignature = OpenAICompletionsProvider.jsonString(.array(streamedReasoningDetails))
+    }
 }
 
 private struct ActiveTool { var index: Int; var id: String?; var name: String?; var args: String; var contentIndex: Int; var customProperty: String? = nil; var customInput: String? = nil; var customStarted: Bool = false; var customClosed: Bool = false }

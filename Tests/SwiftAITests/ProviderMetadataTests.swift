@@ -337,7 +337,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(model.anthropicCompat?.supportsEagerToolInputStreaming, false)
         XCTAssertEqual(model.anthropicCompat?.supportsCacheControlOnTools, false)
         XCTAssertEqual(model.anthropicCompat?.supportsLongCacheRetention, false)
-        XCTAssertNotNil(try BuiltinModels.all().first { $0.provider == .fireworks && $0.id.hasPrefix("accounts/fireworks/routers/") && $0.id.hasSuffix("-turbo") })
+        XCTAssertNil(try BuiltinModels.all().first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .fireworks, env: ["FIREWORKS_API_KEY": "test-fireworks-key"]), "test-fireworks-key")
     }
 
@@ -433,14 +433,14 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertFalse(openCodeIDs.contains("qwen3-coder"))
         XCTAssertFalse(openCodeIDs.contains("glm-4.6"))
 
-        let openCodeResponses = try model(.openCodeGo, "grok-4.5")
+        let openCodeResponses = try model(.openCodeGo, "grok-4.6")
         XCTAssertEqual(openCodeResponses.api, .openAIResponses)
     }
 
     func testUpstream0811QwenTokenPlanCatalogMetadata() throws {
         for provider in [Provider.qwenTokenPlan, Provider.qwenTokenPlanCN] {
             let ids = Set(try BuiltinModels.all().filter { $0.provider == provider }.map(\.id))
-            XCTAssertEqual(ids.count, 17)
+            XCTAssertEqual(ids.count, 18)
             XCTAssertTrue(ids.contains("qwen3.8-max"))
             XCTAssertTrue(ids.contains("glm-5.2"))
             let model = try self.model(provider, "qwen3.8-max")

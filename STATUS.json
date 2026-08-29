@@ -1,8 +1,8 @@
 {
   "upstream": {
     "package": "@earendil-works/pi-ai",
-    "version": "0.84.3",
-    "commit": "4e58f324fae8ebfa98a3d45181fb248072a2afac"
+    "version": "0.84.4",
+    "commit": "b79e4cc834970cca69daebffab7df1da7d1e52c4"
   },
   "swiftPM": {
     "package": "swift-ai",
@@ -16,10 +16,10 @@
     ]
   },
   "registries": {
-    "textModels": 1312,
+    "textModels": 1290,
     "textProviders": 39,
     "textAPIs": 9,
-    "imageModels": 45,
+    "imageModels": 50,
     "imageProviders": 1,
     "imageAPIs": 1
   },
@@ -62,7 +62,7 @@
     "swiftToolchainUnavailableInContainer": true,
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test",
-    "latestStaticCheck": "python3 scripts/static-check.py and python3 scripts/audit-parity.py passed in this container for v0.84.3 parity changes"
+    "latestStaticCheck": "python3 scripts/static-check.py and python3 scripts/audit-parity.py passed in this container for v0.84.4 parity changes"
   },
   "knownNonBundledCapabilities": [
     "Bedrock live AWS SigV4/event-stream transport",

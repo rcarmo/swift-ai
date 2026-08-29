@@ -29,7 +29,7 @@ final class ImageRegistryTests: XCTestCase {
     func testBuiltinImageRegistryOpenRouterCatalog() throws {
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 45)
+        XCTAssertEqual(models.count, 50)
         XCTAssertTrue(models.allSatisfy { $0.api == .openRouterImages && $0.provider == .openRouter })
         XCTAssertNotNil(models.first { $0.id == "black-forest-labs/flux.2-flex" })
         XCTAssertNotNil(models.first { $0.id == "krea/krea-2-large" })

@@ -46,7 +46,7 @@ public enum OpenAIResponsesProvider {
         let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
         if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0, supportsOpenAIGrammarTools: supportsGrammar) }) }
         if let t = options?.temperature { body["temperature"] = .number(t) }
-        if let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(max)) }
+        if model.responsesCompat?.supportsMaxOutputTokens != false, let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(Swift.max(16, max))) }
         if model.reasoning {
             let effort: String
             if let reasoning = options?.reasoning { effort = mappedThinkingEffort(model: model, effort: reasoning.rawValue) }

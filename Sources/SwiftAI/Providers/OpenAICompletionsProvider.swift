@@ -44,6 +44,7 @@ public enum OpenAICompletionsProvider {
         let shouldSendCacheKey = (model.baseUrl.contains("api.openai.com") && cacheRetention != CacheRetention.none) || (cacheRetention == .long && compat.supportsLongCacheRetention == true)
         if let session = options?.sessionId, !session.isEmpty, shouldSendCacheKey { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if cacheRetention == .long, compat.supportsLongCacheRetention == true { body["prompt_cache_retention"] = .string("24h") }
+        if let priority = compat.vllmPriority { body["priority"] = .number(Double(priority)) }
         if let toolChoice = options?.toolChoice { body["tool_choice"] = toolChoice }
         if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body); applyThinkingTokenBudget(model: model, options: options, compat: compat, body: &body) }
         else if model.reasoning { applyThinkingDisabled(model: model, compat: compat, body: &body) }

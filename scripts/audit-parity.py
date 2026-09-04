@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.84.4 counts, that every generated API/provider raw value is represented in
+v0.85.0 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -17,12 +17,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.84.4.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.b79e4cc.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.3.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.4.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.b79e4cc.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.3.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.85.0.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.107d79f.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.4.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.85.0.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.107d79f.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.85.0.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -31,14 +31,14 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "Mode
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1290
+EXPECTED_TEXT_MODELS = 1336
 EXPECTED_TEXT_PROVIDERS = 39
 EXPECTED_IMAGE_MODELS = 50
 EXPECTED_IMAGE_PROVIDERS = 1
-EXPECTED_TEXT_ADDED = 57
-EXPECTED_TEXT_REMOVED = 79
-EXPECTED_TEXT_CHANGED = 227
-EXPECTED_IMAGE_ADDED = 5
+EXPECTED_TEXT_ADDED = 72
+EXPECTED_TEXT_REMOVED = 26
+EXPECTED_TEXT_CHANGED = 79
+EXPECTED_IMAGE_ADDED = 0
 EXPECTED_IMAGE_REMOVED = 0
 EXPECTED_IMAGE_CHANGED = 0
 REQUIRED_SOURCES = [
@@ -236,13 +236,13 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     text_added, text_removed, text_changed = record_delta_counts(previous_text, text)
     if (text_added, text_removed, text_changed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED, EXPECTED_TEXT_CHANGED):
         failures.append(
-            f"v0.84.3..v0.84.4 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
+            f"v0.84.4..v0.85.0 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
             f"want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}/{EXPECTED_TEXT_CHANGED} changed"
         )
     image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
     if (image_added, image_removed, image_changed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED, EXPECTED_IMAGE_CHANGED):
         failures.append(
-            f"v0.84.3..v0.84.4 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
+            f"v0.84.4..v0.85.0 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
             f"want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}/{EXPECTED_IMAGE_CHANGED} changed"
         )
 

@@ -20,6 +20,35 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertTrue(transformed.allSatisfy { $0.content.isEmpty })
     }
 
+    func testUpstream0850AssistantMessageFrameReductionAndValidation() throws {
+        var start = Message(role: .assistant, content: [], timestamp: 42)
+        start.api = .openAIResponses; start.provider = .openAI; start.model = "gpt"; start.providerThinkingLevel = "high"; start.usage = Usage()
+        let frames: [AssistantMessageFrame] = [
+            .start(partial: start),
+            .textStart(contentIndex: 0, content: .text("")),
+            .textDelta(contentIndex: 0, delta: "hel"),
+            .textEnd(contentIndex: 0, content: "hello", textSignature: "sig-text"),
+            .thinkingStart(contentIndex: 1, content: .thinking("")),
+            .thinkingDelta(contentIndex: 1, delta: "why"),
+            .thinkingEnd(contentIndex: 1, content: "why", thinkingSignature: "sig-thinking", redacted: false),
+            .toolCallStart(contentIndex: 2, toolCall: .toolCall(id: "call_1", name: "lookup", arguments: [:])),
+            .toolCallDelta(contentIndex: 2, delta: "{\"q\":"),
+            .toolCallDelta(contentIndex: 2, delta: "\"pi\"}"),
+            .toolCallEnd(contentIndex: 2, id: "call_1", name: "lookup", arguments: ["q": .string("pi")], thoughtSignature: "thought", namespace: "ns")
+        ]
+        let message = try XCTUnwrap(try AssistantMessageFrameReducer.reduce(frames))
+        XCTAssertEqual(message.providerThinkingLevel, "high")
+        XCTAssertEqual(message.content[0].text, "hello")
+        XCTAssertEqual(message.content[0].textSignature, "sig-text")
+        XCTAssertEqual(message.content[1].thinking, "why")
+        XCTAssertEqual(message.content[1].thinkingSignature, "sig-thinking")
+        XCTAssertEqual(message.content[2].arguments?["q"], .string("pi"))
+        XCTAssertEqual(message.content[2].thoughtSignature, "thought")
+        XCTAssertNil(try AssistantMessageFrameReducer.reduce([]))
+        XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.textDelta(contentIndex: 0, delta: "before"), .start(partial: start)]))
+        XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.start(partial: start), .textStart(contentIndex: 1, content: .text("gap"))]))
+    }
+
     func testV0806ContextEstimateIgnoresStaleAssistantUsage() {
         func assistant(timestamp: Int64, totalTokens: Int) -> Message {
             var msg = Message(role: .assistant, content: [.text("kept")], timestamp: timestamp)
@@ -79,6 +108,8 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(firstUUID, "7fffcfe5-6800-7fff-bfff-f91122334455")
         XCTAssertEqual(secondUUID, "7fffcfe5-6800-7fff-bfff-fc0000000000")
         XCTAssertEqual(thirdUUID, "7fffcfe5-6801-7000-8000-000000000000")
+        XCTAssertEqual(AIUtilities.uuidV7TimestampMilliseconds(firstUUID), uuidBase)
+        XCTAssertNil(AIUtilities.uuidV7TimestampMilliseconds("not-a-uuid"))
         XCTAssertTrue(firstUUID < secondUUID)
         XCTAssertTrue(secondUUID < thirdUUID)
         XCTAssertTrue(firstUUID.range(of: #"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#, options: .regularExpression) != nil)
@@ -207,6 +238,10 @@ final class CoreUtilityTests: XCTestCase {
 
     func testHTTPProxyResolution() throws {
         XCTAssertNil(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "bedrock-runtime.us-east-1.amazonaws.com"]))
+        XCTAssertNil(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://api.star.net", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "*.star.net"]))
+        XCTAssertNil(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://[2001:db8::1]", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "[2001:db8::1]"]))
+        XCTAssertNil(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://127.0.0.1:8080", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "127.0.0.1:8080"]))
+        XCTAssertEqual(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://127.0.0.1:3000", env: ["HTTPS_PROXY": "http://proxy.example:8080", "NO_PROXY": "127.0.0.1:8080"])?.absoluteString, "http://proxy.example:8080")
         XCTAssertEqual(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://proxy.example:8080"])?.absoluteString, "http://proxy.example:8080")
         XCTAssertEqual(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "http://scoped-proxy.example:8080", "https_proxy": "http://process-proxy.example:8080"])?.absoluteString, "http://scoped-proxy.example:8080")
         XCTAssertThrowsError(try HTTPProxyResolver.resolveProxyURL(forTarget: "https://bedrock-runtime.us-east-1.amazonaws.com", env: ["HTTPS_PROXY": "socks5://proxy.example:1080"])) { error in

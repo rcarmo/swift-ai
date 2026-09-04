@@ -5,77 +5,81 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 ## Current upstream parity baseline
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.84.4`
-- Current upstream tag commit: `b79e4cc834970cca69daebffab7df1da7d1e52c4`
-- Published: `2026-08-28T22:05:13.974Z`
-- Previous accepted upstream release: `v0.84.3`
-- Previous accepted upstream tag commit: `4e58f324fae8ebfa98a3d45181fb248072a2afac`
-- Previous accepted Swift runtime: `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`
-- Previous accepted Swift docs HEAD: `92d5c47f18deed495ecd6752966fb704047e8099`
-- Verified npm artifact SHA-256: `dfd3c929cee5a7387199a0a24dfc1be2096f1ea8f59ffb8285198a0ed01ebf93`
+- Current upstream release: `v0.85.0`
+- Current upstream tag commit: `107d79f11072bbc8a3a757ed7fd69596bee7d68c`
+- Published: `2026-09-04T10:13:48.137Z`
+- Previous accepted upstream release: `v0.84.4`
+- Previous accepted upstream tag commit: `b79e4cc834970cca69daebffab7df1da7d1e52c4`
+- Previous accepted Swift baseline: `61849874ea9b45c54caa7d6bbe10c7addcc72d5e`
+- Verified npm artifact SHA-256: `46188bdacb555a07466a0111f3963f20932a16199e4d6cfb8d44a7fe5fc6e342`
+- Verified npm artifact SHA-512: `09b79e647dcd1dabfb46cd7cdad62ad1ea020167c377532f3805cace89c8178b8ddee3bdf4407c893d477f21a87c998f9007fc31e23038142daaa774ce0acf58`
 - Swift parity branch: `main`
-- Current Swift parity commit for v0.84.4:
-  - `015543adb6bf7fb54348f0c0a3d14146ee94c28f` — `Sync upstream v0.84.4 parity`
+- Current Swift parity commit for v0.85.0: this release update commit; final SHA and CI run are reported after push.
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from `4e58f324fae8ebfa98a3d45181fb248072a2afac` to `b79e4cc834970cca69daebffab7df1da7d1e52c4`.
+Release-only audit scope: `packages/ai` diff from `b79e4cc834970cca69daebffab7df1da7d1e52c4` to `107d79f11072bbc8a3a757ed7fd69596bee7d68c`.
 
-Exact changed-path count: **15**.
+Exact changed-path count: **51**. Changed-path manifest hash: `db461a56838926cf60d4ae0196ed98fcc215616dacff013ad8c235bb8ad9b83f`.
 
-Changed test paths: **6** total = **5 modified + 1 added** (`fireworks-models.test.ts`, `mistral-http-transport.test.ts`, `openai-completions-reasoning-details.test.ts`, `openai-completions-tool-choice.test.ts`, `zai-coding-plan-models.test.ts`, plus added `openrouter-reasoning-options.test.ts`).
+Changed path classes: source/scripts **19** (`16M/2A/1D`), tests **29** (`22M/6A/1D`), package/docs **3**.
 
-The detailed disposition matrix is in [`docs/upstream-v0.84.4-audit.md`](docs/upstream-v0.84.4-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.84.4-test-crosswalk.md`](docs/upstream-v0.84.4-test-crosswalk.md) and covers all **137** upstream `packages/ai/test/*.test.ts` files.
+Final upstream test corpus: **142** files. Corpus manifest hash: `56f8742065a4ad01d73e5aee53035324f2e7333a735222ab15db870819e29065`.
+
+The detailed disposition matrix is in [`docs/upstream-v0.85.0-audit.md`](docs/upstream-v0.85.0-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.85.0-test-crosswalk.md`](docs/upstream-v0.85.0-test-crosswalk.md).
 
 ## Exact catalog parity
 
 Text catalog:
 
-- Swift source snapshot: `scripts/models.v0.84.4.json`
-- Exact upstream comparator source: `scripts/upstream-models.b79e4cc.json`
+- Swift source snapshot: `scripts/models.v0.85.0.json`
+- Exact upstream comparator source: `scripts/upstream-models.107d79f.json`
 - Embedded Swift registry: `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`
-- Full records: `1290/1290`
+- Full records: `1336/1336`
 - Providers: `39`
 - APIs: `9`
-- Full-record delta vs committed v0.84.3 snapshot: `+57/-79/227 changed`
+- Full-record delta vs committed v0.84.4 snapshot: `+72/-26/79 changed`
 
 Image catalog:
 
-- Swift source snapshot: `scripts/image-models.v0.84.4.json`
-- Exact upstream comparator source: `scripts/upstream-image-models.b79e4cc.json`
+- Swift source snapshot: `scripts/image-models.v0.85.0.json`
+- Exact upstream comparator source: `scripts/upstream-image-models.107d79f.json`
 - Embedded Swift registry: `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`
 - Full records: `50/50`
 - Providers: `1`
 - APIs: `1`
-- Full-record delta vs committed v0.84.3 snapshot: `+5/-0/0 changed`
+- Full-record delta vs committed v0.84.4 snapshot: `+0/-0/0 changed`
 
 Expected comparator output:
 
 ```text
-ok: 1290 text models / 39 providers / 9 APIs; 50 image models / 1 providers / 1 APIs; text delta +57/-79/227 changed; image delta +5/-0/0 changed
+ok: 1336 text models / 39 providers / 9 APIs; 50 image models / 1 providers / 1 APIs; text delta +72/-26/79 changed; image delta +0/-0/0 changed
 ```
 
 ## Swift implementation, adaptations, and N/A decisions
 
 Implemented/adapted:
 
-- Regenerated v0.84.4 text and image catalogs from the verified npm artifact.
-- Extended full-record audit/self-test gates to v0.84.4 text and image deltas.
-- Added exact generated catalog coverage for Cloudflare Gateway `workers-ai/` `/compat` mirror entries, ZAI GLM-5.3 cost metadata, Fireworks removal, DeepSeek V4 Flash Vision Exp, and OpenRouter image additions.
-- OpenAI-compatible Chat Completions now serializes explicit `toolChoice`, including `"none"`, even when no tools are present.
-- OpenAI-compatible streaming now merges adjacent `reasoning.text` and `reasoning.summary` reasoning-detail deltas while preserving metadata/order, then replays them exactly once through `reasoning_details` from the thinking signature.
-- Mistral fragmented indexed tool-call chunks now merge when later chunks omit tool-call ID and carry an empty function name.
-- OpenRouter `supported_efforts` metadata is represented as Swift `thinkingLevelMap`, with mandatory/optional/off semantics and request payload omission/`none`/explicit effort behavior covered by tests.
+- Regenerated v0.85.0 text and image catalogs from the verified npm artifact.
+- Extended full-record audit/self-test gates to v0.85.0 text and image deltas.
+- Added Swift `providerThinkingLevel` message metadata and assistant-message frame reduction/validation surface.
+- Ported Anthropic mid-conversation effort metadata: beta headers, adaptive output config, and providerThinkingLevel propagation; live Anthropic thinking-binding E2E remains credential-gated and not faked.
+- Ported OpenAI Responses `supportsMaxOutputTokens` payload omission/clamping and OpenAI-compatible vLLM priority serialization.
+- Preserved OpenAI-compatible reasoning-detail merge/replay, custom deltas, tool-choice, tool-result images, parser/error/usage behavior through existing production tests.
+- Ported UUIDv7 timestamp extraction and expanded NO_PROXY matching for wildcard, leading-dot, IPv6, and host:port entries.
+- Adapted Cloudflare AI binding replacement: SwiftPM has no Workers binding object, but generated Cloudflare catalog/routing/base URL behavior and request builders remain covered.
+- Updated catalog representatives for xAI, Qwen Token Plan Individual, OpenRouter, Baseten, routing fixes, and generated model deltas.
 
 N/A/adapted:
 
 - JS package docs/changelog/package version mechanics are recorded in this ledger and `STATUS.json`.
 - Generator implementation changes are represented by exact generated Swift snapshots and full-record text/image comparator/self-test gates.
+- Cloudflare Workers AI binding object replacement is JS runtime-specific; Swift covers portable catalog/routing/request behavior.
 - Live/provider credential matrices remain classified in the crosswalk and are not faked.
 
 ## Tests and gates
 
-Local validation for v0.84.4 parity work uses Swift `6.3.2`:
+Local validation for v0.85.0 parity work uses Swift `6.3.2`:
 
 ```bash
 swift build -Xswiftc -warnings-as-errors
@@ -92,45 +96,40 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.84.4 correction tests: passed for explicit no-tools `toolChoice`, OpenAI-compatible reasoning-details merge/replay, Mistral fragmented tool-call merge, OpenRouter reasoning option semantics, and generated catalog metadata.
-- `swift test`: `260` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`260` tests each run).
-- `make check`: passed (`260` tests, `0` failures).
-- `make sbom-check`: passed; generated `.artifacts/sbom/swift-ai.cdx.json` and `.artifacts/sbom/swift-ai.cdx.json.sha256`.
-- SBOM tool/version: `swift-ai-sbom` `1.1.0` (pinned local policy `scripts/sbom-policy.json`) plus pinned OSV Scanner `2.5.1`.
-- SBOM SHA-256 for the accepted candidate is generated from exact `git rev-parse HEAD`; for dirty local candidates the SBOM records `git.dirty=true` and must be regenerated after commit before final evidence is reported.
-- SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved` resolution policy; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` → direct `swift-crypto` → transitive `swift-asn1`.
-- SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`); license review passed for `swift-asn1` and `swift-crypto` under `Apache-2.0`.
-- SBOM artifact retention: final Ubuntu CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention.
-- Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
-- `scripts/audit-parity.py`: passed with exact v0.84.4 full-record counts and text/image deltas.
+- focused v0.85.0 tests: passed for assistant frames, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Responses max output-token support, and vLLM priority.
+- `swift test`: `263` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`263` tests each run).
+- `make check`: passed (`263` tests, `0` failures).
+- `scripts/audit-parity.py`: passed with exact v0.85.0 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.
+- `make sbom-check`: passed with CycloneDX, SwiftPM graph, OSV, waiver self-tests, and license review.
+- clean checkout validation: passed warnings-as-errors build, `swift test`, static check, SBOM/OSV/license checks, diff check, and hidden-skip scan.
 - hidden skip scan: no `XCTSkip` matches.
+- Hosted Ubuntu/static CI must be captured after push and reported with the final handoff.
 
-Hosted GitHub Actions evidence for v0.84.4 runtime/catalog commit `015543adb6bf7fb54348f0c0a3d14146ee94c28f`:
+## SBOM/security evidence model
 
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/33251959680>
+- SBOM tool/version: `swift-ai-sbom` `1.1.0` (pinned local policy `scripts/sbom-policy.json`) plus pinned OSV Scanner `2.5.1`.
+- SBOM SHA-256 for the accepted candidate is generated from exact `git rev-parse HEAD`; for dirty local candidates the SBOM records `git.dirty=true` and must be regenerated after commit before final evidence is reported.
+- SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved`; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` → direct `swift-crypto` → transitive `swift-asn1`.
+- SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`).
+- SBOM artifact retention: final Ubuntu CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention.
+- Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
+
+## Prior accepted v0.84.4 evidence
+
+Final v0.84.4 release docs HEAD: `ed03aa02239f28ab59e7c0874518a1377eeca688`.
+
+Final v0.84.4 runtime/catalog commit: `015543adb6bf7fb54348f0c0a3d14146ee94c28f`.
+
+Final source-tree/SBOM baseline before v0.85.0: `61849874ea9b45c54caa7d6bbe10c7addcc72d5e`.
+
+- Release run: <https://github.com/rcarmo/swift-ai/actions/runs/33251959680>
+- Source-tree/SBOM run: <https://github.com/rcarmo/swift-ai/actions/runs/33258310597>
 - Status: `completed`
 - Conclusion: `success`
-- Jobs:
-  - `static-check`: success
-  - `swift-test (ubuntu-latest)`: success
-  - `swift-test (macos-14)`: success
-
-## Prior accepted v0.84.3 evidence
-
-Final v0.84.3 docs HEAD: `92d5c47f18deed495ecd6752966fb704047e8099`.
-
-Final v0.84.3 runtime commit: `3cd3a869845310a0f9a3970a904e8ff76ca4d22e`.
-
-- Run: <https://github.com/rcarmo/swift-ai/actions/runs/32770344240>
-- Status: `completed`
-- Conclusion: `success`
-- Jobs:
-  - `static-check`: success
-  - `swift-test (ubuntu-latest)`: success
-  - `swift-test (macos-14)`: success
+- Routine hosted CI: Ubuntu/static only; macOS disabled after policy update.
 
 ## Future release-audit checklist
 

@@ -159,6 +159,7 @@ public struct Message: Codable, Equatable, Sendable {
     public var model: String?
     public var responseId: String?
     public var responseModel: String?
+    public var providerThinkingLevel: String?
     public var diagnostics: [AssistantMessageDiagnostic]?
     public var usage: Usage?
     public var stopReason: StopReason?
@@ -172,7 +173,7 @@ public struct Message: Codable, Equatable, Sendable {
     public var addedToolNames: [String]?
     public var endTurn: Bool?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, endTurn }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, endTurn }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -186,6 +187,7 @@ public struct Message: Codable, Equatable, Sendable {
         model = try c.decodeIfPresent(String.self, forKey: .model)
         responseId = try c.decodeIfPresent(String.self, forKey: .responseId)
         responseModel = try c.decodeIfPresent(String.self, forKey: .responseModel)
+        providerThinkingLevel = try c.decodeIfPresent(String.self, forKey: .providerThinkingLevel)
         diagnostics = try c.decodeIfPresent([AssistantMessageDiagnostic].self, forKey: .diagnostics)
         usage = try c.decodeIfPresent(Usage.self, forKey: .usage)
         stopReason = try c.decodeIfPresent(StopReason.self, forKey: .stopReason)
@@ -210,6 +212,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(model, forKey: .model)
         try c.encodeIfPresent(responseId, forKey: .responseId)
         try c.encodeIfPresent(responseModel, forKey: .responseModel)
+        try c.encodeIfPresent(providerThinkingLevel, forKey: .providerThinkingLevel)
         try c.encodeIfPresent(diagnostics, forKey: .diagnostics)
         try c.encodeIfPresent(usage, forKey: .usage)
         try c.encodeIfPresent(stopReason, forKey: .stopReason)

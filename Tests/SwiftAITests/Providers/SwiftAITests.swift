@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.84.4")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1290)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.85.0")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1336)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 50)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.84.4")
-        XCTAssertEqual(BuiltinModels.modelCount, 1290)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.85.0")
+        XCTAssertEqual(BuiltinModels.modelCount, 1336)
         XCTAssertEqual(BuiltinModels.providerCount, 39)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1290)
+        XCTAssertEqual(models.count, 1336)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -211,7 +211,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.84.4")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.85.0")
         XCTAssertEqual(BuiltinImageModels.modelCount, 50)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -411,7 +411,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1290)
+        XCTAssertEqual(models.count, 1336)
         XCTAssertEqual(Set(models.map(\.provider)).count, 39)
         XCTAssertEqual(Set(models.map(\.api)).count, 9)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -3909,6 +3909,54 @@ final class SwiftAITests: XCTestCase {
         let events = OpenAICompletionsProvider.processSSEText(sse, model: model)
         guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
         XCTAssertEqual(message.content.first?.thoughtSignature?.contains("encrypted_content"), true)
+    }
+
+    func testUpstream0850AnthropicMidConversationEffortHeadersAndProviderLevel() throws {
+        let model = Model(id: "claude-fable-5", name: "Claude", api: .anthropicMessages, provider: .anthropic, reasoning: true, thinkingLevelMap: [.low: "low", .medium: "medium", .high: "high"], anthropicCompat: AnthropicMessagesCompat(forceAdaptiveThinking: true, supportsMidConvoEffort: true))
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(messages: [.user("hi")]), apiKey: "key", options: nil)
+        XCTAssertTrue(headers["Anthropic-Beta"]?.contains("mid-conversation-output-config-2026-07-01") == true)
+        XCTAssertTrue(headers["Anthropic-Beta"]?.contains("thinking-binding-controls-2026-08-01") == true)
+        var options = StreamOptions(); options.reasoning = .medium
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(body["output_config"], .object(["effort": .string("medium")]))
+        let sse = """
+        event: message_start
+        data: {"message":{"id":"m1","model":"claude-fable-5","usage":{"input_tokens":1}}}
+
+        event: content_block_start
+        data: {"index":0,"content_block":{"type":"text"}}
+
+        event: content_block_delta
+        data: {"index":0,"delta":{"type":"text_delta","text":"ok"}}
+
+        event: content_block_stop
+        data: {"index":0}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}
+
+        event: message_stop
+        data: {}
+
+        """
+        guard case .done(_, let message)? = AnthropicMessagesProvider.processSSEText(sse, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.providerThinkingLevel, "high")
+    }
+
+    func testUpstream0850OpenAIResponsesMaxOutputTokenCompatAndVLLMPriority() {
+        var responsesCompat = OpenAIResponsesCompat(); responsesCompat.supportsMaxOutputTokens = false
+        var options = StreamOptions(); options.maxTokens = 4
+        let unsupported = Model(id: "no-max", name: "NoMax", api: .openAIResponses, provider: .openAI, responsesCompat: responsesCompat)
+        XCTAssertNil(OpenAIResponsesProvider.buildRequestBody(model: unsupported, context: AIContext(messages: [.user("hi")]), options: options)["max_output_tokens"])
+        let supported = Model(id: "max", name: "Max", api: .openAIResponses, provider: .openAI)
+        XCTAssertEqual(OpenAIResponsesProvider.buildRequestBody(model: supported, context: AIContext(messages: [.user("hi")]), options: options)["max_output_tokens"], .number(16))
+
+        var completionsCompat = OpenAICompletionsCompat(); completionsCompat.vllmPriority = 10
+        let vllm = Model(id: "vllm", name: "vLLM", api: .openAICompletions, provider: .openAI, completionsCompat: completionsCompat)
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: vllm, context: AIContext(messages: [.user("hi")]), options: nil)["priority"], .number(10))
+        let noPriority = Model(id: "plain", name: "Plain", api: .openAICompletions, provider: .openAI)
+        XCTAssertNil(OpenAICompletionsProvider.buildRequestBody(model: noPriority, context: AIContext(messages: [.user("hi")]), options: nil)["priority"])
     }
 
     func testUpstream0844OpenAIReasoningDetailsMergeAndReplayOnce() throws {

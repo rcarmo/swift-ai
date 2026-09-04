@@ -107,6 +107,12 @@ public enum AIUtilities {
         uuidV7State.next(timestampMs: timestampMs ?? UInt64(Date().timeIntervalSince1970 * 1000), randomBytes: randomBytes)
     }
 
+    public static func uuidV7TimestampMilliseconds(_ uuid: String) -> UInt64? {
+        let compact = uuid.replacingOccurrences(of: "-", with: "")
+        guard compact.count == 32, compact.dropFirst(12).first == "7", let value = UInt64(String(compact.prefix(12)), radix: 16) else { return nil }
+        return value
+    }
+
     public static func estimateTextAndImageContentTokens(_ content: [ContentBlock]) -> Int {
         var chars = 0
         for block in content { chars += block.type == "text" ? (block.text ?? "").count : estimatedImageChars }

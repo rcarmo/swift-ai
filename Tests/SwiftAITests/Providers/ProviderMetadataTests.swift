@@ -421,7 +421,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     func testUpstream08010XAIAndOpenCodeCatalogDisposition() throws {
         let models = try BuiltinModels.all()
         let xaiIDs = Set(models.filter { $0.provider == .xai }.map(\.id))
-        XCTAssertEqual(xaiIDs, ["grok-4.3", "grok-4.5", "grok-4.6", "grok-build-0.1"])
+        XCTAssertEqual(xaiIDs, ["grok-4.3", "grok-4.5", "grok-4.6"])
         XCTAssertFalse(xaiIDs.contains("grok-3"))
         XCTAssertFalse(xaiIDs.contains("grok-code-fast-1"))
         XCTAssertFalse(xaiIDs.contains("grok-4.3-fast"))
@@ -463,6 +463,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
             "qwen3.6-flash",
             "qwen3.7-max",
             "qwen3.7-plus",
+            "qwen3.8-flash",
             "qwen3.8-max"
         ])
         XCTAssertFalse(individualIDs.contains("qwen3.8-max-preview"))

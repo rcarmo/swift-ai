@@ -35,6 +35,7 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
     public var sendSessionIdHeader: Bool?
     public var supportsEagerToolInputStreaming: Bool?
     public var deferredToolsMode: String?
+    public var vllmPriority: Int?
     public init() {}
 }
 
@@ -48,7 +49,8 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
     public var supportsAdditionalTools: Bool?
     public var supportsExplicitPromptCacheMode: Bool?
     public var sessionAffinityFormat: String?
-    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil, supportsAdditionalTools: Bool? = nil, supportsExplicitPromptCacheMode: Bool? = nil, sessionAffinityFormat: String? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools; self.supportsAdditionalTools = supportsAdditionalTools; self.supportsExplicitPromptCacheMode = supportsExplicitPromptCacheMode; self.sessionAffinityFormat = sessionAffinityFormat }
+    public var supportsMaxOutputTokens: Bool?
+    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil, supportsAdditionalTools: Bool? = nil, supportsExplicitPromptCacheMode: Bool? = nil, sessionAffinityFormat: String? = nil, supportsMaxOutputTokens: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools; self.supportsAdditionalTools = supportsAdditionalTools; self.supportsExplicitPromptCacheMode = supportsExplicitPromptCacheMode; self.sessionAffinityFormat = sessionAffinityFormat; self.supportsMaxOutputTokens = supportsMaxOutputTokens }
 }
 public struct AnthropicFallbackModel: Codable, Equatable, Sendable { public var provider: String?; public var model: String; public var cost: ModelCost?; public init(provider: String? = nil, model: String, cost: ModelCost? = nil) { self.provider = provider; self.model = model; self.cost = cost } }
 
@@ -63,7 +65,8 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsToolReferences: Bool?
     public var supportsStrictTools: Bool?
     public var allowedFallbackModels: [AnthropicFallbackModel]?
-    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil, allowedFallbackModels: [AnthropicFallbackModel]? = nil) {
+    public var supportsMidConvoEffort: Bool?
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil, allowedFallbackModels: [AnthropicFallbackModel]? = nil, supportsMidConvoEffort: Bool? = nil) {
         self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
         self.supportsLongCacheRetention = supportsLongCacheRetention
         self.sendSessionAffinityHeaders = sendSessionAffinityHeaders
@@ -74,6 +77,7 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
         self.supportsToolReferences = supportsToolReferences
         self.supportsStrictTools = supportsStrictTools
         self.allowedFallbackModels = allowedFallbackModels
+        self.supportsMidConvoEffort = supportsMidConvoEffort
     }
 }
 
@@ -108,6 +112,7 @@ public enum Compat {
         if override.sendSessionIdHeader != nil { detected.sendSessionIdHeader = override.sendSessionIdHeader }
         if override.supportsEagerToolInputStreaming != nil { detected.supportsEagerToolInputStreaming = override.supportsEagerToolInputStreaming }
         if override.deferredToolsMode != nil { detected.deferredToolsMode = override.deferredToolsMode }
+        if override.vllmPriority != nil { detected.vllmPriority = override.vllmPriority }
         return detected
     }
 

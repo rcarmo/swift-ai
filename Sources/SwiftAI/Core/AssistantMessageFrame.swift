@@ -14,6 +14,151 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
     case toolCallEnd(contentIndex: Int, id: String, name: String, arguments: [String: JSONValue], thoughtSignature: String? = nil, namespace: String? = nil)
 }
 
+public final class AssistantMessageFrameEncoder: @unchecked Sendable {
+    private enum BlockState {
+        case text(coveredChars: Int, deltaChars: Int)
+        case thinking(coveredChars: Int, deltaChars: Int)
+        case toolCall(caughtUp: Bool, catchupJSON: String, snapshotArguments: String)
+    }
+
+    private var started = false
+    private var terminal = false
+    private var blocks: [Int: BlockState] = [:]
+
+    public init() {}
+
+    public func encode(_ event: AIEvent) throws -> AssistantMessageFrame? {
+        if terminal { throw AIError.provider("Assistant message event \(eventType(event)) follows a terminal event") }
+        switch event {
+        case .start(let partial):
+            if started { throw AIError.provider("Assistant message stream contains more than one start event") }
+            started = true
+            var message = partial ?? Message(role: .assistant, content: [])
+            message.content = []
+            message.stopReason = .pending
+            return .start(partial: message)
+        case .done:
+            guard started else { throw AIError.provider("Assistant message done event appears before start") }
+            terminal = true
+            return nil
+        case .error:
+            terminal = true
+            return nil
+        default:
+            guard started else { throw AIError.provider("Assistant message \(eventType(event)) event appears before start") }
+        }
+
+        switch event {
+        case .textStart(let index, let partial):
+            let content = try eventBlock(partial: partial, index: index, expected: "text", type: eventType(event))
+            try start(index: index, state: .text(coveredChars: (content.text ?? "").count, deltaChars: 0))
+            return .textStart(contentIndex: index, content: content)
+        case .textDelta(let index, let delta, _):
+            return try encodeTextDelta(index: index, delta: delta, kind: "text")
+        case .textEnd(let index, let content, let partial):
+            let block = try eventBlock(partial: partial, index: index, expected: "text", type: eventType(event))
+            try end(index: index, expected: "text")
+            return .textEnd(contentIndex: index, content: content, textSignature: block.textSignature)
+        case .thinkingStart(let index, let partial):
+            let content = try eventBlock(partial: partial, index: index, expected: "thinking", type: eventType(event))
+            try start(index: index, state: .thinking(coveredChars: (content.thinking ?? "").count, deltaChars: 0))
+            return .thinkingStart(contentIndex: index, content: content)
+        case .thinkingDelta(let index, let delta, _):
+            return try encodeTextDelta(index: index, delta: delta, kind: "thinking")
+        case .thinkingEnd(let index, let content, let partial):
+            let block = try eventBlock(partial: partial, index: index, expected: "thinking", type: eventType(event))
+            try end(index: index, expected: "thinking")
+            return .thinkingEnd(contentIndex: index, content: content, thinkingSignature: block.thinkingSignature, redacted: block.redacted)
+        case .toolCallStart(let index, let partial):
+            let tool = try eventBlock(partial: partial, index: index, expected: "toolCall", type: eventType(event))
+            let snapshot = Self.jsonString(tool.arguments ?? [:])
+            try start(index: index, state: .toolCall(caughtUp: snapshot == "{}", catchupJSON: "", snapshotArguments: snapshot == "{}" ? "" : snapshot))
+            return .toolCallStart(contentIndex: index, toolCall: tool)
+        case .toolCallDelta(let index, let delta, _):
+            guard case .toolCall(let caughtUp, var catchup, let snapshot)? = blocks[index] else { throw AIError.provider("Assistant message toolCall block \(index) has not started") }
+            if caughtUp { return delta.isEmpty ? nil : .toolCallDelta(contentIndex: index, delta: delta) }
+            catchup += delta
+            if let parsed = PartialJSONParser.parseObject(catchup), Self.jsonString(parsed) == snapshot {
+                blocks[index] = .toolCall(caughtUp: true, catchupJSON: "", snapshotArguments: "")
+                return catchup.isEmpty ? nil : .toolCallCheckpoint(contentIndex: index, json: catchup)
+            }
+            blocks[index] = .toolCall(caughtUp: false, catchupJSON: catchup, snapshotArguments: snapshot)
+            return nil
+        case .toolCallEnd(let index, let toolCall, _):
+            guard toolCall.type == "toolCall" else { throw AIError.provider("toolcall_end event has invalid tool call at index \(index)") }
+            try end(index: index, expected: "toolCall")
+            return .toolCallEnd(contentIndex: index, id: toolCall.id ?? "", name: toolCall.name ?? "", arguments: toolCall.arguments ?? [:], thoughtSignature: toolCall.thoughtSignature, namespace: toolCall.namespace)
+        case .start, .done, .error:
+            return nil
+        }
+    }
+
+    private func encodeTextDelta(index: Int, delta: String, kind: String) throws -> AssistantMessageFrame? {
+        let state = blocks[index]
+        let coveredChars: Int
+        let deltaChars: Int
+        switch (kind, state) {
+        case ("text", .text(let covered, let deltas)?), ("thinking", .thinking(let covered, let deltas)?):
+            coveredChars = covered; deltaChars = deltas
+        default:
+            throw AIError.provider("Assistant message \(kind) block \(index) has not started")
+        }
+        let deltaStart = deltaChars
+        let newDeltaChars = deltaChars + delta.count
+        let covered = max(0, coveredChars - deltaStart)
+        if kind == "text" { blocks[index] = .text(coveredChars: coveredChars, deltaChars: newDeltaChars) }
+        else { blocks[index] = .thinking(coveredChars: coveredChars, deltaChars: newDeltaChars) }
+        if covered >= delta.count { return nil }
+        let start = delta.index(delta.startIndex, offsetBy: covered)
+        let uncovered = String(delta[start...])
+        return kind == "text" ? .textDelta(contentIndex: index, delta: uncovered) : .thinkingDelta(contentIndex: index, delta: uncovered)
+    }
+
+    private func start(index: Int, state: BlockState) throws {
+        guard index >= 0 else { throw AIError.provider("Invalid assistant message frame contentIndex: \(index)") }
+        if blocks[index] != nil { throw AIError.provider("Assistant message block \(index) starts more than once") }
+        blocks[index] = state
+    }
+
+    private func end(index: Int, expected: String) throws {
+        guard let state = blocks[index] else { throw AIError.provider("Assistant message \(expected) block \(index) has not started") }
+        switch (expected, state) {
+        case ("text", .text), ("thinking", .thinking), ("toolCall", .toolCall): blocks.removeValue(forKey: index)
+        default: throw AIError.provider("Assistant message block \(index) is not \(expected)")
+        }
+    }
+
+    private func eventBlock(partial: Message?, index: Int, expected: String, type: String) throws -> ContentBlock {
+        guard index >= 0 else { throw AIError.provider("Invalid assistant message frame contentIndex: \(index)") }
+        guard let block = partial?.content[safe: index] else { throw AIError.provider("\(type) event has no content block at index \(index)") }
+        guard block.type == expected else { throw AIError.provider("\(type) event points to \(block.type) block at index \(index)") }
+        return block
+    }
+
+    private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+
+    private func eventType(_ event: AIEvent) -> String {
+        switch event {
+        case .start: return "start"
+        case .textStart: return "text_start"
+        case .textDelta: return "text_delta"
+        case .textEnd: return "text_end"
+        case .thinkingStart: return "thinking_start"
+        case .thinkingDelta: return "thinking_delta"
+        case .thinkingEnd: return "thinking_end"
+        case .toolCallStart: return "toolcall_start"
+        case .toolCallDelta: return "toolcall_delta"
+        case .toolCallEnd: return "toolcall_end"
+        case .done: return "done"
+        case .error: return "error"
+        }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
 public struct AssistantMessageFrameReducer {
     private enum BlockState { case text(ended: Bool), thinking(ended: Bool), toolCall(ended: Bool, json: String) }
 

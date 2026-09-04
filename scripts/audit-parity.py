@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import json
 import re
 import sys
@@ -22,7 +23,7 @@ UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.107d79f.json"
 PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.84.4.json"
 IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.85.0.json"
 UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.107d79f.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.85.0.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.84.4.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -41,6 +42,14 @@ EXPECTED_TEXT_CHANGED = 79
 EXPECTED_IMAGE_ADDED = 0
 EXPECTED_IMAGE_REMOVED = 0
 EXPECTED_IMAGE_CHANGED = 0
+CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v0.85.0-changed-paths.txt"
+TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v0.85.0-test-corpus.txt"
+UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v0.85.0-audit.md"
+UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v0.85.0-test-crosswalk.md"
+EXPECTED_CHANGED_PATHS = 51
+EXPECTED_CHANGED_PATHS_HASH = "db461a56838926cf60d4ae0196ed98fcc215616dacff013ad8c235bb8ad9b83f"
+EXPECTED_TEST_CORPUS = 142
+EXPECTED_TEST_CORPUS_HASH = "56f8742065a4ad01d73e5aee53035324f2e7333a735222ab15db870819e29065"
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Providers/OpenAICompletionsProvider.swift",
     "Sources/SwiftAI/Providers/OpenAIResponsesProvider.swift",
@@ -159,6 +168,18 @@ def record_delta_counts(previous: list[dict], current: list[dict]) -> tuple[int,
     return (len(added), len(removed), len(changed))
 
 
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def markdown_table_data_rows(path: Path) -> int:
+    rows = 0
+    for line in path.read_text().splitlines():
+        if line.startswith("| ") and not line.startswith("| ---") and not line.startswith("| #"):
+            rows += 1
+    return rows
+
+
 def main() -> int:
     self_test = "--self-test" in sys.argv[1:]
     failures, summary = collect_failures(self_test_mutation=False)
@@ -169,12 +190,15 @@ def main() -> int:
         image_mutated_failures, _ = collect_failures(image_self_test_mutation=True)
         if not any("image" in failure and "full records differ" in failure for failure in image_mutated_failures):
             failures.append("self-test image metadata mutation did not trigger full-record comparator")
+        image_baseline_mutated_failures, _ = collect_failures(previous_image_self_test_mutation=True)
+        if not any("image full-record delta" in failure for failure in image_baseline_mutated_failures):
+            failures.append("self-test image baseline metadata mutation did not trigger unchanged-delta comparator")
 
     if failures:
         for failure in failures:
             print("FAIL:", failure)
         return 1
-    suffix = "; self-test text/image metadata mutations caught" if self_test else ""
+    suffix = "; self-test text/image metadata mutations and image baseline fault caught" if self_test else ""
     print(
         f"ok: {summary['text_models']} text models / {summary['text_providers']} providers / {summary['text_apis']} APIs; "
         f"{summary['image_models']} image models / {summary['image_providers']} providers / {summary['image_apis']} APIs; "
@@ -184,7 +208,7 @@ def main() -> int:
     return 0
 
 
-def collect_failures(self_test_mutation: bool = False, image_self_test_mutation: bool = False) -> tuple[list[str], dict[str, int]]:
+def collect_failures(self_test_mutation: bool = False, image_self_test_mutation: bool = False, previous_image_self_test_mutation: bool = False) -> tuple[list[str], dict[str, int]]:
     text = json.loads(TEXT_MODELS.read_text())
     upstream_text = json.loads(UPSTREAM_TEXT_MODELS.read_text())
     previous_text = json.loads(PREVIOUS_TEXT_MODELS.read_text())
@@ -197,6 +221,9 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     if image_self_test_mutation:
         images = copy.deepcopy(images)
         images[0]["name"] = str(images[0].get("name", "")) + " fault-injected"
+    if previous_image_self_test_mutation:
+        previous_images = copy.deepcopy(previous_images)
+        previous_images[0]["name"] = str(previous_images[0].get("name", "")) + " fault-injected"
 
     status = json.loads(STATUS.read_text())
     swift_status = SWIFT_STATUS.read_text()
@@ -336,6 +363,27 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     missing_sources = [path for path in REQUIRED_SOURCES if not (ROOT / path).exists()]
     if missing_sources:
         failures.append("missing required parity source files: " + ", ".join(missing_sources))
+
+    manifest_checks = [
+        (CHANGED_PATHS_MANIFEST, EXPECTED_CHANGED_PATHS, EXPECTED_CHANGED_PATHS_HASH, "changed-path manifest"),
+        (TEST_CORPUS_MANIFEST, EXPECTED_TEST_CORPUS, EXPECTED_TEST_CORPUS_HASH, "test-corpus manifest"),
+    ]
+    for path, expected_rows, expected_hash, label in manifest_checks:
+        if not path.exists():
+            failures.append(f"missing {label}: {path.relative_to(ROOT)}")
+            continue
+        rows = len(path.read_text().splitlines())
+        if rows != expected_rows:
+            failures.append(f"{label} rows: got {rows}, want {expected_rows}")
+        digest = sha256_file(path)
+        if digest != expected_hash:
+            failures.append(f"{label} sha256: got {digest}, want {expected_hash}")
+    if UPSTREAM_AUDIT_DOC.exists() and markdown_table_data_rows(UPSTREAM_AUDIT_DOC) != EXPECTED_CHANGED_PATHS:
+        failures.append(f"v0.85.0 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
+    if UPSTREAM_AUDIT_DOC.exists() and "Covered by exact generated snapshots, validators, or existing Swift runtime tests." in UPSTREAM_AUDIT_DOC.read_text():
+        failures.append("v0.85.0 audit matrix contains generic non-specific disposition text")
+    if UPSTREAM_CROSSWALK_DOC.exists() and markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC) != EXPECTED_TEST_CORPUS:
+        failures.append(f"v0.85.0 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
 
     registered_text_apis, registered_image_apis = registered_api_raw_values()
     missing_text_runtime = sorted(text_apis - registered_text_apis)

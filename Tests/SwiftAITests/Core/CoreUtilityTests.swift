@@ -49,6 +49,38 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.start(partial: start), .textStart(contentIndex: 1, content: .text("gap"))]))
     }
 
+    func testUpstream0850AssistantMessageFrameEncoderOffsetsTerminalAndToolCheckpoints() throws {
+        var partial = Message(role: .assistant, content: [], timestamp: 42)
+        partial.api = .openAIResponses; partial.provider = .openAI; partial.model = "gpt"; partial.providerThinkingLevel = "medium"; partial.usage = Usage()
+        let encoder = AssistantMessageFrameEncoder()
+        guard case .start(let started)? = try encoder.encode(.start(partial: partial)) else { return XCTFail("missing start frame") }
+        XCTAssertEqual(started.providerThinkingLevel, "medium")
+
+        partial.content = [.text("pre")]
+        guard case .textStart(let textIndex, let textContent)? = try encoder.encode(.textStart(contentIndex: 0, partial: partial)) else { return XCTFail("missing text start") }
+        XCTAssertEqual(textIndex, 0)
+        XCTAssertEqual(textContent.text, "pre")
+        XCTAssertNil(try encoder.encode(.textDelta(contentIndex: 0, delta: "pr", partial: partial)))
+        XCTAssertEqual(try encoder.encode(.textDelta(contentIndex: 0, delta: "efix", partial: partial)), .textDelta(contentIndex: 0, delta: "fix"))
+        partial.content[0].text = "prefix"; partial.content[0].textSignature = "sig"
+        XCTAssertEqual(try encoder.encode(.textEnd(contentIndex: 0, content: "prefix", partial: partial)), .textEnd(contentIndex: 0, content: "prefix", textSignature: "sig"))
+
+        partial.content.append(.toolCall(id: "call_1", name: "lookup", arguments: ["q": .string("pi")]))
+        guard case .toolCallStart? = try encoder.encode(.toolCallStart(contentIndex: 1, partial: partial)) else { return XCTFail("missing tool start") }
+        XCTAssertNil(try encoder.encode(.toolCallDelta(contentIndex: 1, delta: "{\"q\":", partial: partial)))
+        XCTAssertEqual(try encoder.encode(.toolCallDelta(contentIndex: 1, delta: "\"pi\"}", partial: partial)), .toolCallCheckpoint(contentIndex: 1, json: "{\"q\":\"pi\"}"))
+        partial.content[1].arguments = ["q": .string("pi"), "extra": .bool(true)]
+        let endFrame = try encoder.encode(.toolCallEnd(contentIndex: 1, toolCall: partial.content[1], partial: partial))
+        XCTAssertEqual(endFrame, .toolCallEnd(contentIndex: 1, id: "call_1", name: "lookup", arguments: ["q": .string("pi"), "extra": .bool(true)]))
+        XCTAssertNil(try encoder.encode(.done(reason: .stop, message: partial)))
+        XCTAssertThrowsError(try encoder.encode(.textDelta(contentIndex: 0, delta: "late", partial: partial)))
+
+        let wrong = AssistantMessageFrameEncoder()
+        XCTAssertThrowsError(try wrong.encode(.textDelta(contentIndex: 0, delta: "before", partial: partial)))
+        _ = try wrong.encode(.start(partial: partial))
+        XCTAssertThrowsError(try wrong.encode(.thinkingStart(contentIndex: 0, partial: partial)))
+    }
+
     func testV0806ContextEstimateIgnoresStaleAssistantUsage() {
         func assistant(timestamp: Int64, totalTokens: Int) -> Message {
             var msg = Message(role: .assistant, content: [.text("kept")], timestamp: timestamp)

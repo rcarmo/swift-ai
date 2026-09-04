@@ -62,7 +62,7 @@ Implemented/adapted:
 
 - Regenerated v0.85.0 text and image catalogs from the verified npm artifact.
 - Extended full-record audit/self-test gates to v0.85.0 text and image deltas.
-- Added Swift `providerThinkingLevel` message metadata and assistant-message frame reduction/validation surface.
+- Added Swift `providerThinkingLevel` message metadata plus assistant-message frame encoder and reducer surfaces.
 - Ported Anthropic mid-conversation effort metadata: beta headers, adaptive output config, and providerThinkingLevel propagation; live Anthropic thinking-binding E2E remains credential-gated and not faked.
 - Ported OpenAI Responses `supportsMaxOutputTokens` payload omission/clamping and OpenAI-compatible vLLM priority serialization.
 - Preserved OpenAI-compatible reasoning-detail merge/replay, custom deltas, tool-choice, tool-result images, parser/error/usage behavior through existing production tests.
@@ -96,14 +96,15 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.85.0 tests: passed for assistant frames, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Responses max output-token support, and vLLM priority.
+- focused v0.85.0 tests: passed for assistant frame encoder/reducer state-machine behavior, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Responses max output-token support, and vLLM priority.
 - `swift test`: `263` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`263` tests each run).
 - `make check`: passed (`263` tests, `0` failures).
 - `scripts/audit-parity.py`: passed with exact v0.85.0 full-record counts and text/image deltas.
-- `scripts/audit-parity.py --self-test`: passed, text and image metadata fault injections caught.
+- `scripts/audit-parity.py --self-test`: passed, text/image metadata fault injections and unchanged-image baseline corruption caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.
 - `make sbom-check`: passed with CycloneDX, SwiftPM graph, OSV, waiver self-tests, and license review.
+- exact v0.85.0 manifest validation: passed for 51 changed-path rows/hash and 142 test-corpus rows/hash; audit/crosswalk row counts are validator-enforced.
 - clean checkout validation: passed warnings-as-errors build, `swift test`, static check, SBOM/OSV/license checks, diff check, and hidden-skip scan.
 - hidden skip scan: no `XCTSkip` matches.
 - Hosted Ubuntu/static CI must be captured after push and reported with the final handoff.

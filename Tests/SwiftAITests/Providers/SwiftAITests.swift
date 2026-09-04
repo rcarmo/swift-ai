@@ -1507,16 +1507,70 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(ended?.arguments?["a"], .number(1))
     }
 
-    func testResponsesRejectPendingTerminalStatuses() throws {
-        for status in ["pending", "in_progress", "queued"] {
+    func testResponsesTerminalStatusMappingsFollowUpstream() throws {
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        for status in ["in_progress", "queued"] {
             let sse = "event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"\(status)\",\"output\":[]}}\n\n"
-            let events = OpenAIResponsesProvider.processSSEText(sse, model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI))
-            XCTAssertTrue(events.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == status && message?.stopReason == .error }; return false }, status)
+            let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+            guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done for \(status)") }
+            XCTAssertEqual(reason, .stop, status)
+            XCTAssertEqual(message.stopReason, .stop, status)
+            XCTAssertEqual(message.rawStopReason, status)
+            XCTAssertNil(message.errorMessage, status)
         }
-        let azureEvents = OpenAIResponsesProvider.processSSEText("event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"in_progress\",\"output\":[]}}\n\n", model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI))
-        XCTAssertTrue(azureEvents.contains { if case .error = $0 { return true }; return false })
-        let codexEvents = OpenAIResponsesProvider.processSSEText("event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"queued\",\"output\":[]}}\n\n", model: Model(id: "codex", name: "Codex", api: .openAICodexResponses, provider: .openAICodex))
-        XCTAssertTrue(codexEvents.contains { if case .error = $0 { return true }; return false })
+
+        let pending = OpenAIResponsesProvider.processSSEText("event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"pending\",\"output\":[]}}\n\n", model: model)
+        XCTAssertTrue(pending.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "pending" && message?.stopReason == .error && message?.errorMessage == "Response incomplete: pending" }; return false })
+    }
+
+    func testResponsesTerminalMappingsClearStaleErrorMessages() throws {
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        let terminalCases: [(name: String, sse: String, reason: StopReason, raw: String)] = [
+            ("completed", "event: response.completed\ndata: {\"response\":{\"id\":\"r\",\"status\":\"completed\",\"output\":[]}}\n\n", .stop, "completed"),
+            ("length", "event: response.incomplete\ndata: {\"response\":{\"id\":\"r\",\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"max_output_tokens\"},\"output\":[]}}\n\n", .length, "incomplete.max_output_tokens")
+        ]
+        for testCase in terminalCases {
+            let events = OpenAIResponsesProvider.processSSEText("event: error\ndata: {\"code\":\"stale\",\"message\":\"previous provider error\"}\n\n" + testCase.sse, model: model)
+            guard case .done(let reason, let message)? = events.last else { return XCTFail("missing done for \(testCase.name)") }
+            XCTAssertEqual(reason, testCase.reason, testCase.name)
+            XCTAssertEqual(message.stopReason, testCase.reason, testCase.name)
+            XCTAssertEqual(message.rawStopReason, testCase.raw, testCase.name)
+            XCTAssertNil(message.errorMessage, testCase.name)
+            let encoded = String(data: try JSONEncoder().encode(message), encoding: .utf8) ?? ""
+            XCTAssertFalse(encoded.contains("\"errorMessage\""), testCase.name)
+        }
+
+        let toolUseSSE = """
+        event: error
+        data: {"code":"stale","message":"previous provider error"}
+
+        event: response.output_item.added
+        data: {"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"lookup"}}
+
+        event: response.output_item.done
+        data: {"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"lookup"}}
+
+        event: response.completed
+        data: {"response":{"id":"r","status":"completed","output":[]}}
+
+        """
+        let toolUseEvents = OpenAIResponsesProvider.processSSEText(toolUseSSE, model: model)
+        guard case .done(let toolReason, let toolMessage)? = toolUseEvents.last else { return XCTFail("missing toolUse done") }
+        XCTAssertEqual(toolReason, .toolUse)
+        XCTAssertEqual(toolMessage.stopReason, .toolUse)
+        XCTAssertEqual(toolMessage.rawStopReason, "completed")
+        XCTAssertNil(toolMessage.errorMessage)
+        let toolEncoded = String(data: try JSONEncoder().encode(toolMessage), encoding: .utf8) ?? ""
+        XCTAssertFalse(toolEncoded.contains("\"errorMessage\""))
+    }
+
+    func testResponsesIncompleteReasonMappingsFollowUpstream() throws {
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
+        for reason in ["content_filter", "max_time_limit"] {
+            let sse = "event: response.incomplete\ndata: {\"response\":{\"id\":\"r\",\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"\(reason)\"},\"output\":[]}}\n\n"
+            let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+            XCTAssertTrue(events.contains { if case .error(_, let message, _) = $0 { return message?.rawStopReason == "incomplete.\(reason)" && message?.stopReason == .error && message?.errorMessage == "Response incomplete: \(reason)" }; return false }, reason)
+        }
     }
 
     func testOpenAICompletionsMissingAndRawFinishReason() throws {
@@ -1893,11 +1947,13 @@ final class SwiftAITests: XCTestCase {
 
         let incomplete = """
         event: response.incomplete
-        data: {"response":{"id":"resp_incomplete","status":"incomplete","usage":{"input_tokens":30,"output_tokens":12,"total_tokens":42,"input_tokens_details":{"cached_tokens":5}}}}
+        data: {"response":{"id":"resp_incomplete","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":30,"output_tokens":12,"total_tokens":42,"input_tokens_details":{"cached_tokens":5}}}}
 
         """
         guard case .done(let incompleteReason, let incompleteMessage)? = OpenAIResponsesProvider.processSSEText(incomplete, model: model).last else { return XCTFail("missing incomplete") }
         XCTAssertEqual(incompleteReason, .length)
+        XCTAssertEqual(incompleteMessage.rawStopReason, "incomplete.max_output_tokens")
+        XCTAssertNil(incompleteMessage.errorMessage)
         XCTAssertEqual(incompleteMessage.responseId, "resp_incomplete")
         XCTAssertEqual(incompleteMessage.usage?.input, 25)
         XCTAssertEqual(incompleteMessage.usage?.cacheRead, 5)
@@ -1915,11 +1971,13 @@ final class SwiftAITests: XCTestCase {
         let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)
         let incomplete = """
         event: response.completed
-        data: {"response":{"id":"r","status":"incomplete"}}
+        data: {"response":{"id":"r","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"}}}
 
         """
-        guard case .done(let reason, _)? = OpenAIResponsesProvider.processSSEText(incomplete, model: model).last else { return XCTFail("missing done") }
+        guard case .done(let reason, let message)? = OpenAIResponsesProvider.processSSEText(incomplete, model: model).last else { return XCTFail("missing done") }
         XCTAssertEqual(reason, .length)
+        XCTAssertEqual(message.rawStopReason, "incomplete.max_output_tokens")
+        XCTAssertNil(message.errorMessage)
         let toolUse = """
         event: response.output_item.added
         data: {"item":{"type":"function_call","call_id":"c","name":"lookup"}}
@@ -2011,6 +2069,87 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(reason, .stop)
         XCTAssertNil(message.errorMessage)
         XCTAssertEqual(message.content, [.text("Hello")])
+    }
+
+    func testAnthropicInputTransformationsUseFinalEventAndDiagnoseBindingMismatch() throws {
+        let model = Model(id: "claude-fable-5-1", name: "Claude Fable", api: .anthropicMessages, provider: .anthropic)
+        let sse = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"msg_transformations","model":"claude-fable-5-1","usage":{"input_tokens":12,"output_tokens":0},"input_transformations":[{"type":"thinking_dropped","path":"messages.1.content.0","reason":"prefix_binding_mismatch"}]}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+        event: content_block_delta
+        data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+        event: content_block_stop
+        data: {"type":"content_block_stop","index":0}
+
+        event: message_delta
+        data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":12,"output_tokens":5},"input_transformations":[{"type":"thinking_dropped","path":"messages.3.content.0","reason":"model_binding_mismatch"}]}
+
+        event: message_stop
+        data: {"type":"message_stop"}
+
+        """
+        guard case .done(let reason, let message)? = AnthropicMessagesProvider.processSSEText(sse, model: model).last else { return XCTFail("missing done") }
+        XCTAssertEqual(reason, .stop)
+        let diagnostic = try XCTUnwrap(message.diagnostics?.last)
+        XCTAssertEqual(diagnostic.type, "anthropic_input_transformations")
+        guard case .array(let transformations)? = diagnostic.details?["transformations"] else { return XCTFail("missing transformations") }
+        XCTAssertEqual(transformations.count, 1)
+        guard case .object(let transformation)? = transformations.first else { return XCTFail("missing transformation") }
+        XCTAssertEqual(transformation["type"], .string("thinking_dropped"))
+        XCTAssertEqual(transformation["path"], .string("messages.3.content.0"))
+        XCTAssertEqual(transformation["reason"], .string("model_binding_mismatch"))
+    }
+
+    func testAnthropicFallbackMarkersIgnoreBeforeOutputAndRejectMidOutput() throws {
+        let model = Model(id: "claude-opus-5", name: "Claude Opus", api: .anthropicMessages, provider: .anthropic)
+        let beforeOutput = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"msg_fallback","model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":0}}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"fallback","from":{"model":"claude-opus-5"},"to":{"model":"claude-opus-4-8"}}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+        event: content_block_delta
+        data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"fallback answer"}}
+
+        event: content_block_stop
+        data: {"type":"content_block_stop","index":0}
+
+        event: message_delta
+        data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":1,"output_tokens":2}}
+
+        event: message_stop
+        data: {"type":"message_stop"}
+
+        """
+        guard case .done(let reason, let message)? = AnthropicMessagesProvider.processSSEText(beforeOutput, model: model).last else { return XCTFail("missing fallback done") }
+        XCTAssertEqual(reason, .stop)
+        XCTAssertEqual(message.content, [.text("fallback answer")])
+
+        let midOutput = """
+        event: message_start
+        data: {"type":"message_start","message":{"id":"msg_fallback","model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":0}}}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":"partial"}}
+
+        event: content_block_stop
+        data: {"type":"content_block_stop","index":0}
+
+        event: content_block_start
+        data: {"type":"content_block_start","index":1,"content_block":{"type":"fallback","from":{"model":"claude-opus-5"},"to":{"model":"claude-opus-4-8"}}}
+
+        """
+        let failed = AnthropicMessagesProvider.processSSEText(midOutput, model: model)
+        XCTAssertTrue(failed.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.errorMessage?.contains("unsupported mid-output model fallback") == true }; return false })
     }
 
     func testOpenAIResponsesServiceTierCostMultipliers() {

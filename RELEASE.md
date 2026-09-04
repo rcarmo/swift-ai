@@ -62,9 +62,9 @@ Implemented/adapted:
 
 - Regenerated v0.85.0 text and image catalogs from the verified npm artifact.
 - Extended full-record audit/self-test gates to v0.85.0 text and image deltas.
-- Added Swift `providerThinkingLevel` message metadata plus assistant-message frame encoder and reducer surfaces.
-- Ported Anthropic mid-conversation effort metadata: beta headers, adaptive output config, and providerThinkingLevel propagation; live Anthropic thinking-binding E2E remains credential-gated and not faked.
-- Ported OpenAI Responses `supportsMaxOutputTokens` payload omission/clamping and OpenAI-compatible vLLM priority serialization.
+- Added Swift `providerThinkingLevel` message metadata plus assistant-message frame encoder and reducer surfaces, including legacy grammar JSON-prefix checkpoints and explicit invalid-order/kind/end invariants.
+- Ported Anthropic mid-conversation effort metadata: beta headers, adaptive output config, providerThinkingLevel propagation, final `input_transformations` diagnostics, and fallback marker handling; live Anthropic thinking-binding E2E remains credential-gated and not faked.
+- Ported OpenAI Responses `supportsMaxOutputTokens` payload omission/clamping, terminal stale-error cleanup with `incomplete_details.reason` mapping, and OpenAI-compatible vLLM priority serialization.
 - Preserved OpenAI-compatible reasoning-detail merge/replay, custom deltas, tool-choice, tool-result images, parser/error/usage behavior through existing production tests.
 - Ported UUIDv7 timestamp extraction and expanded NO_PROXY matching for wildcard, leading-dot, IPv6, and host:port entries.
 - Adapted Cloudflare AI binding replacement: SwiftPM has no Workers binding object, but generated Cloudflare catalog/routing/base URL behavior and request builders remain covered.
@@ -96,10 +96,10 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.85.0 tests: passed for assistant frame encoder/reducer state-machine behavior, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Responses max output-token support, and vLLM priority.
-- `swift test`: `263` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`263` tests each run).
-- `make check`: passed (`263` tests, `0` failures).
+- focused v0.85.0 tests: passed for assistant frame encoder/reducer state-machine behavior, legacy grammar prefix checkpoints, frame invariant/purity coverage, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Anthropic input transformation/fallback handling, Responses max output-token support, Responses terminal stale-error/incomplete mappings, and vLLM priority.
+- `swift test`: `271` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`271` tests each run).
+- `make check`: passed (`271` tests, `0` failures).
 - `scripts/audit-parity.py`: passed with exact v0.85.0 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text/image metadata fault injections and unchanged-image baseline corruption caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.

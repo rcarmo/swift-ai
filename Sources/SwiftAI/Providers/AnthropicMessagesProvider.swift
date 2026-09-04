@@ -124,6 +124,7 @@ public enum AnthropicMessagesProvider {
             if let raw = try? JSONDecoder().decode(AnthropicMessageStart.self, from: data) {
                 state.partial.responseId = raw.message.id
                 if let responseModel = raw.message.model, !responseModel.isEmpty { state.partial.responseModel = responseModel }
+                if let transformations = raw.message.inputTransformations { state.inputTransformations = transformations }
                 state.partial.usage?.input = raw.message.usage?.inputTokens ?? 0
                 state.partial.usage?.cacheRead = raw.message.usage?.cacheReadInputTokens ?? 0
                 state.partial.usage?.cacheWrite = raw.message.usage?.cacheCreationInputTokens ?? 0
@@ -132,6 +133,14 @@ public enum AnthropicMessagesProvider {
             }
         case "content_block_start":
             guard let raw = try? JSONDecoder().decode(AnthropicContentBlockStart.self, from: data) else { return }
+            if raw.contentBlock.type == "fallback" {
+                if !state.partial.content.isEmpty {
+                    state.terminalErrorMessage = "Anthropic performed an unsupported mid-output model fallback"
+                    state.partial.stopReason = .error
+                    state.partial.errorMessage = state.terminalErrorMessage
+                }
+                return
+            }
             ensureContentIndex(raw.index, state: &state)
             switch raw.contentBlock.type {
             case "text": state.partial.content[raw.index] = ContentBlock(type: "text"); yield(.textStart(contentIndex: raw.index, partial: state.partial))
@@ -157,7 +166,8 @@ public enum AnthropicMessagesProvider {
             default: break
             }
         case "message_delta":
-            guard let raw = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data) else { return }
+            guard state.terminalErrorMessage == nil, let raw = try? JSONDecoder().decode(AnthropicMessageDelta.self, from: data) else { return }
+            if let transformations = raw.inputTransformations { state.inputTransformations = transformations }
             var usage = state.partial.usage ?? Usage()
             usage.output = raw.usage?.outputTokens ?? 0
             usage.reasoning = raw.usage?.outputTokensDetails?.thinkingTokens ?? 0
@@ -176,6 +186,12 @@ public enum AnthropicMessagesProvider {
 
     private static func finish(state: inout AnthropicStreamState, yield: (AIEvent) -> Void) {
         if !state.started { state.started = true; yield(.start(partial: state.partial)) }
+        if let message = state.terminalErrorMessage {
+            state.partial.stopReason = .error
+            state.partial.errorMessage = message
+            yield(.error(reason: .error, message: state.partial, error: AIError.provider(message)))
+            return
+        }
         if state.sawMessageStart && !state.sawMessageStop {
             state.partial.stopReason = .error
             state.partial.errorMessage = "anthropic stream ended before message_stop"
@@ -184,7 +200,15 @@ public enum AnthropicMessagesProvider {
         }
         state.partial.timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         if state.partial.stopReason == nil { state.partial.stopReason = .error; state.partial.errorMessage = "Anthropic stream ended without a stop reason"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "anthropic stream error"))); return }
+        appendInputTransformationDiagnostic(state: &state)
         yield(.done(reason: state.partial.stopReason ?? .stop, message: state.partial))
+    }
+
+    private static func appendInputTransformationDiagnostic(state: inout AnthropicStreamState) {
+        guard !state.inputTransformations.isEmpty else { return }
+        let transformations = state.inputTransformations
+        let diagnostic = AssistantMessageDiagnostic(type: "anthropic_input_transformations", timestamp: Int64(Date().timeIntervalSince1970 * 1000), error: DiagnosticError(message: "Anthropic input transformations"), details: ["transformations": .array(transformations)])
+        Diagnostics.appendAssistantMessageDiagnostic(diagnostic, to: &state.partial)
     }
 
     private static func ensureContentIndex(_ index: Int, state: inout AnthropicStreamState) { while state.partial.content.count <= index { state.partial.content.append(ContentBlock(type: "text")) } }
@@ -363,10 +387,10 @@ public enum AnthropicMessagesProvider {
     fileprivate static func claudeCodeToolNameMap(_ tools: [Tool]) -> [String: String] { Dictionary(uniqueKeysWithValues: tools.map { (toClaudeCodeName($0.name).lowercased(), $0.name) }) }
 }
 
-private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; var toolsByClaudeCodeName: [String: String]; var costModel: Model { if let responseModel = partial.responseModel, responseModel != model.id, let fallback = model.anthropicCompat?.allowedFallbackModels?.first(where: { $0.model == responseModel }), let cost = fallback.cost { var copy = model; copy.id = responseModel; copy.cost = cost; return copy }; return model }; init(model: Model, tools: [Tool] = [], providerThinkingLevel: String? = nil) { self.model = model; self.toolsByClaudeCodeName = AnthropicMessagesProvider.claudeCodeToolNameMap(tools); var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.providerThinkingLevel = providerThinkingLevel; msg.usage = Usage(); partial = msg } }
-private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var model: String?; var usage: AnthropicUsage? } }
+private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; var inputTransformations: [JSONValue] = []; var terminalErrorMessage: String?; var toolsByClaudeCodeName: [String: String]; var costModel: Model { if let responseModel = partial.responseModel, responseModel != model.id, let fallback = model.anthropicCompat?.allowedFallbackModels?.first(where: { $0.model == responseModel }), let cost = fallback.cost { var copy = model; copy.id = responseModel; copy.cost = cost; return copy }; return model }; init(model: Model, tools: [Tool] = [], providerThinkingLevel: String? = nil) { self.model = model; self.toolsByClaudeCodeName = AnthropicMessagesProvider.claudeCodeToolNameMap(tools); var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.providerThinkingLevel = providerThinkingLevel; msg.usage = Usage(); partial = msg } }
+private struct AnthropicMessageStart: Decodable { var message: AnthropicStartedMessage; struct AnthropicStartedMessage: Decodable { var id: String?; var model: String?; var usage: AnthropicUsage?; var inputTransformations: [JSONValue]?; enum CodingKeys: String, CodingKey { case id, model, usage; case inputTransformations = "input_transformations" } } }
 private struct AnthropicUsage: Decodable { var inputTokens: Int?; var outputTokens: Int?; var outputTokensDetails: OutputTokensDetails?; var cacheReadInputTokens: Int?; var cacheCreationInputTokens: Int?; var cacheCreation: CacheCreation?; enum CodingKeys: String, CodingKey { case inputTokens = "input_tokens"; case outputTokens = "output_tokens"; case outputTokensDetails = "output_tokens_details"; case cacheReadInputTokens = "cache_read_input_tokens"; case cacheCreationInputTokens = "cache_creation_input_tokens"; case cacheCreation = "cache_creation" }; struct OutputTokensDetails: Decodable { var thinkingTokens: Int?; enum CodingKeys: String, CodingKey { case thinkingTokens = "thinking_tokens" } }; struct CacheCreation: Decodable { var ephemeral1hInputTokens: Int?; enum CodingKeys: String, CodingKey { case ephemeral1hInputTokens = "ephemeral_1h_input_tokens" } } }
 private struct AnthropicContentBlockStart: Decodable { var index: Int; var contentBlock: Block; enum CodingKeys: String, CodingKey { case index; case contentBlock = "content_block" }; struct Block: Decodable { var type: String; var id: String?; var name: String? } }
 private struct AnthropicContentBlockDelta: Decodable { var index: Int; var delta: Delta; struct Delta: Decodable { var type: String; var text: String?; var thinking: String?; var partialJSON: String?; enum CodingKeys: String, CodingKey { case type, text, thinking; case partialJSON = "partial_json" } } }
 private struct AnthropicContentBlockStop: Decodable { var index: Int }
-private struct AnthropicMessageDelta: Decodable { var delta: Delta; var usage: AnthropicUsage?; struct Delta: Decodable { var stopReason: String?; var stopDetails: StopDetails?; enum CodingKeys: String, CodingKey { case stopReason = "stop_reason"; case stopDetails = "stop_details" }; struct StopDetails: Decodable { var explanation: String? } } }
+private struct AnthropicMessageDelta: Decodable { var delta: Delta; var usage: AnthropicUsage?; var inputTransformations: [JSONValue]?; enum CodingKeys: String, CodingKey { case delta, usage; case inputTransformations = "input_transformations" }; struct Delta: Decodable { var stopReason: String?; var stopDetails: StopDetails?; enum CodingKeys: String, CodingKey { case stopReason = "stop_reason"; case stopDetails = "stop_details" }; struct StopDetails: Decodable { var explanation: String? } } }

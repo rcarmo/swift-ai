@@ -81,6 +81,94 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertThrowsError(try wrong.encode(.thinkingStart(contentIndex: 0, partial: partial)))
     }
 
+    func testUpstream0850AssistantMessageFrameLegacyGrammarPrefixCheckpoint() throws {
+        var partial = Message(role: .assistant, content: [], timestamp: 42)
+        let encoder = AssistantMessageFrameEncoder()
+        var frames = [try XCTUnwrap(try encoder.encode(.start(partial: partial)))]
+        var toolCall = ContentBlock.toolCall(id: "call", name: "bash", arguments: ["input": .string("a")])
+        partial.content.append(toolCall)
+        frames.append(try XCTUnwrap(try encoder.encode(.toolCallStart(contentIndex: 0, partial: partial))))
+        toolCall.arguments = ["input": .string("ab")]
+        partial.content[0] = toolCall
+        frames.append(try XCTUnwrap(try encoder.encode(.toolCallDelta(contentIndex: 0, delta: "{\"input\":\"ab", partial: partial))))
+        toolCall.arguments = ["input": .string("abc")]
+        partial.content[0] = toolCall
+        frames.append(try XCTUnwrap(try encoder.encode(.toolCallDelta(contentIndex: 0, delta: "c\"}", partial: partial))))
+
+        XCTAssertEqual(Array(frames.dropFirst(2)), [
+            .toolCallCheckpoint(contentIndex: 0, json: "{\"input\":\"ab"),
+            .toolCallDelta(contentIndex: 0, delta: "c\"}")
+        ])
+        let reduced = try XCTUnwrap(try AssistantMessageFrameReducer.reduce(frames))
+        XCTAssertEqual(reduced.content.first?.arguments?["input"], .string("abc"))
+    }
+
+    func testUpstream0850AssistantMessageFrameExplicitInvariants() throws {
+        var partial = Message(role: .assistant, content: [], timestamp: 42)
+        partial.usage = Usage()
+        partial.diagnostics = [AssistantMessageDiagnostic(type: "test", timestamp: 2, error: DiagnosticError(message: "none"), details: ["value": .string("original")])]
+        let duplicate = AssistantMessageFrameEncoder()
+        _ = try duplicate.encode(.start(partial: partial))
+        XCTAssertThrowsError(try duplicate.encode(.start(partial: partial)))
+
+        let afterError = AssistantMessageFrameEncoder()
+        XCTAssertNil(try afterError.encode(.error(reason: .error, message: partial, error: nil)))
+        XCTAssertThrowsError(try afterError.encode(.textDelta(contentIndex: 0, delta: "late", partial: partial)))
+
+        let duplicateBlock = AssistantMessageFrameEncoder()
+        _ = try duplicateBlock.encode(.start(partial: partial))
+        partial.content = [.text("")]
+        _ = try duplicateBlock.encode(.textStart(contentIndex: 0, partial: partial))
+        XCTAssertThrowsError(try duplicateBlock.encode(.textStart(contentIndex: 0, partial: partial)))
+        _ = try duplicateBlock.encode(.textEnd(contentIndex: 0, content: "", partial: partial))
+        XCTAssertThrowsError(try duplicateBlock.encode(.textEnd(contentIndex: 0, content: "", partial: partial)))
+
+        let wrongEnd = AssistantMessageFrameEncoder()
+        _ = try wrongEnd.encode(.start(partial: partial))
+        partial.content = [.thinking("")]
+        _ = try wrongEnd.encode(.thinkingStart(contentIndex: 0, partial: partial))
+        XCTAssertThrowsError(try wrongEnd.encode(.textEnd(contentIndex: 0, content: "", partial: partial)))
+        XCTAssertThrowsError(try wrongEnd.encode(.toolCallEnd(contentIndex: 0, toolCall: .text("not a tool"), partial: partial)))
+
+        XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.textDelta(contentIndex: 0, delta: "x"), .start(partial: partial)]))
+        XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.start(partial: partial), .toolCallStart(contentIndex: 0, toolCall: .toolCall(id: "call", name: "run", arguments: [:])), .textDelta(contentIndex: 0, delta: "wrong")]))
+        XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.start(partial: partial), .textStart(contentIndex: 0, content: .text("")), .textEnd(contentIndex: 0, content: ""), .textEnd(contentIndex: 0, content: "")]))
+        XCTAssertThrowsError(try AssistantMessageFrameReducer.reduce([.start(partial: partial), .textStart(contentIndex: 1, content: .text("gap"))]))
+    }
+
+    func testUpstream0850AssistantMessageFrameMetadataAuthorityAndPurity() throws {
+        var partial = Message(role: .assistant, content: [], timestamp: 42)
+        partial.usage = Usage()
+        partial.diagnostics = [AssistantMessageDiagnostic(type: "test", timestamp: 2, error: DiagnosticError(message: "none"), details: ["value": .string("original")])]
+        let encoder = AssistantMessageFrameEncoder()
+        let start = try XCTUnwrap(try encoder.encode(.start(partial: partial)))
+        partial.diagnostics?[0].details?["value"] = .string("mutated")
+        partial.usage?.cost.total = 99
+        partial.content.append(.toolCall(id: "call", name: "run", arguments: ["nested": .object(["value": .string("original")])]))
+        let toolStart = try XCTUnwrap(try encoder.encode(.toolCallStart(contentIndex: 0, partial: partial)))
+        partial.content[0].arguments?["nested"] = .object(["value": .string("mutated")])
+        let reduced = try XCTUnwrap(try AssistantMessageFrameReducer.reduce([start, toolStart]))
+        XCTAssertEqual(reduced.diagnostics?.first?.details?["value"], .string("original"))
+        XCTAssertEqual(reduced.usage?.cost.total, 0)
+        XCTAssertEqual(reduced.content[0].arguments?["nested"], .object(["value": .string("original")]))
+
+        let signatureFrames: [AssistantMessageFrame] = [
+            .start(partial: Message(role: .assistant, content: [])),
+            .textStart(contentIndex: 0, content: ContentBlock(type: "text", text: "", textSignature: "stale-text")),
+            .textEnd(contentIndex: 0, content: ""),
+            .thinkingStart(contentIndex: 1, content: ContentBlock(type: "thinking", thinking: "", thinkingSignature: "stale-thinking", redacted: true)),
+            .thinkingEnd(contentIndex: 1, content: "", thinkingSignature: "", redacted: false),
+            .toolCallStart(contentIndex: 2, toolCall: ContentBlock(type: "toolCall", id: "call", name: "read", arguments: [:], thoughtSignature: "stale-tool", namespace: "stale-namespace")),
+            .toolCallEnd(contentIndex: 2, id: "call", name: "read", arguments: [:])
+        ]
+        let authoritative = try XCTUnwrap(try AssistantMessageFrameReducer.reduce(signatureFrames))
+        XCTAssertNil(authoritative.content[0].textSignature)
+        XCTAssertEqual(authoritative.content[1].thinkingSignature, "")
+        XCTAssertEqual(authoritative.content[1].redacted, false)
+        XCTAssertNil(authoritative.content[2].thoughtSignature)
+        XCTAssertNil(authoritative.content[2].namespace)
+    }
+
     func testV0806ContextEstimateIgnoresStaleAssistantUsage() {
         func assistant(timestamp: Int64, totalTokens: Int) -> Message {
             var msg = Message(role: .assistant, content: [.text("kept")], timestamp: timestamp)

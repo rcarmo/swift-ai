@@ -78,9 +78,13 @@ public final class AssistantMessageFrameEncoder: @unchecked Sendable {
             guard case .toolCall(let caughtUp, var catchup, let snapshot)? = blocks[index] else { throw AIError.provider("Assistant message toolCall block \(index) has not started") }
             if caughtUp { return delta.isEmpty ? nil : .toolCallDelta(contentIndex: index, delta: delta) }
             catchup += delta
-            if let parsed = PartialJSONParser.parseObject(catchup), Self.jsonString(parsed) == snapshot {
-                blocks[index] = .toolCall(caughtUp: true, catchupJSON: "", snapshotArguments: "")
-                return catchup.isEmpty ? nil : .toolCallCheckpoint(contentIndex: index, json: catchup)
+            if let parsed = PartialJSONParser.parseObject(catchup) {
+                let matchesSnapshot = Self.jsonString(parsed) == snapshot
+                let extendsLegacySnapshot = PartialJSONParser.parseObject(snapshot).map { Self.isJSONPrefix(snapshot: $0, current: parsed) } ?? false
+                if matchesSnapshot || extendsLegacySnapshot {
+                    blocks[index] = .toolCall(caughtUp: true, catchupJSON: "", snapshotArguments: "")
+                    return catchup.isEmpty ? nil : .toolCallCheckpoint(contentIndex: index, json: catchup)
+                }
             }
             blocks[index] = .toolCall(caughtUp: false, catchupJSON: catchup, snapshotArguments: snapshot)
             return nil
@@ -136,6 +140,24 @@ public final class AssistantMessageFrameEncoder: @unchecked Sendable {
     }
 
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
+
+    private static func isJSONPrefix(snapshot: [String: JSONValue], current: [String: JSONValue]) -> Bool {
+        snapshot.allSatisfy { key, value in current[key].map { isJSONPrefix(snapshot: value, current: $0) } ?? false }
+    }
+
+    private static func isJSONPrefix(snapshot: JSONValue, current: JSONValue) -> Bool {
+        switch (snapshot, current) {
+        case (.string(let prefix), .string(let value)): return value.hasPrefix(prefix)
+        case (.array(let prefix), .array(let value)):
+            guard prefix.count <= value.count else { return false }
+            return zip(prefix, value).allSatisfy { isJSONPrefix(snapshot: $0, current: $1) }
+        case (.object(let prefix), .object(let value)): return isJSONPrefix(snapshot: prefix, current: value)
+        case (.null, .null): return true
+        case (.bool(let left), .bool(let right)): return left == right
+        case (.number(let left), .number(let right)): return left == right
+        default: return false
+        }
+    }
 
     private func eventType(_ event: AIEvent) -> String {
         switch event {

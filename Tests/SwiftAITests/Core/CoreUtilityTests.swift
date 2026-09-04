@@ -111,17 +111,39 @@ final class CoreUtilityTests: XCTestCase {
         userStart.role = .user
         XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: userStart)))
 
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"unknown\"}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"text_delta\",\"contentIndex\":0,\"delta\":\"x\",\"extra\":true}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"text_delta\",\"delta\":\"x\"}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"toolcall_end\",\"contentIndex\":0,\"id\":\"call\",\"name\":\"run\"}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"user\",\"content\":[],\"stopReason\":\"pending\",\"timestamp\":0}}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"x\"}],\"stopReason\":\"pending\",\"timestamp\":0}}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0}}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"stopReason\":\"pending\",\"timestamp\":0,\"isError\":true}}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"text_start\",\"contentIndex\":0,\"content\":{\"type\":\"text\"}}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"thinking_start\",\"contentIndex\":0,\"content\":{\"type\":\"thinking\"}}".utf8)))
-        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"toolcall_start\",\"contentIndex\":0,\"toolCall\":{\"type\":\"toolCall\",\"id\":\"call\",\"name\":\"run\"}}".utf8)))
+        let validStartPartial = "\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\""
+        let malformed = [
+            "{\"type\":\"unknown\"}",
+            "{\"type\":\"text_delta\",\"contentIndex\":0,\"delta\":\"x\",\"extra\":true}",
+            "{\"type\":\"text_delta\",\"delta\":\"x\"}",
+            "{\"type\":\"text_end\",\"contentIndex\":0,\"content\":\"x\",\"textSignature\":null}",
+            "{\"type\":\"thinking_end\",\"contentIndex\":0,\"content\":\"x\",\"thinkingSignature\":null}",
+            "{\"type\":\"thinking_end\",\"contentIndex\":0,\"content\":\"x\",\"redacted\":null}",
+            "{\"type\":\"toolcall_end\",\"contentIndex\":0,\"id\":\"call\",\"name\":\"run\"}",
+            "{\"type\":\"toolcall_end\",\"contentIndex\":0,\"id\":\"call\",\"name\":\"run\",\"arguments\":{},\"thoughtSignature\":null}",
+            "{\"type\":\"toolcall_end\",\"contentIndex\":0,\"id\":\"call\",\"name\":\"run\",\"arguments\":{},\"namespace\":null}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"user\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"x\"}],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"deferred\":{\"provider\":\"p\",\"modelId\":\"m\",\"api\":\"a\",\"id\":\"d\"}}}",
+            "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"errorMessage\":\"settled\"}}",
+            "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"rawStopReason\":\"stop\"}}",
+            "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"endTurn\":true}}",
+            "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"details\":{}}}",
+            "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"isError\":true}}",
+            "{\"type\":\"text_start\",\"contentIndex\":0,\"content\":{\"type\":\"text\"}}",
+            "{\"type\":\"text_start\",\"contentIndex\":0,\"content\":{\"type\":\"text\",\"text\":\"\",\"thinking\":\"extra\"}}",
+            "{\"type\":\"text_start\",\"contentIndex\":0,\"content\":{\"type\":\"text\",\"text\":\"\",\"textSignature\":null}}",
+            "{\"type\":\"thinking_start\",\"contentIndex\":0,\"content\":{\"type\":\"thinking\"}}",
+            "{\"type\":\"thinking_start\",\"contentIndex\":0,\"content\":{\"type\":\"thinking\",\"thinking\":\"\",\"text\":\"extra\"}}",
+            "{\"type\":\"thinking_start\",\"contentIndex\":0,\"content\":{\"type\":\"thinking\",\"thinking\":\"\",\"redacted\":null}}",
+            "{\"type\":\"toolcall_start\",\"contentIndex\":0,\"toolCall\":{\"type\":\"toolCall\",\"id\":\"call\",\"name\":\"run\"}}",
+            "{\"type\":\"toolcall_start\",\"contentIndex\":0,\"toolCall\":{\"type\":\"toolCall\",\"id\":\"call\",\"name\":\"run\",\"arguments\":{},\"text\":\"extra\"}}",
+            "{\"type\":\"toolcall_start\",\"contentIndex\":0,\"toolCall\":{\"type\":\"toolCall\",\"id\":\"call\",\"name\":\"run\",\"arguments\":{},\"namespace\":null}}"
+        ]
+        for json in malformed {
+            XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data(json.utf8)), json)
+        }
     }
 
     func testUpstream0850AssistantMessageFrameReductionAndValidation() throws {

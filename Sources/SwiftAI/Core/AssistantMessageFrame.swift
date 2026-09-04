@@ -22,14 +22,14 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
         case "start": try Self.requireTopLevelKeys(decoder, ["type", "partial"]); self = .start(partial: try Self.decodeStartPartial(c))
         case "text_start": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content"]); self = .textStart(contentIndex: try Self.decodeContentIndex(c), content: try Self.decodeContentBlock(c, key: .content, expected: "text"))
         case "text_delta": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "delta"]); self = .textDelta(contentIndex: try Self.decodeContentIndex(c), delta: try c.decode(String.self, forKey: .delta))
-        case "text_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content", "textSignature"]); self = .textEnd(contentIndex: try Self.decodeContentIndex(c), content: try c.decode(String.self, forKey: .content), textSignature: try c.decodeIfPresent(String.self, forKey: .textSignature))
+        case "text_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content", "textSignature"]); self = .textEnd(contentIndex: try Self.decodeContentIndex(c), content: try c.decode(String.self, forKey: .content), textSignature: try Self.decodeOptionalString(c, .textSignature))
         case "thinking_start": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content"]); self = .thinkingStart(contentIndex: try Self.decodeContentIndex(c), content: try Self.decodeContentBlock(c, key: .content, expected: "thinking"))
         case "thinking_delta": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "delta"]); self = .thinkingDelta(contentIndex: try Self.decodeContentIndex(c), delta: try c.decode(String.self, forKey: .delta))
-        case "thinking_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content", "thinkingSignature", "redacted"]); self = .thinkingEnd(contentIndex: try Self.decodeContentIndex(c), content: try c.decode(String.self, forKey: .content), thinkingSignature: try c.decodeIfPresent(String.self, forKey: .thinkingSignature), redacted: try c.decodeIfPresent(Bool.self, forKey: .redacted))
+        case "thinking_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content", "thinkingSignature", "redacted"]); self = .thinkingEnd(contentIndex: try Self.decodeContentIndex(c), content: try c.decode(String.self, forKey: .content), thinkingSignature: try Self.decodeOptionalString(c, .thinkingSignature), redacted: try Self.decodeOptionalBool(c, .redacted))
         case "toolcall_start": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "toolCall"]); self = .toolCallStart(contentIndex: try Self.decodeContentIndex(c), toolCall: try Self.decodeContentBlock(c, key: .toolCall, expected: "toolCall"))
         case "toolcall_checkpoint": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "json"]); self = .toolCallCheckpoint(contentIndex: try Self.decodeContentIndex(c), json: try c.decode(String.self, forKey: .json))
         case "toolcall_delta": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "delta"]); self = .toolCallDelta(contentIndex: try Self.decodeContentIndex(c), delta: try c.decode(String.self, forKey: .delta))
-        case "toolcall_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "id", "name", "arguments", "thoughtSignature", "namespace"]); self = .toolCallEnd(contentIndex: try Self.decodeContentIndex(c), id: try c.decode(String.self, forKey: .id), name: try c.decode(String.self, forKey: .name), arguments: try c.decode([String: JSONValue].self, forKey: .arguments), thoughtSignature: try c.decodeIfPresent(String.self, forKey: .thoughtSignature), namespace: try c.decodeIfPresent(String.self, forKey: .namespace))
+        case "toolcall_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "id", "name", "arguments", "thoughtSignature", "namespace"]); self = .toolCallEnd(contentIndex: try Self.decodeContentIndex(c), id: try c.decode(String.self, forKey: .id), name: try c.decode(String.self, forKey: .name), arguments: try c.decode([String: JSONValue].self, forKey: .arguments), thoughtSignature: try Self.decodeOptionalString(c, .thoughtSignature), namespace: try Self.decodeOptionalString(c, .namespace))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "Unknown assistant message frame type: \(type)")
         }
@@ -53,17 +53,19 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
 
     private static func decodeStartPartial(_ c: KeyedDecodingContainer<CodingKeys>) throws -> Message {
         let partialKeys = Set((try c.nestedContainer(keyedBy: AnyCodingKey.self, forKey: .partial)).allKeys.map(\.stringValue))
-        guard partialKeys.contains("content"), partialKeys.contains("stopReason") else {
-            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial must include content and pending stopReason")
+        let allowed: Set<String> = ["role", "content", "timestamp", "api", "provider", "model", "responseId", "responseModel", "providerThinkingLevel", "diagnostics", "usage", "stopReason"]
+        let unsupported = partialKeys.subtracting(allowed)
+        guard unsupported.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial contains unsupported fields: \(unsupported.sorted().joined(separator: ", "))")
+        }
+        let required: Set<String> = ["role", "content", "timestamp", "api", "provider", "model", "usage", "stopReason"]
+        let missing = required.subtracting(partialKeys)
+        guard missing.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial missing required fields: \(missing.sorted().joined(separator: ", "))")
         }
         let message = try c.decode(Message.self, forKey: .partial)
         guard message.role == .assistant, message.content.isEmpty, message.stopReason == .pending else {
             throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial must be an assistant message with empty content and pending stopReason")
-        }
-        let toolResultOnlyFields = ["toolCallId", "toolName", "isError", "addedToolNames"]
-        let presentToolResultFields = toolResultOnlyFields.filter(partialKeys.contains)
-        guard presentToolResultFields.isEmpty else {
-            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial contains non-assistant fields: \(presentToolResultFields.joined(separator: ", "))")
         }
         return message
     }
@@ -75,15 +77,51 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
     }
 
     private static func decodeContentBlock(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys, expected: String) throws -> ContentBlock {
+        let nested = try c.nestedContainer(keyedBy: AnyCodingKey.self, forKey: key)
+        let keys = Set(nested.allKeys.map(\.stringValue))
+        let allowed: Set<String>
+        switch expected {
+        case "text": allowed = ["type", "text", "textSignature"]
+        case "thinking": allowed = ["type", "thinking", "thinkingSignature", "redacted"]
+        case "toolCall": allowed = ["type", "id", "name", "arguments", "thoughtSignature", "namespace"]
+        default: allowed = ["type"]
+        }
+        let unsupported = keys.subtracting(allowed)
+        guard unsupported.isEmpty else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "assistant message frame content contains unsupported fields: \(unsupported.sorted().joined(separator: ", "))") }
         let block = try c.decode(ContentBlock.self, forKey: key)
         guard block.type == expected else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "assistant message frame contains \(block.type) content, expected \(expected)") }
         switch expected {
-        case "text": guard block.text != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "text_start content requires text") }
-        case "thinking": guard block.thinking != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "thinking_start content requires thinking") }
-        case "toolCall": guard block.id != nil, block.name != nil, block.arguments != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "toolcall_start content requires id, name, and arguments") }
+        case "text":
+            guard keys.contains("text"), block.text != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "text_start content requires text") }
+            try rejectNull(nested, "textSignature", key: key, outer: c)
+        case "thinking":
+            guard keys.contains("thinking"), block.thinking != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "thinking_start content requires thinking") }
+            try rejectNull(nested, "thinkingSignature", key: key, outer: c)
+            try rejectNull(nested, "redacted", key: key, outer: c)
+        case "toolCall":
+            guard keys.contains("id"), keys.contains("name"), keys.contains("arguments"), block.id != nil, block.name != nil, block.arguments != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "toolcall_start content requires id, name, and arguments") }
+            try rejectNull(nested, "thoughtSignature", key: key, outer: c)
+            try rejectNull(nested, "namespace", key: key, outer: c)
         default: break
         }
         return block
+    }
+
+    private static func decodeOptionalString(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) throws -> String? {
+        guard c.contains(key) else { return nil }
+        if try c.decodeNil(forKey: key) { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "\(key.stringValue) cannot be null") }
+        return try c.decode(String.self, forKey: key)
+    }
+
+    private static func decodeOptionalBool(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) throws -> Bool? {
+        guard c.contains(key) else { return nil }
+        if try c.decodeNil(forKey: key) { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "\(key.stringValue) cannot be null") }
+        return try c.decode(Bool.self, forKey: key)
+    }
+
+    private static func rejectNull(_ c: KeyedDecodingContainer<AnyCodingKey>, _ key: String, key outerKey: CodingKeys, outer: KeyedDecodingContainer<CodingKeys>) throws {
+        guard let codingKey = AnyCodingKey(stringValue: key), c.contains(codingKey), (try? c.decodeNil(forKey: codingKey)) == true else { return }
+        throw DecodingError.dataCorruptedError(forKey: outerKey, in: outer, debugDescription: "\(key) cannot be null")
     }
 
     private static func startPartial(_ partial: Message) throws -> Message {

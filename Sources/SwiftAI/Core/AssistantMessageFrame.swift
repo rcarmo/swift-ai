@@ -12,6 +12,113 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
     case toolCallCheckpoint(contentIndex: Int, json: String)
     case toolCallDelta(contentIndex: Int, delta: String)
     case toolCallEnd(contentIndex: Int, id: String, name: String, arguments: [String: JSONValue], thoughtSignature: String? = nil, namespace: String? = nil)
+
+    private enum CodingKeys: String, CodingKey { case type, partial, contentIndex, content, delta, textSignature, thinkingSignature, redacted, toolCall, json, id, name, arguments, thoughtSignature, namespace }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(String.self, forKey: .type)
+        switch type {
+        case "start": try Self.requireTopLevelKeys(decoder, ["type", "partial"]); self = .start(partial: try Self.decodeStartPartial(c))
+        case "text_start": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content"]); self = .textStart(contentIndex: try Self.decodeContentIndex(c), content: try Self.decodeContentBlock(c, key: .content, expected: "text"))
+        case "text_delta": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "delta"]); self = .textDelta(contentIndex: try Self.decodeContentIndex(c), delta: try c.decode(String.self, forKey: .delta))
+        case "text_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content", "textSignature"]); self = .textEnd(contentIndex: try Self.decodeContentIndex(c), content: try c.decode(String.self, forKey: .content), textSignature: try c.decodeIfPresent(String.self, forKey: .textSignature))
+        case "thinking_start": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content"]); self = .thinkingStart(contentIndex: try Self.decodeContentIndex(c), content: try Self.decodeContentBlock(c, key: .content, expected: "thinking"))
+        case "thinking_delta": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "delta"]); self = .thinkingDelta(contentIndex: try Self.decodeContentIndex(c), delta: try c.decode(String.self, forKey: .delta))
+        case "thinking_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "content", "thinkingSignature", "redacted"]); self = .thinkingEnd(contentIndex: try Self.decodeContentIndex(c), content: try c.decode(String.self, forKey: .content), thinkingSignature: try c.decodeIfPresent(String.self, forKey: .thinkingSignature), redacted: try c.decodeIfPresent(Bool.self, forKey: .redacted))
+        case "toolcall_start": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "toolCall"]); self = .toolCallStart(contentIndex: try Self.decodeContentIndex(c), toolCall: try Self.decodeContentBlock(c, key: .toolCall, expected: "toolCall"))
+        case "toolcall_checkpoint": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "json"]); self = .toolCallCheckpoint(contentIndex: try Self.decodeContentIndex(c), json: try c.decode(String.self, forKey: .json))
+        case "toolcall_delta": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "delta"]); self = .toolCallDelta(contentIndex: try Self.decodeContentIndex(c), delta: try c.decode(String.self, forKey: .delta))
+        case "toolcall_end": try Self.requireTopLevelKeys(decoder, ["type", "contentIndex", "id", "name", "arguments", "thoughtSignature", "namespace"]); self = .toolCallEnd(contentIndex: try Self.decodeContentIndex(c), id: try c.decode(String.self, forKey: .id), name: try c.decode(String.self, forKey: .name), arguments: try c.decode([String: JSONValue].self, forKey: .arguments), thoughtSignature: try c.decodeIfPresent(String.self, forKey: .thoughtSignature), namespace: try c.decodeIfPresent(String.self, forKey: .namespace))
+        default:
+            throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "Unknown assistant message frame type: \(type)")
+        }
+    }
+
+    private struct AnyCodingKey: CodingKey {
+        var stringValue: String
+        var intValue: Int?
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { self.stringValue = String(intValue); self.intValue = intValue }
+    }
+
+    private static func requireTopLevelKeys(_ decoder: Decoder, _ allowed: Set<String>) throws {
+        let c = try decoder.container(keyedBy: AnyCodingKey.self)
+        let keys = Set(c.allKeys.map(\.stringValue))
+        let unsupported = keys.subtracting(allowed)
+        guard unsupported.isEmpty else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Unsupported assistant message frame keys: \(unsupported.sorted().joined(separator: ", "))"))
+        }
+    }
+
+    private static func decodeStartPartial(_ c: KeyedDecodingContainer<CodingKeys>) throws -> Message {
+        let partialKeys = Set((try c.nestedContainer(keyedBy: AnyCodingKey.self, forKey: .partial)).allKeys.map(\.stringValue))
+        guard partialKeys.contains("content"), partialKeys.contains("stopReason") else {
+            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial must include content and pending stopReason")
+        }
+        let message = try c.decode(Message.self, forKey: .partial)
+        guard message.role == .assistant, message.content.isEmpty, message.stopReason == .pending else {
+            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial must be an assistant message with empty content and pending stopReason")
+        }
+        let toolResultOnlyFields = ["toolCallId", "toolName", "isError", "addedToolNames"]
+        let presentToolResultFields = toolResultOnlyFields.filter(partialKeys.contains)
+        guard presentToolResultFields.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial contains non-assistant fields: \(presentToolResultFields.joined(separator: ", "))")
+        }
+        return message
+    }
+
+    private static func decodeContentIndex(_ c: KeyedDecodingContainer<CodingKeys>) throws -> Int {
+        let index = try c.decode(Int.self, forKey: .contentIndex)
+        guard index >= 0 else { throw DecodingError.dataCorruptedError(forKey: .contentIndex, in: c, debugDescription: "Invalid assistant message frame contentIndex: \(index)") }
+        return index
+    }
+
+    private static func decodeContentBlock(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys, expected: String) throws -> ContentBlock {
+        let block = try c.decode(ContentBlock.self, forKey: key)
+        guard block.type == expected else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "assistant message frame contains \(block.type) content, expected \(expected)") }
+        switch expected {
+        case "text": guard block.text != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "text_start content requires text") }
+        case "thinking": guard block.thinking != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "thinking_start content requires thinking") }
+        case "toolCall": guard block.id != nil, block.name != nil, block.arguments != nil else { throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "toolcall_start content requires id, name, and arguments") }
+        default: break
+        }
+        return block
+    }
+
+    private static func startPartial(_ partial: Message) throws -> Message {
+        guard partial.role == .assistant else { throw EncodingError.invalidValue(partial, .init(codingPath: [], debugDescription: "start.partial must be an assistant message")) }
+        var message = partial
+        message.content = []
+        message.stopReason = .pending
+        message.errorMessage = nil
+        message.deferred = nil
+        message.rawStopReason = nil
+        message.toolCallId = nil
+        message.toolName = nil
+        message.isError = nil
+        message.details = nil
+        message.addedToolNames = nil
+        message.endTurn = nil
+        return message
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .start(let partial): try c.encode("start", forKey: .type); try c.encode(try Self.startPartial(partial), forKey: .partial)
+        case .textStart(let contentIndex, let content): try c.encode("text_start", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(content, forKey: .content)
+        case .textDelta(let contentIndex, let delta): try c.encode("text_delta", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(delta, forKey: .delta)
+        case .textEnd(let contentIndex, let content, let textSignature): try c.encode("text_end", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(content, forKey: .content); try c.encodeIfPresent(textSignature, forKey: .textSignature)
+        case .thinkingStart(let contentIndex, let content): try c.encode("thinking_start", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(content, forKey: .content)
+        case .thinkingDelta(let contentIndex, let delta): try c.encode("thinking_delta", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(delta, forKey: .delta)
+        case .thinkingEnd(let contentIndex, let content, let thinkingSignature, let redacted): try c.encode("thinking_end", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(content, forKey: .content); try c.encodeIfPresent(thinkingSignature, forKey: .thinkingSignature); try c.encodeIfPresent(redacted, forKey: .redacted)
+        case .toolCallStart(let contentIndex, let toolCall): try c.encode("toolcall_start", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(toolCall, forKey: .toolCall)
+        case .toolCallCheckpoint(let contentIndex, let json): try c.encode("toolcall_checkpoint", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(json, forKey: .json)
+        case .toolCallDelta(let contentIndex, let delta): try c.encode("toolcall_delta", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(delta, forKey: .delta)
+        case .toolCallEnd(let contentIndex, let id, let name, let arguments, let thoughtSignature, let namespace): try c.encode("toolcall_end", forKey: .type); try c.encode(contentIndex, forKey: .contentIndex); try c.encode(id, forKey: .id); try c.encode(name, forKey: .name); try c.encode(arguments, forKey: .arguments); try c.encodeIfPresent(thoughtSignature, forKey: .thoughtSignature); try c.encodeIfPresent(namespace, forKey: .namespace)
+        }
+    }
 }
 
 public final class AssistantMessageFrameEncoder: @unchecked Sendable {

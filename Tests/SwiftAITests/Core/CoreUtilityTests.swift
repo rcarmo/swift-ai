@@ -20,6 +20,110 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertTrue(transformed.allSatisfy { $0.content.isEmpty })
     }
 
+    func testUpstream0850AssistantMessageFrameWireGrammarGoldenRoundTrip() throws {
+        var start = Message(role: .assistant, content: [], timestamp: 42)
+        start.api = .openAIResponses
+        start.provider = .openAI
+        start.model = "gpt"
+        start.providerThinkingLevel = "high"
+        start.usage = Usage()
+        start.stopReason = .pending
+        let frames: [AssistantMessageFrame] = [
+            .start(partial: start),
+            .textStart(contentIndex: 0, content: ContentBlock(type: "text", text: "", textSignature: "")),
+            .textStart(contentIndex: 0, content: ContentBlock(type: "text", text: "seed", textSignature: "text-start-sig")),
+            .textDelta(contentIndex: 0, delta: " delta"),
+            .textEnd(contentIndex: 0, content: "final", textSignature: "text-end-sig"),
+            .textEnd(contentIndex: 0, content: "final-no-sig"),
+            .thinkingStart(contentIndex: 0, content: ContentBlock(type: "thinking", thinking: "", thinkingSignature: "")),
+            .thinkingStart(contentIndex: 0, content: ContentBlock(type: "thinking", thinking: "seed", thinkingSignature: "thinking-start-sig", redacted: false)),
+            .thinkingDelta(contentIndex: 0, delta: " thought"),
+            .thinkingEnd(contentIndex: 0, content: "final thinking", thinkingSignature: "thinking-end-sig", redacted: true),
+            .thinkingEnd(contentIndex: 0, content: "final thinking absent"),
+            .toolCallStart(contentIndex: 0, toolCall: ContentBlock(type: "toolCall", id: "call_1", name: "lookup", arguments: ["nested": .object(["value": .string("pi")])], thoughtSignature: "tool-start-sig", namespace: "tools")),
+            .toolCallCheckpoint(contentIndex: 0, json: "{\"input\":\"ab"),
+            .toolCallDelta(contentIndex: 0, delta: "c\"}"),
+            .toolCallEnd(contentIndex: 0, id: "call_1", name: "lookup", arguments: ["input": .string("abc")], thoughtSignature: "tool-end-sig", namespace: "tools"),
+            .toolCallEnd(contentIndex: 0, id: "call_1", name: "lookup", arguments: ["input": .string("abc")], thoughtSignature: "", namespace: ""),
+            .toolCallEnd(contentIndex: 0, id: "call_1", name: "lookup", arguments: ["input": .string("abc")])
+        ]
+        let expectedJSON = [
+            "{\"partial\":{\"api\":\"openai-responses\",\"content\":[],\"model\":\"gpt\",\"provider\":\"openai\",\"providerThinkingLevel\":\"high\",\"role\":\"assistant\",\"stopReason\":\"pending\",\"timestamp\":42,\"usage\":{\"cacheRead\":0,\"cacheWrite\":0,\"cost\":{\"cacheRead\":0,\"cacheWrite\":0,\"input\":0,\"output\":0,\"total\":0},\"input\":0,\"output\":0,\"reasoning\":0,\"totalTokens\":0}},\"type\":\"start\"}",
+            "{\"content\":{\"text\":\"\",\"textSignature\":\"\",\"type\":\"text\"},\"contentIndex\":0,\"type\":\"text_start\"}",
+            "{\"content\":{\"text\":\"seed\",\"textSignature\":\"text-start-sig\",\"type\":\"text\"},\"contentIndex\":0,\"type\":\"text_start\"}",
+            "{\"contentIndex\":0,\"delta\":\" delta\",\"type\":\"text_delta\"}",
+            "{\"content\":\"final\",\"contentIndex\":0,\"textSignature\":\"text-end-sig\",\"type\":\"text_end\"}",
+            "{\"content\":\"final-no-sig\",\"contentIndex\":0,\"type\":\"text_end\"}",
+            "{\"content\":{\"thinking\":\"\",\"thinkingSignature\":\"\",\"type\":\"thinking\"},\"contentIndex\":0,\"type\":\"thinking_start\"}",
+            "{\"content\":{\"redacted\":false,\"thinking\":\"seed\",\"thinkingSignature\":\"thinking-start-sig\",\"type\":\"thinking\"},\"contentIndex\":0,\"type\":\"thinking_start\"}",
+            "{\"contentIndex\":0,\"delta\":\" thought\",\"type\":\"thinking_delta\"}",
+            "{\"content\":\"final thinking\",\"contentIndex\":0,\"redacted\":true,\"thinkingSignature\":\"thinking-end-sig\",\"type\":\"thinking_end\"}",
+            "{\"content\":\"final thinking absent\",\"contentIndex\":0,\"type\":\"thinking_end\"}",
+            "{\"contentIndex\":0,\"toolCall\":{\"arguments\":{\"nested\":{\"value\":\"pi\"}},\"id\":\"call_1\",\"name\":\"lookup\",\"namespace\":\"tools\",\"thoughtSignature\":\"tool-start-sig\",\"type\":\"toolCall\"},\"type\":\"toolcall_start\"}",
+            "{\"contentIndex\":0,\"json\":\"{\\\"input\\\":\\\"ab\",\"type\":\"toolcall_checkpoint\"}",
+            "{\"contentIndex\":0,\"delta\":\"c\\\"}\",\"type\":\"toolcall_delta\"}",
+            "{\"arguments\":{\"input\":\"abc\"},\"contentIndex\":0,\"id\":\"call_1\",\"name\":\"lookup\",\"namespace\":\"tools\",\"thoughtSignature\":\"tool-end-sig\",\"type\":\"toolcall_end\"}",
+            "{\"arguments\":{\"input\":\"abc\"},\"contentIndex\":0,\"id\":\"call_1\",\"name\":\"lookup\",\"namespace\":\"\",\"thoughtSignature\":\"\",\"type\":\"toolcall_end\"}",
+            "{\"arguments\":{\"input\":\"abc\"},\"contentIndex\":0,\"id\":\"call_1\",\"name\":\"lookup\",\"type\":\"toolcall_end\"}"
+        ]
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let decoder = JSONDecoder()
+        for (frame, expected) in zip(frames, expectedJSON) {
+            let encoded = String(data: try encoder.encode(frame), encoding: .utf8) ?? ""
+            XCTAssertEqual(encoded, expected)
+            XCTAssertEqual(try decoder.decode(AssistantMessageFrame.self, from: Data(expected.utf8)), frame)
+        }
+
+        let replayJSON = [
+            expectedJSON[0],
+            expectedJSON[2],
+            expectedJSON[3],
+            expectedJSON[4],
+            expectedJSON[11].replacingOccurrences(of: "\"contentIndex\":0", with: "\"contentIndex\":1"),
+            expectedJSON[12].replacingOccurrences(of: "\"contentIndex\":0", with: "\"contentIndex\":1"),
+            expectedJSON[13].replacingOccurrences(of: "\"contentIndex\":0", with: "\"contentIndex\":1"),
+            expectedJSON[14].replacingOccurrences(of: "\"contentIndex\":0", with: "\"contentIndex\":1")
+        ]
+        let replayFrames = try replayJSON.map { try decoder.decode(AssistantMessageFrame.self, from: Data($0.utf8)) }
+        let message = try XCTUnwrap(try AssistantMessageFrameReducer.reduce(replayFrames))
+        XCTAssertEqual(message.content[0].text, "final")
+        XCTAssertEqual(message.content[0].textSignature, "text-end-sig")
+        XCTAssertEqual(message.content[1].arguments?["input"], .string("abc"))
+        XCTAssertEqual(message.content[1].thoughtSignature, "tool-end-sig")
+        XCTAssertEqual(message.content[1].namespace, "tools")
+
+        let encodedStart = String(data: try encoder.encode(AssistantMessageFrame.start(partial: {
+            var dirty = start
+            dirty.content = [.text("must be dropped")]
+            dirty.stopReason = .error
+            dirty.errorMessage = "drop"
+            dirty.toolCallId = "tool"
+            dirty.toolName = "name"
+            dirty.isError = true
+            dirty.details = .object(["drop": .bool(true)])
+            dirty.addedToolNames = ["late"]
+            dirty.endTurn = true
+            return dirty
+        }())), encoding: .utf8) ?? ""
+        XCTAssertEqual(encodedStart, expectedJSON[0])
+        var userStart = start
+        userStart.role = .user
+        XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: userStart)))
+
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"unknown\"}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"text_delta\",\"contentIndex\":0,\"delta\":\"x\",\"extra\":true}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"text_delta\",\"delta\":\"x\"}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"toolcall_end\",\"contentIndex\":0,\"id\":\"call\",\"name\":\"run\"}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"user\",\"content\":[],\"stopReason\":\"pending\",\"timestamp\":0}}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"x\"}],\"stopReason\":\"pending\",\"timestamp\":0}}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0}}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"stopReason\":\"pending\",\"timestamp\":0,\"isError\":true}}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"text_start\",\"contentIndex\":0,\"content\":{\"type\":\"text\"}}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"thinking_start\",\"contentIndex\":0,\"content\":{\"type\":\"thinking\"}}".utf8)))
+        XCTAssertThrowsError(try decoder.decode(AssistantMessageFrame.self, from: Data("{\"type\":\"toolcall_start\",\"contentIndex\":0,\"toolCall\":{\"type\":\"toolCall\",\"id\":\"call\",\"name\":\"run\"}}".utf8)))
+    }
+
     func testUpstream0850AssistantMessageFrameReductionAndValidation() throws {
         var start = Message(role: .assistant, content: [], timestamp: 42)
         start.api = .openAIResponses; start.provider = .openAI; start.model = "gpt"; start.providerThinkingLevel = "high"; start.usage = Usage()

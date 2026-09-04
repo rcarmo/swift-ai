@@ -33,7 +33,7 @@ Exact manifests are committed as [`upstream-v0.85.0-changed-paths.txt`](upstream
 | 16 | M | `packages/ai/src/providers/faux.ts` | Ported/adapted through Swift Faux provider/test-double behavior and error/pre-generation tests. |
 | 17 | M | `packages/ai/src/providers/openrouter.ts` | Ported through generated OpenRouter routing/catalog metadata and existing cache/reasoning tests. |
 | 18 | M | `packages/ai/src/types.ts` | Ported: providerThinkingLevel plus new compat fields decode/encode in Swift model/message types. |
-| 19 | A | `packages/ai/src/utils/assistant-message-frame.ts` | Ported: Swift AssistantMessageFrameEncoder and reducer cover live partial offset reconciliation, legacy JSON-prefix checkpoint/resume, terminal omission, purity/metadata, authoritative absent end signatures, and wrong-order/kind/index/end rejection. |
+| 19 | A | `packages/ai/src/utils/assistant-message-frame.ts` | Ported: Swift AssistantMessageFrameEncoder/reducer plus custom strict discriminated JSON `Codable` wire grammar cover live partial offset reconciliation, legacy JSON-prefix checkpoint/resume, terminal omission, purity/metadata, start-partial sanitization, required content fields, authoritative absent/empty end signatures, and wrong-order/kind/index/end/unknown-case/extra-key rejection. |
 | 20 | M | `packages/ai/src/utils/node-http-proxy.ts` | Ported: NO_PROXY bare domain, wildcard, leading-dot, IPv6 literal, and host:port matching. |
 | 21 | M | `packages/ai/src/utils/retry.ts` | Ported/adapted via existing RetryPolicy/ProviderRetry cancellation and retry tests. |
 | 22 | M | `packages/ai/src/utils/uuid.ts` | Ported: UUIDv7 timestamp extraction and existing RFC layout/monotonicity tests. |
@@ -42,7 +42,7 @@ Exact manifests are committed as [`upstream-v0.85.0-changed-paths.txt`](upstream
 | 25 | A | `packages/ai/test/anthropic-mid-conversation-effort.test.ts` | Ported by testUpstream0850AnthropicMidConversationEffortHeadersAndProviderLevel. |
 | 26 | M | `packages/ai/test/anthropic-sse-parsing.test.ts` | Ported through Anthropic SSE parser tests for text/thinking/tool/usage/error behavior, input transformation diagnostics, and fallback marker handling. |
 | 27 | A | `packages/ai/test/anthropic-thinking-binding-e2e.test.ts` | Live-only/adapted: credential-gated E2E not faked; portable beta/providerThinkingLevel/replay behavior covered deterministically. |
-| 28 | A | `packages/ai/test/assistant-message-frame.test.ts` | Ported by CoreUtilityTests assistant frame encoder/reducer tests covering production frame state machine, legacy grammar prefix checkpoints, validation invariants, and metadata purity. |
+| 28 | A | `packages/ai/test/assistant-message-frame.test.ts` | Ported by CoreUtilityTests assistant frame encoder/reducer/wire tests covering production frame state machine, exact upstream JSON grammar, strict malformed decode rejection, legacy grammar prefix checkpoints, validation invariants, and metadata purity. |
 | 29 | M | `packages/ai/test/baseten-models.test.ts` | Ported through generated Baseten catalog/compat metadata tests. |
 | 30 | A | `packages/ai/test/cloudflare-ai-binding.test.ts` | N/A/adapted: JS Workers binding replacement; Swift covers portable Cloudflare generated records/routing. |
 | 31 | D | `packages/ai/test/cloudflare-gateway-binding.test.ts` | Deleted upstream; legacy binding test not in final corpus and no Swift equivalent existed. |
@@ -75,7 +75,7 @@ Image catalog: `scripts/image-models.v0.85.0.json` equals `scripts/upstream-imag
 
 ## Portable behavior evidence
 
-- Assistant message frame encoder and reducer preserve providerThinkingLevel, authoritative end metadata (including absent signatures), text/thinking offset trimming, tool JSON exact and legacy-prefix checkpoint/resume behavior, terminal omission, mutable snapshot purity, and wrong-order/kind/index/end rejection.
+- Assistant message frame encoder, reducer, and custom `Codable` wire representation preserve providerThinkingLevel, upstream discriminated JSON frame grammar/field names, sanitized assistant-only start frames, required text/thinking/tool start fields, authoritative end metadata (including absent and explicit empty signatures/namespace), text/thinking offset trimming, tool JSON exact and legacy-prefix checkpoint/resume behavior, terminal omission, mutable snapshot purity, and wrong-order/kind/index/end/unknown-case/extra-key rejection.
 - Anthropic mid-conversation effort support adds beta/header and providerThinkingLevel coverage while retaining signed-thinking/history/replay/error/usage behavior; final stream `input_transformations` are surfaced as diagnostics and fallback markers are ignored only before output begins.
 - OpenAI Responses supportsMaxOutputTokens gates max_output_tokens and clamps the minimum to 16 when supported.
 - OpenAI Responses terminal SSE handling clears stale `errorMessage` on completed/length/toolUse mappings and reports `Response incomplete: <reason>` for content-filter or unknown incomplete reasons.

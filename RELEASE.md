@@ -62,7 +62,7 @@ Implemented/adapted:
 
 - Regenerated v0.85.0 text and image catalogs from the verified npm artifact.
 - Extended full-record audit/self-test gates to v0.85.0 text and image deltas.
-- Added Swift `providerThinkingLevel` message metadata plus assistant-message frame encoder/reducer/custom strict `Codable` surfaces, including exact upstream JSON wire grammar, sanitized assistant start frames, exact nested whitelists, required frame fields, present-not-null optional metadata, legacy grammar JSON-prefix checkpoints, and explicit invalid-order/kind/end/unknown-key invariants.
+- Added Swift `providerThinkingLevel` message metadata plus assistant-message frame encoder/reducer/custom strict `Codable` surfaces, including exact upstream JSON wire grammar, sanitized assistant start frames, exact nested whitelists, required non-null start core fields, required frame fields, present-not-null optional metadata, legacy grammar JSON-prefix checkpoints, and explicit invalid-order/kind/end/unknown-key invariants.
 - Ported Anthropic mid-conversation effort metadata: beta headers, adaptive output config, providerThinkingLevel propagation, final `input_transformations` diagnostics, and fallback marker handling; live Anthropic thinking-binding E2E remains credential-gated and not faked.
 - Ported OpenAI Responses `supportsMaxOutputTokens` payload omission/clamping, terminal stale-error cleanup with `incomplete_details.reason` mapping, and OpenAI-compatible vLLM priority serialization.
 - Preserved OpenAI-compatible reasoning-detail merge/replay, custom deltas, tool-choice, tool-result images, parser/error/usage behavior through existing production tests.
@@ -96,7 +96,7 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.85.0 tests: passed for assistant frame encoder/reducer state-machine behavior, exact JSON wire grammar, strict malformed decode rejection including nested whitelists/null optionals, legacy grammar prefix checkpoints, frame invariant/purity coverage, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Anthropic input transformation/fallback handling, Responses max output-token support, Responses terminal stale-error/incomplete mappings, and vLLM priority.
+- focused v0.85.0 tests: passed for assistant frame encoder/reducer state-machine behavior, exact JSON wire grammar, strict malformed decode rejection including non-null start core fields and nested whitelists/null optionals, legacy grammar prefix checkpoints, frame invariant/purity coverage, UUID timestamp, NO_PROXY, Anthropic mid-conversation effort/providerThinkingLevel, Anthropic input transformation/fallback handling, Responses max output-token support, Responses terminal stale-error/incomplete mappings, and vLLM priority.
 - `swift test`: `272` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`272` tests each run).
 - `make check`: passed (`272` tests, `0` failures).

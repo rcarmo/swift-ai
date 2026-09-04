@@ -110,6 +110,18 @@ final class CoreUtilityTests: XCTestCase {
         var userStart = start
         userStart.role = .user
         XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: userStart)))
+        var incompleteStart = start
+        incompleteStart.api = nil
+        XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: incompleteStart)))
+        incompleteStart = start
+        incompleteStart.provider = nil
+        XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: incompleteStart)))
+        incompleteStart = start
+        incompleteStart.model = nil
+        XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: incompleteStart)))
+        incompleteStart = start
+        incompleteStart.usage = nil
+        XCTAssertThrowsError(try encoder.encode(AssistantMessageFrame.start(partial: incompleteStart)))
 
         let validStartPartial = "\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\""
         let malformed = [
@@ -125,6 +137,14 @@ final class CoreUtilityTests: XCTestCase {
             "{\"type\":\"start\",\"partial\":{\"role\":\"user\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
             "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"x\"}],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
             "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":null,\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":null,\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":null,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":null,\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":null,\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":null,\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":null,\"stopReason\":\"pending\"}}",
+            "{\"type\":\"start\",\"partial\":{\"role\":\"assistant\",\"content\":[],\"timestamp\":0,\"api\":\"openai-responses\",\"provider\":\"openai\",\"model\":\"gpt\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"reasoning\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":null}}",
             "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"deferred\":{\"provider\":\"p\",\"modelId\":\"m\",\"api\":\"a\",\"id\":\"d\"}}}",
             "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"errorMessage\":\"settled\"}}",
             "{\"type\":\"start\",\"partial\":{\(validStartPartial),\"rawStopReason\":\"stop\"}}",

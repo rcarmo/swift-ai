@@ -63,12 +63,22 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
         guard missing.isEmpty else {
             throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial missing required fields: \(missing.sorted().joined(separator: ", "))")
         }
-        let message = try c.decode(Message.self, forKey: .partial)
-        guard message.role == .assistant, message.content.isEmpty, message.stopReason == .pending else {
-            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial must be an assistant message with empty content and pending stopReason")
+        let nested = try c.nestedContainer(keyedBy: AnyCodingKey.self, forKey: .partial)
+        let role = try nested.decode(Role.self, forKey: requiredKey("role"))
+        let content = try nested.decode([ContentBlock].self, forKey: requiredKey("content"))
+        _ = try nested.decode(Int64.self, forKey: requiredKey("timestamp"))
+        _ = try nested.decode(API.self, forKey: requiredKey("api"))
+        _ = try nested.decode(Provider.self, forKey: requiredKey("provider"))
+        let model = try nested.decode(String.self, forKey: requiredKey("model"))
+        _ = try nested.decode(Usage.self, forKey: requiredKey("usage"))
+        let stopReason = try nested.decode(StopReason.self, forKey: requiredKey("stopReason"))
+        guard role == .assistant, content.isEmpty, stopReason == .pending, !model.isEmpty else {
+            throw DecodingError.dataCorruptedError(forKey: .partial, in: c, debugDescription: "start.partial must be an assistant message with empty content, non-empty model, and pending stopReason")
         }
-        return message
+        return try c.decode(Message.self, forKey: .partial)
     }
+
+    private static func requiredKey(_ value: String) -> AnyCodingKey { AnyCodingKey(stringValue: value)! }
 
     private static func decodeContentIndex(_ c: KeyedDecodingContainer<CodingKeys>) throws -> Int {
         let index = try c.decode(Int.self, forKey: .contentIndex)
@@ -126,6 +136,7 @@ public enum AssistantMessageFrame: Codable, Equatable, Sendable {
 
     private static func startPartial(_ partial: Message) throws -> Message {
         guard partial.role == .assistant else { throw EncodingError.invalidValue(partial, .init(codingPath: [], debugDescription: "start.partial must be an assistant message")) }
+        guard partial.api != nil, partial.provider != nil, partial.model?.isEmpty == false, partial.usage != nil else { throw EncodingError.invalidValue(partial, .init(codingPath: [], debugDescription: "start.partial missing required api/provider/model/usage")) }
         var message = partial
         message.content = []
         message.stopReason = .pending

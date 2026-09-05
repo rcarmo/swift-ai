@@ -24,6 +24,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Accepted inner SBOM SHA-256: `7e5f74c3f58888cac79b8030a5200e1ed9409eac5efad962d6d6b49ea75ba27e`.
 - Accepted checksum-file SHA-256: `d0d74904ffc0cfb899526971c4ee944ac0dc350cc1142087211cfb084f60c653`.
 - SBOM component count: `2`; embedded revision matches the runtime commit; OSV vulnerability and license scans passed.
+- Durable SBOM release assets: `https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.0/sbom.cdx.json` and `https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.0/sbom.cdx.json.sha256`.
+- Durable SBOM publishing workflow: `.github/workflows/publish-sbom-release.yml`, dispatch-only, requires an explicit accepted runtime ref, regenerates and validates SBOM/OSV/license metadata, checks the embedded revision, normalises asset names, and uploads with `--clobber`.
 
 ## Exact upstream delta
 
@@ -124,7 +126,7 @@ Latest local results before this commit:
 - Accepted runtime SBOM SHA-256 is generated from exact runtime commit `943861d656920758cdb77ce493b6b01c0a415c01`; embedded revision matches that commit.
 - SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved`; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` → direct `swift-crypto` → transitive `swift-asn1`.
 - SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`).
-- SBOM artifact retention: accepted Ubuntu/static CI uploaded SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention; artifact `9946734408` expires `2026-10-04T17:04:56Z`.
+- SBOM artifact retention: accepted Ubuntu/static CI uploaded SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention; artifact `9946734408` expires `2026-10-04T17:04:56Z`. Durable release assets are published under `upstream-v0.85.0` by the manual SBOM release workflow instead of relying on expiring Actions artifacts.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
 
 ## Prior accepted v0.84.4 evidence

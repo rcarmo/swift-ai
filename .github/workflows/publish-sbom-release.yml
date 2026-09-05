@@ -1,0 +1,116 @@
+name: Publish SBOM release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish SBOM assets under
+        default: upstream-v0.85.0
+        required: true
+        type: string
+      runtime_ref:
+        description: Accepted 40-hex runtime commit SHA to build the SBOM from
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish-sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.release_tag }}" in
+            upstream-v0.85.0) ;;
+            *) echo "unsupported release_tag: ${{ inputs.release_tag }}" >&2; exit 1 ;;
+          esac
+          if [[ ! "${{ inputs.runtime_ref }}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "runtime_ref must be a full 40-hex commit SHA: ${{ inputs.runtime_ref }}" >&2
+            exit 1
+          fi
+
+      - name: Checkout accepted runtime ref
+        uses: actions/checkout@v5
+        with:
+          ref: "${{ inputs.runtime_ref }}"
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Generate and validate SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift --version
+          runtime_sha="$(git rev-parse HEAD)"
+          if [[ "$runtime_sha" != "${{ inputs.runtime_ref }}" ]]; then
+            echo "checked-out runtime ref mismatch: $runtime_sha != ${{ inputs.runtime_ref }}" >&2
+            exit 1
+          fi
+          make sbom-check
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          sbom = json.loads(Path('.artifacts/sbom/swift-ai.cdx.json').read_text())
+          revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          props = {
+              item.get('name'): item.get('value')
+              for item in sbom.get('metadata', {}).get('component', {}).get('properties', [])
+          }
+          if props.get('git.revision') != revision:
+              raise SystemExit(f"SBOM git.revision {props.get('git.revision')} does not match {revision}")
+          if props.get('git.dirty') != 'false':
+              raise SystemExit('SBOM was generated from a dirty checkout')
+          if len(sbom.get('components') or []) != 2:
+              raise SystemExit('SBOM component count must be 2')
+          print('ok: SBOM revision/component checks')
+          PY
+
+      - name: Normalise release asset names
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp .artifacts/sbom/swift-ai.cdx.json dist/sbom.cdx.json
+          digest="$(sha256sum dist/sbom.cdx.json | awk '{print $1}')"
+          printf '%s  sbom.cdx.json\n' "$digest" > dist/sbom.cdx.json.sha256
+          (cd dist && sha256sum -c sbom.cdx.json.sha256)
+
+      - name: Create release if needed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ inputs.release_tag }}'
+          runtime_ref='${{ inputs.runtime_ref }}'
+          runtime_sha="$(git rev-parse HEAD)"
+          title='SBOM for @earendil-works/pi-ai v0.85.0'
+          notes="CycloneDX SBOM for swift-ai runtime ref ${runtime_ref} (${runtime_sha}), generated and validated by make sbom-check."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            existing_target="$(gh release view "$tag" --json targetCommitish --jq '.targetCommitish')"
+            existing_sha="$(git rev-parse --verify "${existing_target}^{commit}")"
+            if [[ "$existing_sha" != "$runtime_sha" ]]; then
+              echo "existing release $tag points to $existing_sha, expected $runtime_sha" >&2
+              exit 1
+            fi
+            gh release edit "$tag" --title "$title" --notes "$notes"
+          else
+            gh release create "$tag" --target "$runtime_sha" --title "$title" --notes "$notes"
+          fi
+
+      - name: Upload SBOM assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload '${{ inputs.release_tag }}' dist/sbom.cdx.json dist/sbom.cdx.json.sha256 --clobber

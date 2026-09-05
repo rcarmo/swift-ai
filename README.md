@@ -1,5 +1,9 @@
 # swift-ai
 
+[![CI](https://github.com/rcarmo/swift-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/rcarmo/swift-ai/actions/workflows/ci.yml)
+[![CycloneDX SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.0/sbom.cdx.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 SwiftPM port of [@earendil-works/pi-ai](https://www.npmjs.com/package/@earendil-works/pi-ai), built for Swift applications that need the same provider catalogue, streaming events, OAuth flows, and request-shaping behaviour without pulling in the TypeScript runtime.
 
 It currently tracks upstream `@earendil-works/pi-ai` v0.85.0 and embeds the audited model registries: 1336 text models across 39 providers and 9 text APIs, plus 50 image models. `STATUS.json` carries the same numbers in machine-readable form, and `SwiftAIStatus` exposes them at runtime.
@@ -137,6 +141,12 @@ The public API is still tracking upstream quickly, so consumers should pin a com
 ## Upstream and attribution
 
 This project is a derivative port of [@earendil-works/pi-ai](https://www.npmjs.com/package/@earendil-works/pi-ai), part of the [earendil-works/pi](https://github.com/earendil-works/pi/tree/main/packages/ai) project, originally created by [Mario Zechner](https://mariozechner.at). The TypeScript API design, event protocol, provider implementations, model registry, and OAuth flows originate upstream. This port adapts them idiomatically for Swift. All credit for the original design goes to Mario and the upstream contributors.
+
+## Supply-chain metadata
+
+The accepted runtime for the current upstream v0.85.0 parity pass is `943861d656920758cdb77ce493b6b01c0a415c01`. Its durable CycloneDX SBOM is published as an immutable release asset at [`upstream-v0.85.0/sbom.cdx.json`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.0/sbom.cdx.json), with the matching checksum at [`upstream-v0.85.0/sbom.cdx.json.sha256`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.0/sbom.cdx.json.sha256).
+
+The dispatch-only publishing workflow is [`publish-sbom-release.yml`](.github/workflows/publish-sbom-release.yml); it regenerates the SBOM from an explicit runtime ref, validates the CycloneDX payload, OSV scan, licence review, embedded revision, and checksum naming, then uploads the release assets with `--clobber`.
 
 ## License
 

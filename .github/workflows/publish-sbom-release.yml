@@ -5,7 +5,12 @@ on:
     inputs:
       release_tag:
         description: Release tag to publish SBOM assets under
-        default: upstream-v0.85.0
+        default: upstream-v0.85.1
+        required: true
+        type: string
+      upstream_version:
+        description: Upstream pi-ai version without leading v, matching release_tag
+        default: 0.85.1
         required: true
         type: string
       runtime_ref:
@@ -24,10 +29,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "${{ inputs.release_tag }}" in
-            upstream-v0.85.0) ;;
-            *) echo "unsupported release_tag: ${{ inputs.release_tag }}" >&2; exit 1 ;;
-          esac
+          if [[ ! "${{ inputs.upstream_version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "upstream_version must be strict semver without leading v: ${{ inputs.upstream_version }}" >&2
+            exit 1
+          fi
+          expected_tag="upstream-v${{ inputs.upstream_version }}"
+          if [[ "${{ inputs.release_tag }}" != "$expected_tag" ]]; then
+            echo "release_tag must match upstream_version: ${{ inputs.release_tag }} != $expected_tag" >&2
+            exit 1
+          fi
           if [[ ! "${{ inputs.runtime_ref }}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "runtime_ref must be a full 40-hex commit SHA: ${{ inputs.runtime_ref }}" >&2
             exit 1
@@ -93,8 +103,9 @@ jobs:
           tag='${{ inputs.release_tag }}'
           runtime_ref='${{ inputs.runtime_ref }}'
           runtime_sha="$(git rev-parse HEAD)"
-          title='SBOM for @earendil-works/pi-ai v0.85.0'
-          notes="CycloneDX SBOM for swift-ai runtime ref ${runtime_ref} (${runtime_sha}), generated and validated by make sbom-check."
+          upstream_version='${{ inputs.upstream_version }}'
+          title="SBOM for @earendil-works/pi-ai v${upstream_version}"
+          notes="CycloneDX SBOM for @earendil-works/pi-ai v${upstream_version}, generated from swift-ai runtime ref ${runtime_ref} (${runtime_sha}) and validated by make sbom-check."
           if gh release view "$tag" >/dev/null 2>&1; then
             existing_target="$(gh release view "$tag" --json targetCommitish --jq '.targetCommitish')"
             existing_sha="$(git rev-parse --verify "${existing_target}^{commit}")"

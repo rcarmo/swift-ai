@@ -146,7 +146,7 @@ This project is a derivative port of [@earendil-works/pi-ai](https://www.npmjs.c
 
 The accepted runtime for the current upstream v0.85.1 parity pass is `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`. Its CycloneDX SBOM is published as a durable, version-pinned release asset at [`upstream-v0.85.1/sbom.cdx.json`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.1/sbom.cdx.json), with the matching checksum at [`upstream-v0.85.1/sbom.cdx.json.sha256`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.1/sbom.cdx.json.sha256).
 
-The dispatch-only publishing workflow is [`publish-sbom-release.yml`](.github/workflows/publish-sbom-release.yml); it regenerates the SBOM from an explicit runtime ref, validates the CycloneDX payload, OSV scan, licence review, embedded revision, and checksum naming, then uploads the release assets with `--clobber`.
+The dispatch-only publishing workflow is [`publish-sbom-release.yml`](.github/workflows/publish-sbom-release.yml); it takes a version-pinned `release_tag`, matching `upstream_version`, and explicit runtime ref, validates the CycloneDX payload, OSV scan, licence review, embedded revision, tag target, and checksum naming, then uploads the release assets with `--clobber`.
 
 ## License
 

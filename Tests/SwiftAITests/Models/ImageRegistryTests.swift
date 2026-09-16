@@ -29,12 +29,14 @@ final class ImageRegistryTests: XCTestCase {
     func testBuiltinImageRegistryOpenRouterCatalog() throws {
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 50)
+        XCTAssertEqual(models.count, 52)
         XCTAssertTrue(models.allSatisfy { $0.api == .openRouterImages && $0.provider == .openRouter })
         XCTAssertNotNil(models.first { $0.id == "black-forest-labs/flux.2-flex" })
         XCTAssertNotNil(models.first { $0.id == "krea/krea-2-large" })
         XCTAssertNotNil(models.first { $0.id == "openrouter/auto-beta" })
         XCTAssertNotNil(models.first { $0.id == "microsoft/mai-image-2.5-pro" })
+        XCTAssertNotNil(models.first { $0.id == "microsoft/mai-image-2.6" })
+        XCTAssertNotNil(models.first { $0.id == "microsoft/mai-image-2.6-flash" })
         XCTAssertNotNil(models.first { $0.id == "qwen/qwen-image-3-pro" })
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "or-key"]), "or-key")
     }

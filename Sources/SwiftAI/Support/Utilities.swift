@@ -58,12 +58,8 @@ public enum AIUtilities {
         guard let model, model.reasoning else { return [.off] }
         var out: [ModelThinkingLevel] = []
         for level in extendedThinkingLevels {
-            if let map = model.thinkingLevelMap {
-                if map.keys.contains(level) {
-                    guard let mapped = map[level], mapped != nil else { continue }
-                } else if level == .xhigh || level == .max {
-                    continue
-                }
+            if let map = model.thinkingLevelMap, map.keys.contains(level) {
+                guard let mapped = map[level], mapped != nil else { continue }
             } else if level == .xhigh || level == .max {
                 continue
             }

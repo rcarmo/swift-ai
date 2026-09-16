@@ -61,7 +61,8 @@ public enum OpenAIResponsesProvider {
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
-        if cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
+        if let promptCacheOptions = promptCacheOptions(model: model, cacheRetention: cacheRetention) { body["prompt_cache_options"] = promptCacheOptions }
+        else if cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
         return body
     }
 
@@ -426,6 +427,13 @@ public enum OpenAIResponsesProvider {
     }
     private static func parseJSONObject(_ text: String) -> [String: JSONValue] { PartialJSONParser.parseObject(text) ?? [:] }
     private static func mapStatus(_ status: String?, incompleteReason: String? = nil) -> (reason: StopReason, errorMessage: String?) { switch status { case "completed", "in_progress", "queued": return (.stop, nil); case "incomplete": if incompleteReason == "max_output_tokens" { return (.length, nil) }; return (.error, incompleteReason.map { "Response incomplete: \($0)" } ?? "Response incomplete without a provider reason"); case "failed", "cancelled": return (.error, nil); case nil: return (.stop, nil); default: return (.error, "Response incomplete: \(status ?? "unknown")") } }
+    private static func promptCacheOptions(model: Model, cacheRetention: CacheRetention) -> JSONValue? {
+        guard model.responsesCompat?.supportsExplicitPromptCacheMode == true else { return nil }
+        if cacheRetention == .none { return .object(["mode": .string("explicit")]) }
+        if cacheRetention == .long, responsesSupportsLongCacheRetention(model) { return .object(["ttl": .string("30m")]) }
+        return nil
+    }
+
     private static func responsesSupportsLongCacheRetention(_ model: Model) -> Bool {
         if AIUtilities.isCloudflareProvider(model.provider) { return false }
         return model.responsesCompat?.supportsLongCacheRetention != false

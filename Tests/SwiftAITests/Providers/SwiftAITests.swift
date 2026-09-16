@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.85.0")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1336)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 50)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.85.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1354)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 52)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.85.0")
-        XCTAssertEqual(BuiltinModels.modelCount, 1336)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.85.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1354)
         XCTAssertEqual(BuiltinModels.providerCount, 39)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1336)
+        XCTAssertEqual(models.count, 1354)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -211,11 +211,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.85.0")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 50)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.85.1")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 52)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 50)
+        XCTAssertEqual(models.count, 52)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -411,7 +411,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1336)
+        XCTAssertEqual(models.count, 1354)
         XCTAssertEqual(Set(models.map(\.provider)).count, 39)
         XCTAssertEqual(Set(models.map(\.api)).count, 9)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -429,7 +429,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
 
         let images = try BuiltinImageModels.all()
-        XCTAssertEqual(images.count, 50)
+        XCTAssertEqual(images.count, 52)
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
     }
@@ -728,6 +728,118 @@ final class SwiftAITests: XCTestCase {
         let proxyBody = OpenAICompletionsProvider.buildRequestBody(model: proxy, context: AIContext(messages: [.user("hi")]), options: options)
         XCTAssertNil(proxyBody["prompt_cache_key"])
         XCTAssertNil(proxyBody["prompt_cache_retention"])
+    }
+
+    func testUpstream0851GPT6AstraCatalogCompatAndThinkingLevels() throws {
+        let models = try BuiltinModels.all()
+        func model(_ provider: Provider, _ id: String) throws -> Model {
+            try XCTUnwrap(models.first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
+        }
+        let openAI = try model(.openAI, "gpt-6-astra")
+        XCTAssertEqual(openAI.api, .openAIResponses)
+        XCTAssertEqual(openAI.contextWindow, 272_000)
+        XCTAssertEqual(openAI.maxTokens, 128_000)
+        XCTAssertEqual(openAI.input, ["text", "image"])
+        XCTAssertTrue(openAI.reasoning)
+        XCTAssertEqual(openAI.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+        XCTAssertEqual(openAI.responsesCompat?.supportsExplicitPromptCacheMode, true)
+        XCTAssertEqual(openAI.responsesCompat?.supportsToolSearch, true)
+        XCTAssertEqual(openAI.responsesCompat?.supportsAdditionalTools, true)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: openAI), [.low, .medium, .high, .xhigh, .max])
+        XCTAssertEqual(AIUtilities.clampThinkingLevel(model: openAI, level: .max), .max)
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: openAI, level: .xhigh), "xhigh")
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: openAI, level: .minimal), "low")
+        var options = StreamOptions(); options.reasoning = .max
+        let body = OpenAIResponsesProvider.buildRequestBody(model: openAI, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(body["max_output_tokens"], .number(128_000))
+        XCTAssertEqual(body["reasoning"], .object(["effort": .string("max"), "summary": .string("auto")]))
+
+        let codex = try model(.openAICodex, "gpt-6-astra")
+        XCTAssertEqual(codex.api, .openAICodexResponses)
+        XCTAssertEqual(codex.contextWindow, 272_000)
+        XCTAssertEqual(codex.maxTokens, 128_000)
+        XCTAssertEqual(codex.cost.input, 10)
+        XCTAssertEqual(codex.cost.output, 50)
+        XCTAssertEqual(codex.cost.cacheRead, 1)
+        XCTAssertEqual(codex.cost.cacheWrite, 12.5)
+        XCTAssertEqual(codex.responsesCompat?.supportsToolSearch, true)
+        XCTAssertEqual(codex.responsesCompat?.supportsAdditionalTools, true)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: codex), [.minimal, .low, .medium, .high, .xhigh, .max])
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: codex, level: .minimal), "low")
+
+        let azure = try model(.azureOpenAI, "gpt-6-astra")
+        XCTAssertEqual(azure.api, .azureOpenAIResponses)
+        XCTAssertEqual(azure.contextWindow, 272_000)
+        XCTAssertEqual(azure.maxTokens, 128_000)
+        XCTAssertEqual(azure.input, ["text", "image"])
+        XCTAssertEqual(azure.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+
+        let opencode = try model(.openCode, "gpt-6-astra")
+        XCTAssertEqual(opencode.api, .openAIResponses)
+        XCTAssertEqual(opencode.contextWindow, 1_050_000)
+        XCTAssertEqual(opencode.maxTokens, 128_000)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: opencode), [.low, .medium, .high, .xhigh, .max])
+
+        let openRouter = try model(.openRouter, "openai/gpt-6-astra")
+        XCTAssertEqual(openRouter.api, .openAICompletions)
+        XCTAssertEqual(openRouter.contextWindow, 1_050_000)
+        XCTAssertEqual(openRouter.maxTokens, 128_000)
+        XCTAssertEqual(openRouter.input, ["text", "image"])
+        XCTAssertEqual(openRouter.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: openRouter), [.low, .medium, .high, .xhigh, .max])
+
+        let gateway = try model(.vercelAIGateway, "openai/gpt-6-astra")
+        XCTAssertEqual(gateway.api, .anthropicMessages)
+        XCTAssertEqual(gateway.contextWindow, 1_050_000)
+        XCTAssertEqual(gateway.maxTokens, 128_000)
+        XCTAssertEqual(gateway.input, ["text", "image"])
+        XCTAssertEqual(gateway.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: gateway), [.off, .minimal, .low, .medium, .high, .xhigh])
+
+        let images = try BuiltinImageModels.all()
+        let mai = try XCTUnwrap(images.first { $0.provider == .openRouter && $0.id == "microsoft/mai-image-2.6" })
+        XCTAssertEqual(mai.api, .openRouterImages)
+        XCTAssertEqual(mai.input, ["text", "image"])
+        XCTAssertEqual(mai.output, ["image"])
+        XCTAssertEqual(mai.cost.input, 5)
+        let flash = try XCTUnwrap(images.first { $0.provider == .openRouter && $0.id == "microsoft/mai-image-2.6-flash" })
+        XCTAssertEqual(flash.cost.input, 1.75)
+    }
+
+    func testUpstream0851OpenAIResponsesPromptCacheOptionsMatrix() {
+        var explicitCompat = OpenAIResponsesCompat()
+        explicitCompat.supportsExplicitPromptCacheMode = true
+        explicitCompat.supportsLongCacheRetention = true
+        let explicit = Model(id: "gpt-6-astra", name: "GPT-6 Astra", api: .openAIResponses, provider: .openAI, responsesCompat: explicitCompat)
+        var options = StreamOptions()
+        options.sessionId = "session-123"
+        options.cacheRetention = CacheRetention.none
+        let none = OpenAIResponsesProvider.buildRequestBody(model: explicit, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(none["prompt_cache_key"])
+        XCTAssertNil(none["prompt_cache_retention"])
+        XCTAssertEqual(none["prompt_cache_options"], .object(["mode": .string("explicit")]))
+
+        options.cacheRetention = .long
+        let long = OpenAIResponsesProvider.buildRequestBody(model: explicit, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(long["prompt_cache_key"], .string("session-123"))
+        XCTAssertNil(long["prompt_cache_retention"])
+        XCTAssertEqual(long["prompt_cache_options"], .object(["ttl": .string("30m")]))
+
+        explicitCompat.supportsLongCacheRetention = false
+        let noLong = Model(id: "gpt-6-astra-proxy", name: "GPT-6 Astra Proxy", api: .openAIResponses, provider: .openAI, responsesCompat: explicitCompat)
+        let noLongBody = OpenAIResponsesProvider.buildRequestBody(model: noLong, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(noLongBody["prompt_cache_key"], .string("session-123"))
+        XCTAssertNil(noLongBody["prompt_cache_retention"])
+        XCTAssertNil(noLongBody["prompt_cache_options"])
+
+        var legacyCompat = OpenAIResponsesCompat()
+        legacyCompat.supportsExplicitPromptCacheMode = false
+        legacyCompat.supportsLongCacheRetention = true
+        let legacy = Model(id: "gpt-4o-mini", name: "GPT 4o Mini", api: .openAIResponses, provider: .openAI, responsesCompat: legacyCompat)
+        let legacyLong = OpenAIResponsesProvider.buildRequestBody(model: legacy, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(legacyLong["prompt_cache_key"], .string("session-123"))
+        XCTAssertEqual(legacyLong["prompt_cache_retention"], .string("24h"))
+        XCTAssertNil(legacyLong["prompt_cache_options"])
     }
 
     func testEnvDrivenPromptCacheRetention() {

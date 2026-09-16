@@ -37,6 +37,10 @@ Image catalog: `scripts/image-models.v0.85.1.json` equals `scripts/upstream-imag
 - GPT-6 Astra text and image catalog records preserve OpenAI/Codex/provider aliases, 272000 context, 128000 max output, text/image modalities, 10/50/1/12.5 costs, long tier, tool search/additional tools, and full thinking levels.
 - Exact text/image current-vs-upstream and v0.85.0 baseline deltas are enforced by full-record comparators and deliberate text/image field faults.
 
+## Runtime acceptance evidence
+
+Accepted runtime commit: `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`; CI run `35154754780`; jobs `104991425729` (`swift-test (ubuntu-latest)`) and `104991425958` (`static-check`) succeeded with `274` tests and no failures. SBOM artifact `10470264358` has archive SHA-256 `88c3a2b15d55afaf7e648fa93dd81a772c1a20d9a840b0af26ec91ca800c719f`; inner SBOM SHA-256 `93f0bfe9594652b5f6a1bbfecef2c08c625a693180d2d2258c798e0118d4e5b8`; embedded revision matches; OSV/license scans passed.
+
 ## Validation requirements
 
 - `scripts/audit-parity.py` enforces exact text/image full-record parity, embedded registry equality, exact text delta `+20/-2/18`, exact image delta `+2/-0/0`, committed manifest row counts/hashes, audit/crosswalk row counts, and `--self-test` metadata fault injection including image baseline corruption.

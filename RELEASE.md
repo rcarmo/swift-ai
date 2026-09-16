@@ -16,8 +16,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Verified npm artifact SHA-256: `af7d11986179445ce6fe88b37d57de22f823c0ffd3a65cae31c555b7f5e99253`
 - Verified npm artifact SHA-512: `f958152090e40ced9e7d824a104aaf3d31f8ce69c8697740a6919b3bebca140f6acb93dd8458807a7b8502453ea220927ce0b874c1c3cab8dd41e2f86680b909`
 - Swift parity branch: `main`
-- Current Swift parity runtime commit for v0.85.1: this runtime update commit; final SHA and CI run are reported after push/acceptance.
-- Runtime acceptance blocks README count updates and durable `upstream-v0.85.1` SBOM release assets.
+- Current Swift parity runtime commit for v0.85.1: `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`.
+- Runtime v0.85.1 accepted by CI run `35154754780`; README count updates and durable `upstream-v0.85.1` SBOM links are now documented.
 
 ## Exact upstream delta
 
@@ -105,7 +105,8 @@ Latest local results before this commit:
 - `make sbom-check`: passed with CycloneDX, SwiftPM graph, OSV, waiver self-tests, and license review.
 - exact v0.85.1 manifest validation: passed for 9 changed-path rows/hash and 142 test-corpus rows/hash; audit/crosswalk row counts are validator-enforced.
 - hidden skip scan: no `XCTSkip` matches.
-- Clean checkout validation must pass before pushing this runtime candidate.
+- clean checkout validation: passed warnings-as-errors build, `swift test`, static check, SBOM/OSV/license checks, diff check, and hidden-skip scan.
+- Hosted Ubuntu/static CI: run `35154754780` completed successfully for runtime commit `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`; jobs `104991425729` (`swift-test (ubuntu-latest)`) and `104991425958` (`static-check`) passed.
 
 ## SBOM/security evidence model
 
@@ -113,8 +114,22 @@ Latest local results before this commit:
 - Runtime SBOM SHA-256 is generated from exact accepted runtime commits; embedded revision must match the runtime commit.
 - SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved`; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` -> direct `swift-crypto` -> transitive `swift-asn1`.
 - SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`).
-- SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets are published only after runtime acceptance by the manual SBOM release workflow.
+- SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for v0.85.1 are version-pinned under `upstream-v0.85.1` and published by the manual SBOM release workflow.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
+
+## Accepted v0.85.1 runtime evidence
+
+Final v0.85.1 runtime commit: `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`.
+
+- Runtime CI run: <https://github.com/rcarmo/swift-ai/actions/runs/35154754780>
+- Runtime CI jobs: `104991425729` (`swift-test (ubuntu-latest)`) and `104991425958` (`static-check`)
+- Runtime SBOM artifact: `10470264358` / `swift-ai-sbom-b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`
+- Runtime SBOM archive SHA-256: `88c3a2b15d55afaf7e648fa93dd81a772c1a20d9a840b0af26ec91ca800c719f`
+- Runtime inner SBOM SHA-256: `93f0bfe9594652b5f6a1bbfecef2c08c625a693180d2d2258c798e0118d4e5b8`
+- SBOM component count: `2`; embedded revision matches the runtime commit; OSV vulnerability and license scans passed.
+- Status: `completed`
+- Conclusion: `success`
+- Routine hosted CI: Ubuntu/static only; macOS disabled after policy update.
 
 ## Prior accepted v0.85.0 evidence
 

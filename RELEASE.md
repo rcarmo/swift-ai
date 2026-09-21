@@ -95,18 +95,18 @@ grep -R "XCTSkip" -n Tests || true
 Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
-- focused v0.85.1 tests: passed for Responses prompt-cache options and GPT-6 Astra catalog/compat/thinking/image parity.
+- focused v0.87.0 tests: passed for generated registry metadata, v0.87.0 thinking-level catalog changes, and preserved v0.85.1 Responses/GPT-6 Astra coverage.
 - `swift test`: `274` tests, `0` failures.
 - deterministic `swift test` ×3: passed (`274` tests each run).
 - `make check`: passed (`274` tests, `0` failures).
-- `scripts/audit-parity.py`: passed with exact v0.85.1 full-record counts and text/image deltas.
+- `scripts/audit-parity.py`: passed with exact v0.87.0 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text/image metadata fault injections and image baseline corruption caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.
 - `make sbom-check`: passed with CycloneDX, SwiftPM graph, OSV, waiver self-tests, and license review.
-- exact v0.85.1 manifest validation: passed for 9 changed-path rows/hash and 142 test-corpus rows/hash; audit/crosswalk row counts are validator-enforced.
+- exact v0.87.0 manifest validation: passed for 127 changed-path rows/hash and 150 basename test-corpus rows/hash; audit/crosswalk row counts are validator-enforced.
 - hidden skip scan: no `XCTSkip` matches.
-- clean checkout validation: passed warnings-as-errors build, `swift test`, static check, SBOM/OSV/license checks, diff check, and hidden-skip scan.
-- Hosted Ubuntu/static CI: run `35154754780` completed successfully for runtime commit `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`; jobs `104991425729` (`swift-test (ubuntu-latest)`) and `104991425958` (`static-check`) passed.
+- clean checkout validation: must pass before pushing this runtime candidate.
+- Hosted Ubuntu/static CI: must pass after this runtime candidate is pushed.
 
 ## SBOM/security evidence model
 

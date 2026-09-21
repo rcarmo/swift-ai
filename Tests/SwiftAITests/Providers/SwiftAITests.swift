@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.85.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1354)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 52)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.87.0")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1445)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 54)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.85.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1354)
-        XCTAssertEqual(BuiltinModels.providerCount, 39)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.87.0")
+        XCTAssertEqual(BuiltinModels.modelCount, 1445)
+        XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1354)
+        XCTAssertEqual(models.count, 1445)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -211,11 +211,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.85.1")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 52)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.87.0")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 54)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 52)
+        XCTAssertEqual(models.count, 54)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -356,10 +356,10 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(fable.contains(.xhigh))
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openAI, "gpt-5.5-pro")).contains(.xhigh))
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "openai/gpt-5.5-pro")).contains(.xhigh))
-        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-v4-flash")).contains(.xhigh))
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-v4-flash")).contains(.max))
-        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "deepseek-v4-flash")).contains(.xhigh))
-        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "deepseek-v4-flash")).contains(.max))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-flash")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-flash")).contains(.max))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "deepseek/deepseek-v4-flash-0731")).contains(.xhigh))
+        XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "deepseek/deepseek-v4-flash-0731")).contains(.max))
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "kimi-k2.6")).contains(.xhigh))
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAI, "kimi-k2.7-code")).isEmpty)
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAICN, "kimi-k2.7-code")).isEmpty)
@@ -411,9 +411,9 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1354)
-        XCTAssertEqual(Set(models.map(\.provider)).count, 39)
-        XCTAssertEqual(Set(models.map(\.api)).count, 9)
+        XCTAssertEqual(models.count, 1445)
+        XCTAssertEqual(Set(models.map(\.provider)).count, 41)
+        XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
         XCTAssertEqual(cloudflare.baseUrl, "https://gateway.ai.cloudflare.com/v1/{CLOUDFLARE_ACCOUNT_ID}/{CLOUDFLARE_GATEWAY_ID}/compat")
         XCTAssertEqual(cloudflare.api, .openAICompletions)
@@ -429,7 +429,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
 
         let images = try BuiltinImageModels.all()
-        XCTAssertEqual(images.count, 52)
+        XCTAssertEqual(images.count, 54)
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
     }
@@ -445,8 +445,7 @@ final class SwiftAITests: XCTestCase {
         let mandatoryLow = OpenAICompletionsProvider.buildRequestBody(model: supportedMandatory, context: AIContext(messages: [.user("hi")]), options: options)
         XCTAssertEqual(mandatoryLow["reasoning"], .object(["effort": .string("low")]))
 
-        let optional = try XCTUnwrap(models.first { $0.provider == .openRouter && $0.id == "deepseek/deepseek-v4-flash-vision-exp" })
-        XCTAssertEqual(optional.input, ["text", "image"])
+        let optional = try XCTUnwrap(models.first { $0.provider == .openRouter && $0.id == "deepseek/deepseek-v4-flash" })
         XCTAssertEqual(optional.thinkingLevelMap?[.off]!, "none")
         XCTAssertNil(optional.thinkingLevelMap?[.low]!)
         let optionalBackground = OpenAICompletionsProvider.buildRequestBody(model: optional, context: AIContext(messages: [.user("hi")]), options: nil)
@@ -454,6 +453,14 @@ final class SwiftAITests: XCTestCase {
         options.reasoning = .xhigh
         let optionalXHigh = OpenAICompletionsProvider.buildRequestBody(model: optional, context: AIContext(messages: [.user("hi")]), options: options)
         XCTAssertEqual(optionalXHigh["reasoning"], .object(["effort": .string("xhigh")]))
+
+        let optionalMax = try XCTUnwrap(models.first { $0.provider == .openRouter && $0.id == "deepseek/deepseek-v4-flash-0731" })
+        XCTAssertEqual(optionalMax.thinkingLevelMap?[.low]!, "low")
+        XCTAssertNil(optionalMax.thinkingLevelMap?[.xhigh]!)
+        XCTAssertEqual(optionalMax.thinkingLevelMap?[.max]!, "max")
+        options.reasoning = .max
+        let optionalMaxBody = OpenAICompletionsProvider.buildRequestBody(model: optionalMax, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(optionalMaxBody["reasoning"], .object(["effort": .string("max")]))
     }
 
     func testContextOverflowDiagnosticsNilSafety() {

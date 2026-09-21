@@ -737,6 +737,53 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(proxyBody["prompt_cache_retention"])
     }
 
+    func testUpstream0870CatalogNewFieldsRoundTrip() throws {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let rawModels = try JSONDecoder().decode([JSONValue].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/models.v0.87.0.json")))
+        func raw(_ provider: String, _ id: String) throws -> [String: JSONValue] {
+            for value in rawModels {
+                guard case .object(let object) = value, object["provider"] == .string(provider), object["id"] == .string(id) else { continue }
+                return object
+            }
+            XCTFail("missing raw fixture \(provider)/\(id)")
+            return [:]
+        }
+        func roundTrip(_ provider: String, _ id: String) throws -> (raw: [String: JSONValue], encoded: [String: JSONValue], model: Model) {
+            let rawObject = try raw(provider, id)
+            let data = try JSONEncoder().encode(JSONValue.object(rawObject))
+            let model = try decoder.decode(Model.self, from: data)
+            let encoded = try decoder.decode([String: JSONValue].self, from: encoder.encode(model))
+            return (rawObject, encoded, model)
+        }
+
+        let tiered = try roundTrip("cloudflare-ai-gateway", "gpt-5.6-luna")
+        XCTAssertEqual(tiered.model.cost.tiers, tiered.raw["cost"]?.objectValue?["tiers"]?.arrayValue)
+        XCTAssertEqual(tiered.encoded["cost"]?.objectValue?["tiers"], tiered.raw["cost"]?.objectValue?["tiers"])
+        XCTAssertEqual(tiered.encoded["inputLimits"], tiered.raw["inputLimits"])
+
+        let limited = try roundTrip("amazon-bedrock", "amazon.nova-2-lite-v1:0")
+        XCTAssertEqual(limited.encoded["inputLimits"], limited.raw["inputLimits"])
+
+        let cached = try roundTrip("anthropic", "claude-fable-5")
+        XCTAssertEqual(cached.encoded["promptCache"], cached.raw["promptCache"])
+
+        let radius = try roundTrip("radius", "balanced")
+        XCTAssertEqual(radius.model.enabled, true)
+        XCTAssertEqual(radius.model.lab, "Moonshot AI")
+        XCTAssertEqual(radius.encoded["enabled"], radius.raw["enabled"])
+        XCTAssertEqual(radius.encoded["lab"], radius.raw["lab"])
+        XCTAssertEqual(radius.encoded["providers"], radius.raw["providers"])
+        guard case .array(let providers)? = radius.encoded["providers"], case .object(let firstProvider)? = providers.first else { return XCTFail("missing structured radius providers") }
+        XCTAssertEqual(firstProvider["id"], .string("fireworks"))
+        XCTAssertEqual(firstProvider["credential"], .string("radius"))
+
+        let meta = try roundTrip("meta", "muse-spark-1.3")
+        XCTAssertEqual(meta.model.provider, .meta)
+        XCTAssertEqual(meta.encoded["provider"], .string("meta"))
+    }
+
     func testUpstream0851GPT6AstraCatalogCompatAndThinkingLevels() throws {
         let models = try BuiltinModels.all()
         func model(_ provider: Provider, _ id: String) throws -> Model {
@@ -748,7 +795,11 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(openAI.maxTokens, 128_000)
         XCTAssertEqual(openAI.input, ["text", "image"])
         XCTAssertTrue(openAI.reasoning)
-        XCTAssertEqual(openAI.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+        XCTAssertEqual(openAI.cost.input, 10)
+        XCTAssertEqual(openAI.cost.output, 50)
+        XCTAssertEqual(openAI.cost.cacheRead, 1)
+        XCTAssertEqual(openAI.cost.cacheWrite, 12.5)
+        XCTAssertEqual(openAI.cost.tiers?.first?.objectValue?["inputTokensAbove"], .number(272_000))
         XCTAssertEqual(openAI.responsesCompat?.supportsExplicitPromptCacheMode, true)
         XCTAssertEqual(openAI.responsesCompat?.supportsToolSearch, true)
         XCTAssertEqual(openAI.responsesCompat?.supportsAdditionalTools, true)

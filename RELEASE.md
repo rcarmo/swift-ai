@@ -96,9 +96,9 @@ Latest local results before this commit:
 
 - `swift build -Xswiftc -warnings-as-errors`: passed.
 - focused v0.87.0 tests: passed for generated registry metadata, v0.87.0 thinking-level catalog changes, and preserved v0.85.1 Responses/GPT-6 Astra coverage.
-- `swift test`: `274` tests, `0` failures.
-- deterministic `swift test` ×3: passed (`274` tests each run).
-- `make check`: passed (`274` tests, `0` failures).
+- `swift test`: `275` tests, `0` failures.
+- deterministic `swift test` ×3: passed (`275` tests each run).
+- `make check`: passed (`275` tests, `0` failures).
 - `scripts/audit-parity.py`: passed with exact v0.87.0 full-record counts and text/image deltas.
 - `scripts/audit-parity.py --self-test`: passed, text/image metadata fault injections and image baseline corruption caught.
 - `scripts/static-check.py`: passed, including text/image mutation self-test.

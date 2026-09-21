@@ -256,7 +256,7 @@ public struct Tool: Codable, Equatable, Sendable {
 }
 public struct AIContext: Codable, Equatable, Sendable { public var systemPrompt: String?; public var messages: [Message]; public var tools: [Tool]?; public init(systemPrompt: String? = nil, messages: [Message] = [], tools: [Tool]? = nil) { self.systemPrompt = systemPrompt; self.messages = messages; self.tools = tools } }
 
-public struct ModelCost: Codable, Equatable, Sendable { public var input = 0.0; public var output = 0.0; public var cacheRead = 0.0; public var cacheWrite = 0.0; public init(input: Double = 0, output: Double = 0, cacheRead: Double = 0, cacheWrite: Double = 0) { self.input = input; self.output = output; self.cacheRead = cacheRead; self.cacheWrite = cacheWrite } }
+public struct ModelCost: Codable, Equatable, Sendable { public var input = 0.0; public var output = 0.0; public var cacheRead = 0.0; public var cacheWrite = 0.0; public var tiers: [JSONValue]?; public init(input: Double = 0, output: Double = 0, cacheRead: Double = 0, cacheWrite: Double = 0, tiers: [JSONValue]? = nil) { self.input = input; self.output = output; self.cacheRead = cacheRead; self.cacheWrite = cacheWrite; self.tiers = tiers } }
 public typealias ProviderHeaders = [String: String?]
 
 public struct Model: Codable, Equatable, Sendable {

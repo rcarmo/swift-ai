@@ -1,12 +1,12 @@
 # swift-ai
 
 [![CI](https://github.com/rcarmo/swift-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/rcarmo/swift-ai/actions/workflows/ci.yml)
-[![CycloneDX SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.1/sbom.cdx.json)
+[![CycloneDX SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.87.0/sbom.cdx.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 SwiftPM port of [@earendil-works/pi-ai](https://www.npmjs.com/package/@earendil-works/pi-ai), built for Swift applications that need the same provider catalogue, streaming events, OAuth flows, and request-shaping behaviour without pulling in the TypeScript runtime.
 
-It currently tracks upstream `@earendil-works/pi-ai` v0.85.1 and embeds the audited model registries: 1354 text models across 39 providers and 9 text APIs, plus 52 image models. `STATUS.json` carries the same numbers in machine-readable form, and `SwiftAIStatus` exposes them at runtime.
+It currently tracks upstream `@earendil-works/pi-ai` v0.87.0 and embeds the audited model registries: 1445 text models across 41 providers and 10 text APIs, plus 54 image models. `STATUS.json` carries the same numbers in machine-readable form, and `SwiftAIStatus` exposes them at runtime.
 
 ## Documentation
 
@@ -14,7 +14,7 @@ The short usage guide lives in [`docs/USAGE.md`](docs/USAGE.md), with transport 
 
 * [`RELEASE.md`](RELEASE.md) records the accepted upstream release, validation gates, and CI/SBOM references.
 * [`PARITY.md`](PARITY.md) summarises the current parity baseline.
-* [`docs/upstream-v0.85.1-audit.md`](docs/upstream-v0.85.1-audit.md) and [`docs/upstream-v0.85.1-test-crosswalk.md`](docs/upstream-v0.85.1-test-crosswalk.md) map the exact upstream release diff to Swift code and tests.
+* [`docs/upstream-v0.87.0-audit.md`](docs/upstream-v0.87.0-audit.md) and [`docs/upstream-v0.87.0-test-crosswalk.md`](docs/upstream-v0.87.0-test-crosswalk.md) map the exact upstream release diff to Swift code and tests.
 
 ## Features
 
@@ -134,7 +134,7 @@ The core package avoids bundling heavyweight vendor SDKs and WebSocket stacks. T
 
 ## Compatibility/versioning
 
-The current runtime parity baseline is upstream `@earendil-works/pi-ai` v0.85.1, tag commit `d981de1229ef899957bbe968bc8dcda02a21f477`. The accepted Swift runtime commit is recorded in [`RELEASE.md`](RELEASE.md), along with local and hosted validation results.
+The current runtime parity baseline is upstream `@earendil-works/pi-ai` v0.87.0, tag commit `16787ad5b2dc748047f314ca1bfe7708f30f54f3`. The accepted Swift runtime commit is recorded in [`RELEASE.md`](RELEASE.md), along with local and hosted validation results.
 
 The public API is still tracking upstream quickly, so consumers should pin a commit or tag rather than assuming broad semver stability. The generated catalogues and `STATUS.json` are the easiest way to verify which upstream release a checkout represents.
 
@@ -144,7 +144,7 @@ This project is a derivative port of [@earendil-works/pi-ai](https://www.npmjs.c
 
 ## Supply-chain metadata
 
-The accepted runtime for the current upstream v0.85.1 parity pass is `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`. Its CycloneDX SBOM is published as a durable, version-pinned release asset at [`upstream-v0.85.1/sbom.cdx.json`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.1/sbom.cdx.json), with the matching checksum at [`upstream-v0.85.1/sbom.cdx.json.sha256`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.85.1/sbom.cdx.json.sha256).
+The accepted runtime for the current upstream v0.87.0 parity pass is `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`. Its CycloneDX SBOM is published as a durable, version-pinned release asset at [`upstream-v0.87.0/sbom.cdx.json`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.87.0/sbom.cdx.json), with the matching checksum at [`upstream-v0.87.0/sbom.cdx.json.sha256`](https://github.com/rcarmo/swift-ai/releases/download/upstream-v0.87.0/sbom.cdx.json.sha256).
 
 The dispatch-only publishing workflow is [`publish-sbom-release.yml`](.github/workflows/publish-sbom-release.yml); it takes a version-pinned `release_tag`, matching `upstream_version`, and explicit runtime ref, validates the CycloneDX payload, OSV scan, licence review, embedded revision, tag target, and checksum naming, then uploads the release assets with `--clobber`.
 

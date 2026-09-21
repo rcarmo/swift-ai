@@ -154,6 +154,10 @@ Image catalog: `scripts/image-models.v0.87.0.json` equals `scripts/upstream-imag
 - Existing and v0.87.0 Swift runtime tests cover request building, provider registry behavior, OAuth surfaces, retry/terminal stream behavior, and assistant transcript/event reconstruction where portable.
 - Live provider/browser flows remain classified in the crosswalk and are not faked.
 
+## Runtime acceptance evidence
+
+Accepted runtime commit: `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`; CI run `35651037149`; jobs `106503225568` (`swift-test (ubuntu-latest)`) and `106503225813` (`static-check`) succeeded with `275` tests and no failures. SBOM artifact `10661774667` has archive SHA-256 `6a5716d314c7aba79ad44c1ba226b55fd0e66713dd67c788ee20eef6e4b750a0`; inner SBOM SHA-256 `9aa10446a20fe5354dc1e501f598b790ed4b64cb1528f3bc53165586156f30b5`; embedded revision matches; dirty flag is `false`; OSV/license scans passed.
+
 ## Validation requirements
 
 - `scripts/audit-parity.py` enforces exact text/image full-record parity, embedded registry equality, exact text delta `+149/-58/986`, exact image delta `+2/-0/4`, committed manifest row counts/hashes, audit/crosswalk row counts, and `--self-test` metadata fault injection including image baseline corruption.

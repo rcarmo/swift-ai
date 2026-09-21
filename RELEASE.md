@@ -16,8 +16,8 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 - Verified npm artifact SHA-256: `af7d11986179445ce6fe88b37d57de22f823c0ffd3a65cae31c555b7f5e99253`
 - Verified npm artifact SHA-512: `f958152090e40ced9e7d824a104aaf3d31f8ce69c8697740a6919b3bebca140f6acb93dd8458807a7b8502453ea220927ce0b874c1c3cab8dd41e2f86680b909`
 - Swift parity branch: `main`
-- Current Swift parity runtime commit for v0.85.1: `b1192ff853ac5b312cc9dcef47b76e1c97ddc70f`.
-- Runtime v0.85.1 accepted by CI run `35154754780`; README count updates and durable `upstream-v0.85.1` SBOM links are now documented.
+- Current Swift parity runtime commit for v0.87.0: `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`.
+- Runtime v0.87.0 accepted by CI run `35651037149`; README count updates and durable `upstream-v0.87.0` SBOM links are now documented.
 
 ## Exact upstream delta
 
@@ -106,7 +106,7 @@ Latest local results before this commit:
 - exact v0.87.0 manifest validation: passed for 127 changed-path rows/hash and 150 basename test-corpus rows/hash; audit/crosswalk row counts are validator-enforced.
 - hidden skip scan: no `XCTSkip` matches.
 - clean checkout validation: must pass before pushing this runtime candidate.
-- Hosted Ubuntu/static CI: must pass after this runtime candidate is pushed.
+- Hosted Ubuntu/static CI: run `35651037149` completed successfully for runtime commit `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`; jobs `106503225568` (`swift-test (ubuntu-latest)`) and `106503225813` (`static-check`) passed.
 
 ## SBOM/security evidence model
 
@@ -114,8 +114,22 @@ Latest local results before this commit:
 - Runtime SBOM SHA-256 is generated from exact accepted runtime commits; embedded revision must match the runtime commit.
 - SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved`; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` -> direct `swift-crypto` -> transitive `swift-asn1`.
 - SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`).
-- SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for v0.85.1 are version-pinned under `upstream-v0.85.1` and published by the manual SBOM release workflow, which validates a matching `upstream_version`, full runtime SHA, existing tag target, embedded revision, OSV/license status, and checksum naming before `--clobber` uploads.
+- SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for v0.87.0 are version-pinned under `upstream-v0.87.0` and published by the manual SBOM release workflow, which validates a matching `upstream_version`, full runtime SHA, existing tag target, embedded revision, OSV/license status, and checksum naming before `--clobber` uploads.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
+
+## Accepted v0.87.0 runtime evidence
+
+Final v0.87.0 runtime commit: `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`.
+
+- Runtime CI run: <https://github.com/rcarmo/swift-ai/actions/runs/35651037149>
+- Runtime CI jobs: `106503225568` (`swift-test (ubuntu-latest)`) and `106503225813` (`static-check`)
+- Runtime SBOM artifact: `10661774667` / `swift-ai-sbom-bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`
+- Runtime SBOM archive SHA-256: `6a5716d314c7aba79ad44c1ba226b55fd0e66713dd67c788ee20eef6e4b750a0`
+- Runtime inner SBOM SHA-256: `9aa10446a20fe5354dc1e501f598b790ed4b64cb1528f3bc53165586156f30b5`
+- SBOM component count: `2`; embedded revision matches the runtime commit; dirty flag is `false`; OSV vulnerability and license scans passed.
+- Status: `completed`
+- Conclusion: `success`
+- Routine hosted CI: Ubuntu/static only; macOS disabled after policy update.
 
 ## Accepted v0.85.1 runtime evidence
 

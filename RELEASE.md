@@ -5,19 +5,19 @@ This file is the durable release-audit ledger for `swift-ai`. It must be updated
 ## Current upstream parity baseline
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.85.1`
-- Current upstream tag commit: `d981de1229ef899957bbe968bc8dcda02a21f477`
+- Current upstream release: `v0.87.1`
+- Current upstream tag commit: `f07218c4d4bbc12bef056a7058c3dd49dfe41abe`
 - Published: `2026-09-05T12:05:47.996Z`
-- Previous accepted upstream release: `v0.85.0`
-- Previous accepted upstream tag commit: `107d79f11072bbc8a3a757ed7fd69596bee7d68c`
-- Previous accepted Swift runtime baseline: `943861d656920758cdb77ce493b6b01c0a415c01`
+- Previous accepted upstream release: `v0.87.0`
+- Previous accepted upstream tag commit: `16787ad5b2dc748047f314ca1bfe7708f30f54f3`
+- Previous accepted Swift runtime baseline: `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`
 - Previous accepted Swift README documentation commit: `40c823a064f83c676513e17926ebaa28c624228e`
 - Previous accepted Swift evidence documentation commit: `7149ae964cec4adc869d89ef0137d7bf2669837c`
-- Verified npm artifact SHA-256: `af7d11986179445ce6fe88b37d57de22f823c0ffd3a65cae31c555b7f5e99253`
+- Verified npm artifact SHA-256: `35b4432f27cc2665f86beebb9af6a39b1251970883c3044bd8be4f4e8c731ca0`
 - Verified npm artifact SHA-512: `f958152090e40ced9e7d824a104aaf3d31f8ce69c8697740a6919b3bebca140f6acb93dd8458807a7b8502453ea220927ce0b874c1c3cab8dd41e2f86680b909`
 - Swift parity branch: `main`
-- Current Swift parity runtime commit for v0.87.0: `bc1f1e8f93cb8b8dfc9dbe753b86cc235ae4aacb`.
-- Runtime v0.87.0 accepted by CI run `35651037149`; README count updates and durable `upstream-v0.87.0` SBOM links are now documented.
+- Current Swift parity runtime commit for v0.87.1: `8a126fc8bb8429801905e502eb92ef2da6721d74`.
+- Runtime v0.87.1 accepted by CI run `35794536991`; README count updates and durable `upstream-v0.87.1` SBOM links are now documented. v0.87.0 evidence remains preserved below.
 
 ## Exact upstream delta
 
@@ -116,6 +116,20 @@ Latest local results before this commit:
 - SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`).
 - SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for v0.87.0 are version-pinned under `upstream-v0.87.0` and published by the manual SBOM release workflow, which validates a matching `upstream_version`, full runtime SHA, existing tag target, embedded revision, OSV/license status, and checksum naming before `--clobber` uploads.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
+
+## Accepted v0.87.1 runtime evidence
+
+Final v0.87.1 runtime commit: `8a126fc8bb8429801905e502eb92ef2da6721d74`.
+
+- Runtime CI run: <https://github.com/rcarmo/swift-ai/actions/runs/35794536991>
+- Runtime CI jobs: `106970635220` (`swift-test (ubuntu-latest)`) and `106970635393` (`static-check`)
+- Runtime SBOM artifact: `10723117599` / `swift-ai-sbom-8a126fc8bb8429801905e502eb92ef2da6721d74`
+- Runtime SBOM archive SHA-256: `fa7f65018406926f913360e6d9bbbb9c1e28ca2ad0e68ecb4ba789945ed4a435`
+- Runtime inner SBOM SHA-256: `3405700b03b751916446ff6b32190733de1845aa1486513730500a954495e3ac`
+- SBOM component count: `2`; CycloneDX `1.5`; root component `swift-ai@0.87.1`; embedded revision matches the runtime commit; dirty flag is `false`; OSV vulnerability, security, and license scans passed.
+- Status: `completed`
+- Conclusion: `success`
+- Routine hosted CI: Ubuntu/static only; macOS disabled after policy update.
 
 ## Accepted v0.87.0 runtime evidence
 

@@ -7,7 +7,7 @@ Verified npm artifact SHA-256: `35b4432f27cc2665f86beebb9af6a39b1251970883c3044b
 
 The bounded `packages/ai` delta is exactly 16 changed paths. Changed-path manifest hash: `2756fce613d0163b6eb5c47b599584589a229e5c7ed30a86b65380031e272eb6`. The changed-test full-path manifest covers 9 paths with hash `5b66a8cf9050b36a8dbae7a1b802c12037a2ec2332cf2e3f370953ea9ef9ac43`. The final upstream basename test corpus has 150 tests with hash `042cdfbc8cc089da71409e615fb54cfe7273a960f8e0d10e63e07584ae9f2e75`.
 
-This is runtime-candidate evidence only. README/current-version/RELEASE/SBOM publication metadata remains blocked until hosted runtime acceptance.
+Runtime accepted: Swift commit `8a126fc8bb8429801905e502eb92ef2da6721d74`, CI `35794536991`, SBOM artifact `10723117599`. README/current-version/RELEASE metadata is updated by the post-runtime docs-only commit; durable release asset publication is handled by the guarded SBOM publisher.
 
 ## Exact changed-path disposition matrix
 
@@ -40,3 +40,7 @@ Image catalog: `scripts/image-models.v0.87.1.json` equals `scripts/upstream-imag
 
 - `nice -n 10 swift test --filter 'SwiftAITests/(testOpenAICompatibleImageOnlyUserMessageOmitsEmptyTextPart|testOpenAIResponsesToolResultImagesStayInFunctionCallOutput|testOpenAIToolResultEmptyOutputPlaceholder|testOpenAIMultimodalAndToolResultReplay)' -j 2`: executed 4 tests, 0 failures.
 - `nice -n 10 swift test --filter SwiftAITests/testAnthropicBearerAuthEnvHeaders -j 2`: executed 1 test, 0 failures.
+
+## Runtime acceptance evidence
+
+Accepted runtime commit: `8a126fc8bb8429801905e502eb92ef2da6721d74`; CI run `35794536991` completed successfully for `swift-test (ubuntu-latest)` and `static-check`. SHA-specific SBOM artifact `10723117599` has archive SHA-256 `fa7f65018406926f913360e6d9bbbb9c1e28ca2ad0e68ecb4ba789945ed4a435`, inner SBOM SHA-256 `3405700b03b751916446ff6b32190733de1845aa1486513730500a954495e3ac`, CycloneDX 1.5 root `swift-ai@0.87.1`, component count `2`, matching `git.revision`, `git.dirty=false`, and clean OSV/security/license scans.

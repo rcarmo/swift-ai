@@ -123,19 +123,19 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.87.0")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1445)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 54)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.87.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1495)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 55)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.87.0")
-        XCTAssertEqual(BuiltinModels.modelCount, 1445)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.87.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1495)
         XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1445)
+        XCTAssertEqual(models.count, 1495)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -150,6 +150,63 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(models.contains { $0.provider == .qwenTokenPlanIndividual && $0.id == "qwen3.8-max" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .baseten && $0.id == "moonshotai/Kimi-K2.5" && $0.api == .openAICompletions })
         XCTAssertTrue(models.contains { $0.provider == .githubCopilot })
+        XCTAssertTrue(models.contains { $0.provider == .xai && $0.id == "grok-4.7" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .anthropic && $0.id == "claude-opus-5-5" && $0.api == .anthropicMessages })
+        XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-6-sol" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-6-luna" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .githubCopilot && $0.id == "grok-4.7" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .githubCopilot && $0.id == "claude-opus-5.5" && $0.api == .anthropicMessages })
+        XCTAssertTrue(models.contains { $0.provider == .githubCopilot && $0.id == "gpt-6-sol" && $0.api == .openAIResponses })
+        XCTAssertTrue(models.contains { $0.provider == .githubCopilot && $0.id == "gpt-6-luna" && $0.api == .openAIResponses })
+    }
+
+    func testV0871CatalogRuntimeDeltas() throws {
+        let models = try BuiltinModels.all()
+        func model(_ provider: Provider, _ id: String) throws -> Model {
+            try XCTUnwrap(models.first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
+        }
+        let grok = try model(.xai, "grok-4.7")
+        XCTAssertEqual(grok.api, .openAIResponses)
+        XCTAssertTrue(grok.reasoning)
+        XCTAssertEqual(grok.thinkingLevelMap?[.xhigh]!, Optional("xhigh"))
+        XCTAssertEqual(grok.cost.input, 2)
+        XCTAssertEqual(grok.cost.output, 6)
+        XCTAssertEqual(grok.cost.cacheRead, 0.5)
+        XCTAssertEqual(grok.cost.tiers?.count, 1)
+        guard case .object(let grokTier)? = grok.cost.tiers?.first else { return XCTFail("missing grok tier") }
+        XCTAssertEqual(grokTier["inputTokensAbove"], .number(200_000))
+        XCTAssertEqual(grokTier["output"], .number(12))
+        var options = StreamOptions(); options.reasoning = .xhigh
+        let grokBody = OpenAIResponsesProvider.buildRequestBody(model: grok, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(grokBody["reasoning"], .object(["effort": .string("xhigh")]))
+        XCTAssertEqual(grokBody["include"], .array([.string("reasoning.encrypted_content")]))
+
+        let opus = try model(.anthropic, "claude-opus-5-5")
+        XCTAssertEqual(opus.contextWindow, 1_000_000)
+        XCTAssertEqual(opus.maxTokens, 128_000)
+        XCTAssertEqual(opus.cost.input, 4)
+        XCTAssertEqual(opus.cost.output, 20)
+        XCTAssertEqual(opus.thinkingLevelMap?[.xhigh]!, Optional("xhigh"))
+        XCTAssertEqual(opus.thinkingLevelMap?[.max]!, Optional("max"))
+        let opusBody = AnthropicMessagesProvider.buildRequestBody(model: opus, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(opusBody["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(opusBody["output_config"], .object(["effort": .string("xhigh")]))
+
+        let sol = try model(.openAI, "gpt-6-sol")
+        XCTAssertEqual(sol.contextWindow, 272_000)
+        XCTAssertEqual(sol.cost.input, 2)
+        XCTAssertEqual(sol.cost.output, 10)
+        XCTAssertEqual(sol.thinkingLevelMap?[.xhigh]!, Optional("xhigh"))
+        let luna = try model(.openAI, "gpt-6-luna")
+        XCTAssertEqual(luna.cost.input, 0.1)
+        XCTAssertEqual(luna.cost.output, 0.5)
+        XCTAssertEqual(luna.cost.tiers?.count, 1)
+
+        XCTAssertEqual(try model(.githubCopilot, "grok-4.7").api, .openAIResponses)
+        XCTAssertEqual(try model(.githubCopilot, "claude-opus-5.5").api, .anthropicMessages)
+        XCTAssertEqual(try model(.githubCopilot, "gpt-6-sol").api, .openAIResponses)
+        XCTAssertEqual(try model(.githubCopilot, "gpt-6-luna").api, .openAIResponses)
+        XCTAssertEqual(try model(.azureOpenAI, "gpt-6-sol").api, .azureOpenAIResponses)
     }
 
     func testBasetenSamplingAndChatTemplateArgs() throws {
@@ -190,6 +247,31 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(OpenAICompletionsProvider.buildRequestBody(model: disabledModel, context: AIContext(messages: [.user("hi")]), options: options)["thinking_token_budget"])
     }
 
+    func testOpenAICompatibleImageOnlyUserMessageOmitsEmptyTextPart() {
+        let model = Model(id: "vision", name: "Vision", api: .openAICompletions, provider: .openAI, input: ["text", "image"])
+        let context = AIContext(messages: [Message(role: .user, content: [.text(""), .image(data: "abc", mimeType: "image/png")])])
+        let body = OpenAICompletionsProvider.buildRequestBody(model: model, context: context, options: nil)
+        guard case .array(let messages)? = body["messages"], case .object(let message) = messages.first, case .array(let content)? = message["content"] else {
+            return XCTFail("missing multimodal user content")
+        }
+        XCTAssertEqual(message["role"], .string("user"))
+        XCTAssertEqual(content.count, 1)
+        guard case .object(let imagePart) = content[0], case .object(let imageURL)? = imagePart["image_url"] else {
+            return XCTFail("expected only image_url content part")
+        }
+        XCTAssertEqual(imagePart["type"], .string("image_url"))
+        XCTAssertEqual(imageURL["url"], .string("data:image/png;base64,abc"))
+
+        let whitespaceContext = AIContext(messages: [Message(role: .user, content: [.text("   "), .image(data: "def", mimeType: "image/jpeg")])])
+        let whitespaceBody = OpenAICompletionsProvider.buildRequestBody(model: model, context: whitespaceContext, options: nil)
+        guard case .array(let whitespaceMessages)? = whitespaceBody["messages"], case .object(let whitespaceMessage) = whitespaceMessages.first, case .array(let whitespaceContent)? = whitespaceMessage["content"] else {
+            return XCTFail("missing whitespace multimodal user content")
+        }
+        XCTAssertEqual(whitespaceContent.count, 2)
+        XCTAssertTrue(whitespaceContent.contains { if case .object(let obj) = $0 { return obj["type"] == .string("text") && obj["text"] == .string("   ") }; return false })
+        XCTAssertTrue(whitespaceContent.contains { if case .object(let obj) = $0 { return obj["type"] == .string("image_url") }; return false })
+    }
+
     func testOpenAICompatibleSamplingParamMerge() {
         let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, samplingParams: ["top_p": .number(0.8), "top_k": .number(20)])
         var options = StreamOptions(); options.samplingParams = ["top_k": .number(40), "min_p": .number(0.1)]
@@ -211,16 +293,17 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.87.0")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 54)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.87.1")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 55)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 54)
+        XCTAssertEqual(models.count, 55)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
         XCTAssertTrue(models.contains { $0.id == "microsoft/mai-image-2.5-pro" })
         XCTAssertTrue(models.contains { $0.id == "qwen/qwen-image-3-pro" })
+        XCTAssertTrue(models.contains { $0.id == "inclusionai/ming-image-0.1-design" })
     }
 
     func testOpenRouterImageResponseParser() throws {
@@ -411,7 +494,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1445)
+        XCTAssertEqual(models.count, 1495)
         XCTAssertEqual(Set(models.map(\.provider)).count, 41)
         XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -429,9 +512,10 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
 
         let images = try BuiltinImageModels.all()
-        XCTAssertEqual(images.count, 54)
+        XCTAssertEqual(images.count, 55)
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
+        XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "inclusionai/ming-image-0.1-design" })
     }
 
     func testUpstream0844OpenRouterReasoningOptionSemanticsAndCatalog() throws {
@@ -1251,6 +1335,12 @@ final class SwiftAITests: XCTestCase {
         let apiHeaders = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(), apiKey: "api-key", options: nil)
         XCTAssertEqual(apiHeaders["X-Api-Key"], "api-key")
         XCTAssertNil(apiHeaders["Authorization"])
+
+        let oauthHeaders = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(), apiKey: "sk-ant-oat01-test", options: nil)
+        XCTAssertEqual(oauthHeaders["Authorization"], "Bearer sk-ant-oat01-test")
+        XCTAssertEqual(oauthHeaders["User-Agent"], "claude-cli/2.1.280")
+        XCTAssertEqual(oauthHeaders["x-app"], "cli")
+        XCTAssertNil(oauthHeaders["X-Api-Key"])
     }
 
     func testAnthropicOAuthProviderShape() {

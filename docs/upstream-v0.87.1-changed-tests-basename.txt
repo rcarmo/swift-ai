@@ -1,0 +1,9 @@
+cache-retention.test.ts
+github-copilot-anthropic.test.ts
+max-thinking.test.ts
+model-catalog-types.test.ts
+openai-completions-tool-result-images.test.ts
+openai-responses-compat.test.ts
+stream.test.ts
+supports-xhigh.test.ts
+xai-responses.test.ts

@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-"""Generate Sources/SwiftAI/Models/Generated/ModelsGenerated.swift from exported go-ai model JSON.
+"""Generate Swift embedded model registries from exported pi-ai model JSON.
 
 Usage:
-    python3 scripts/generate-models.py scripts/models.v0.80.3.json Sources/SwiftAI/Models/Generated/ModelsGenerated.swift
-
-The input JSON is produced from the audited Go registry:
-
-    cd /workspace/projects/go-ai
-    go run /tmp/export-go-ai-models.go > /workspace/projects/swift-ai/scripts/models.v0.80.3.json
+    python3 scripts/generate-models.py scripts/models.v0.87.1.json Sources/SwiftAI/Models/Generated/ModelsGenerated.swift
+    python3 scripts/generate-models.py scripts/image-models.v0.87.1.json Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift
 """
 from __future__ import annotations
 
@@ -54,12 +50,17 @@ def main() -> int:
     providers = sorted({m["provider"] for m in models})
     encoded = base64.b64encode(json.dumps(models, separators=(",", ":"), sort_keys=True).encode()).decode()
     body = "\n".join(chunks(encoded))
+    is_image = "image" in src.name or "ImageModelsGenerated" in dst.name
+    enum_name = "BuiltinImageModels" if is_image else "BuiltinModels"
+    model_type = "ImagesModel" if is_image else "Model"
+    registry = "ImagesRegistry" if is_image else "AIRegistry"
+    failure = "failed to decode embedded image model registry" if is_image else "failed to decode embedded model registry"
     dst.write_text(f'''import Foundation
 
 // Generated from @earendil-works/pi-ai/go-ai v{version} model registry.
 // Source JSON: scripts/{src.name}
 
-public enum BuiltinModels {{
+public enum {enum_name} {{
     public static let upstreamVersion = "{version}"
     public static let modelCount = {len(models)}
     public static let providerCount = {len(providers)}
@@ -68,17 +69,17 @@ public enum BuiltinModels {{
 {body}
 """#
 
-    public static func all() throws -> [Model] {{
+    public static func all() throws -> [{model_type}] {{
         let compact = encodedRegistry.split(whereSeparator: \\.isNewline).joined()
         guard let data = Data(base64Encoded: compact) else {{ throw AIError.invalidResponse("invalid embedded model registry") }}
-        return try JSONDecoder().decode([Model].self, from: data)
+        return try JSONDecoder().decode([{model_type}].self, from: data)
     }}
 
     public static func registerAll() async {{
         do {{
-            for model in try all() {{ await AIRegistry.shared.register(model) }}
+            for model in try all() {{ await {registry}.shared.register(model) }}
         }} catch {{
-            assertionFailure("failed to decode embedded model registry: \\(error)")
+            assertionFailure("{failure}: \\(error)")
         }}
     }}
 }}

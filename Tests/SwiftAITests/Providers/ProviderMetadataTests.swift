@@ -421,7 +421,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     func testUpstream08010XAIAndOpenCodeCatalogDisposition() throws {
         let models = try BuiltinModels.all()
         let xaiIDs = Set(models.filter { $0.provider == .xai }.map(\.id))
-        XCTAssertEqual(xaiIDs, ["grok-4.3", "grok-4.5", "grok-4.6"])
+        XCTAssertEqual(xaiIDs, ["grok-4.3", "grok-4.5", "grok-4.6", "grok-4.7"])
         XCTAssertFalse(xaiIDs.contains("grok-3"))
         XCTAssertFalse(xaiIDs.contains("grok-code-fast-1"))
         XCTAssertFalse(xaiIDs.contains("grok-4.3-fast"))
@@ -435,6 +435,8 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
 
         let openCodeResponses = try model(.openCodeGo, "grok-4.6")
         XCTAssertEqual(openCodeResponses.api, .openAIResponses)
+        let openCodeGrok47 = try model(.openCodeGo, "grok-4.7")
+        XCTAssertEqual(openCodeGrok47.api, .openAIResponses)
     }
 
     func testUpstream0811QwenTokenPlanCatalogMetadata() throws {

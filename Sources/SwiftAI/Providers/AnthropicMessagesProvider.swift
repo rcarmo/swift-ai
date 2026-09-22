@@ -7,6 +7,7 @@ public enum AnthropicMessagesProvider {
     private static let apiVersion = "2023-06-01"
     private static let interleavedThinkingBeta = "interleaved-thinking-2025-05-14"
     private static let fineGrainedToolStreamingBeta = "fine-grained-tool-streaming-2025-05-14"
+    public static let claudeCodeVersion = "2.1.280"
 
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
@@ -60,6 +61,10 @@ public enum AnthropicMessagesProvider {
             headers["Authorization"] = "Bearer \(key)"
             for (k, v) in AIUtilities.copilotHeaders() { headers[k] = v }
             for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { headers[k] = v }
+        } else if isOAuthToken(key) {
+            headers["Authorization"] = key.hasPrefix("Bearer ") ? key : "Bearer \(key)"
+            headers["User-Agent"] = "claude-cli/\(claudeCodeVersion)"
+            headers["x-app"] = "cli"
         } else if isBearerAuthToken(key, env: options?.env) {
             headers["Authorization"] = key.hasPrefix("Bearer ") ? key : "Bearer \(key)"
         } else {

@@ -2,7 +2,7 @@
 """Static parity audit for the SwiftPM registry/runtime surface.
 
 Checks that generated upstream model registries match the expected pi-ai
-v0.87.0 counts, that every generated API/provider raw value is represented in
+v0.87.1 counts, that every generated API/provider raw value is represented in
 Swift source enums, and that every generated API has a bootstrap registration.
 This is intentionally toolchain-light so it can run even in containers without
 `swift` installed.
@@ -18,12 +18,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.87.0.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.16787ad.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.85.1.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.87.0.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.16787ad.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.85.1.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.87.1.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.f07218c.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.87.0.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.87.1.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.f07218c.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.87.0.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -32,22 +32,22 @@ MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "Mode
 IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ImageModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1445
+EXPECTED_TEXT_MODELS = 1495
 EXPECTED_TEXT_PROVIDERS = 41
-EXPECTED_IMAGE_MODELS = 54
+EXPECTED_IMAGE_MODELS = 55
 EXPECTED_IMAGE_PROVIDERS = 1
-EXPECTED_TEXT_ADDED = 149
-EXPECTED_TEXT_REMOVED = 58
-EXPECTED_TEXT_CHANGED = 986
-EXPECTED_IMAGE_ADDED = 2
+EXPECTED_TEXT_ADDED = 62
+EXPECTED_TEXT_REMOVED = 12
+EXPECTED_TEXT_CHANGED = 35
+EXPECTED_IMAGE_ADDED = 1
 EXPECTED_IMAGE_REMOVED = 0
-EXPECTED_IMAGE_CHANGED = 4
-CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v0.87.0-changed-paths.txt"
-TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v0.87.0-test-corpus-basename.txt"
-UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v0.87.0-audit.md"
-UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v0.87.0-test-crosswalk.md"
-EXPECTED_CHANGED_PATHS = 127
-EXPECTED_CHANGED_PATHS_HASH = "e6bd9733d8fff626838d386df8e6bb543d40d77af74340ee4f2f271b411b9828"
+EXPECTED_IMAGE_CHANGED = 0
+CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v0.87.1-changed-paths.txt"
+TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v0.87.1-test-corpus-basename.txt"
+UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v0.87.1-audit.md"
+UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v0.87.1-test-crosswalk.md"
+EXPECTED_CHANGED_PATHS = 16
+EXPECTED_CHANGED_PATHS_HASH = "2756fce613d0163b6eb5c47b599584589a229e5c7ed30a86b65380031e272eb6"
 EXPECTED_TEST_CORPUS = 150
 EXPECTED_TEST_CORPUS_HASH = "042cdfbc8cc089da71409e615fb54cfe7273a960f8e0d10e63e07584ae9f2e75"
 REQUIRED_SOURCES = [
@@ -266,13 +266,13 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     text_added, text_removed, text_changed = record_delta_counts(previous_text, text, ignored_fields={"inputLimits"})
     if (text_added, text_removed, text_changed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED, EXPECTED_TEXT_CHANGED):
         failures.append(
-            f"v0.85.1..v0.87.0 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
+            f"v0.87.0..v0.87.1 text full-record delta: got +{text_added}/-{text_removed}/{text_changed} changed, "
             f"want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}/{EXPECTED_TEXT_CHANGED} changed"
         )
     image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
     if (image_added, image_removed, image_changed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED, EXPECTED_IMAGE_CHANGED):
         failures.append(
-            f"v0.85.1..v0.87.0 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
+            f"v0.87.0..v0.87.1 image full-record delta: got +{image_added}/-{image_removed}/{image_changed} changed, "
             f"want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}/{EXPECTED_IMAGE_CHANGED} changed"
         )
 
@@ -382,11 +382,11 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         if digest != expected_hash:
             failures.append(f"{label} sha256: got {digest}, want {expected_hash}")
     if UPSTREAM_AUDIT_DOC.exists() and markdown_table_data_rows(UPSTREAM_AUDIT_DOC) != EXPECTED_CHANGED_PATHS:
-        failures.append(f"v0.87.0 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
+        failures.append(f"v0.87.1 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
     if UPSTREAM_AUDIT_DOC.exists() and "Covered by exact generated snapshots, validators, or existing Swift runtime tests." in UPSTREAM_AUDIT_DOC.read_text():
-        failures.append("v0.87.0 audit matrix contains generic non-specific disposition text")
+        failures.append("v0.87.1 audit matrix contains generic non-specific disposition text")
     if UPSTREAM_CROSSWALK_DOC.exists() and markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC) != EXPECTED_TEST_CORPUS:
-        failures.append(f"v0.87.0 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
+        failures.append(f"v0.87.1 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
 
     registered_text_apis, registered_image_apis = registered_api_raw_values()
     missing_text_runtime = sorted(text_apis - registered_text_apis)

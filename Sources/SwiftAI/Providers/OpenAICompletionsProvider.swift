@@ -238,7 +238,10 @@ public enum OpenAICompletionsProvider {
         var parts: [JSONValue] = []
         if let leadingText { parts.append(.object(["type": .string("text"), "text": .string(leadingText)])) }
         for block in blocks {
-            if block.type == "text" { parts.append(.object(["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(block.text ?? ""))])) }
+            if block.type == "text" {
+                let text = AIUtilities.sanitizeSurrogates(block.text ?? "")
+                if !text.isEmpty { parts.append(.object(["type": .string("text"), "text": .string(text)])) }
+            }
             if block.type == "image" { parts.append(.object(["type": .string("image_url"), "image_url": .object(["url": .string("data:\(block.mimeType ?? "application/octet-stream");base64,\(block.data ?? "")")])])) }
         }
         return parts

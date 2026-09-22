@@ -1,28 +1,4 @@
 {
-  "upstream": {
-    "package": "@earendil-works/pi-ai",
-    "version": "0.87.0",
-    "commit": "16787ad5b2dc748047f314ca1bfe7708f30f54f3"
-  },
-  "swiftPM": {
-    "package": "swift-ai",
-    "libraryProduct": "SwiftAI",
-    "minimumToolsVersion": "5.9",
-    "platforms": [
-      "macOS 13",
-      "iOS 16",
-      "tvOS 16",
-      "watchOS 9"
-    ]
-  },
-  "registries": {
-    "textModels": 1445,
-    "textProviders": 41,
-    "textAPIs": 10,
-    "imageModels": 54,
-    "imageProviders": 1,
-    "imageAPIs": 1
-  },
   "bundledRuntimeProviders": [
     "openai-completions",
     "openai-responses",
@@ -37,6 +13,21 @@
     "openrouter-images",
     "faux"
   ],
+  "knownNonBundledCapabilities": [
+    "Bedrock live AWS SigV4/event-stream transport",
+    "Codex WebSocket/session-cache transport implementation",
+    "Radius browser callback server/UI automation is platform-disposed; Swift implements OAuth discovery, PKCE prompt flow, device-code/token refresh, /v1/config credential caching, model injection, PI_GATEWAY_API_KEY/API key, and pi-messages wire protocol",
+    "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
+  ],
+  "oauthProviders": [
+    "github-copilot",
+    "openai-codex",
+    "anthropic",
+    "google-gemini-cli",
+    "google-antigravity",
+    "radius",
+    "xai"
+  ],
   "pluggableTransports": [
     {
       "api": "bedrock-converse-stream",
@@ -49,30 +40,39 @@
       "reason": "WebSocket/session-cache transport is pluggable; SSE fallback is bundled."
     }
   ],
-  "oauthProviders": [
-    "github-copilot",
-    "openai-codex",
-    "anthropic",
-    "google-gemini-cli",
-    "google-antigravity",
-    "radius",
-    "xai"
-  ],
-  "validation": {
-    "swiftToolchainUnavailableInContainer": true,
-    "staticCommand": "python3 scripts/static-check.py",
-    "swiftCommand": "swift test",
-    "latestStaticCheck": "python3 scripts/static-check.py and python3 scripts/audit-parity.py passed in this container for v0.87.0 parity changes"
+  "registries": {
+    "imageAPIs": 1,
+    "imageModels": 55,
+    "imageProviders": 1,
+    "textAPIs": 10,
+    "textModels": 1495,
+    "textProviders": 41
   },
-  "knownNonBundledCapabilities": [
-    "Bedrock live AWS SigV4/event-stream transport",
-    "Codex WebSocket/session-cache transport implementation",
-    "Radius browser callback server/UI automation is platform-disposed; Swift implements OAuth discovery, PKCE prompt flow, device-code/token refresh, /v1/config credential caching, model injection, PI_GATEWAY_API_KEY/API key, and pi-messages wire protocol",
-    "Vendor SDK-native retry stacks where a vendor SDK is not bundled"
-  ],
+  "swiftPM": {
+    "libraryProduct": "SwiftAI",
+    "minimumToolsVersion": "5.9",
+    "package": "swift-ai",
+    "platforms": [
+      "macOS 13",
+      "iOS 16",
+      "tvOS 16",
+      "watchOS 9"
+    ]
+  },
   "transportDocumentation": "docs/TRANSPORTS.md",
-  "usageDocumentation": "docs/USAGE.md",
   "transportTestRequirements": {
     "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
+  },
+  "upstream": {
+    "commit": "f07218c4d4bbc12bef056a7058c3dd49dfe41abe",
+    "package": "@earendil-works/pi-ai",
+    "version": "0.87.1"
+  },
+  "usageDocumentation": "docs/USAGE.md",
+  "validation": {
+    "latestStaticCheck": "python3 scripts/static-check.py and python3 scripts/audit-parity.py passed in this container for v0.87.1 parity changes",
+    "staticCommand": "python3 scripts/static-check.py",
+    "swiftCommand": "swift test",
+    "swiftToolchainUnavailableInContainer": true
   }
 }

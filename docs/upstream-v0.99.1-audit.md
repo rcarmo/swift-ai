@@ -1,6 +1,6 @@
 # Upstream v0.99.1 audit
 
-Runtime-candidate evidence only. README/PARITY/RELEASE/current accepted/public SBOM claims remain blocked until hosted runtime acceptance.
+Runtime accepted: Swift commit `dc549fe0709128c73d9d8f8f2d5a031c1a6b6482`, CI `36636114608`, SBOM artifact `11064291751`. README/PARITY/RELEASE metadata is updated by the post-runtime docs-only commit; durable release asset publication is handled by the guarded SBOM publisher.
 
 ## Verified release inputs
 
@@ -187,3 +187,7 @@ Runtime-candidate evidence only. README/PARITY/RELEASE/current accepted/public S
 | 167 | M | `packages/ai/test/total-tokens.test.ts` | test | Mapped in v0.99.1 crosswalk with ported/adapted deterministic Swift evidence and exact snapshot validators. |
 | 168 | A | `packages/ai/test/typesafe-system-one.test.ts` | test | Mapped in v0.99.1 crosswalk with ported/adapted deterministic Swift evidence and exact snapshot validators. |
 | 169 | M | `packages/ai/test/unicode-surrogate.test.ts` | test | Mapped in v0.99.1 crosswalk with ported/adapted deterministic Swift evidence and exact snapshot validators. |
+
+## Runtime acceptance evidence
+
+Accepted runtime commit: `dc549fe0709128c73d9d8f8f2d5a031c1a6b6482`; CI run `36636114608` completed successfully for `swift-test (ubuntu-latest)` and `static-check`. SHA-specific SBOM artifact `11064291751` has archive SHA-256 `2899c2dffe0d401c4ab20a9fe9834f7a15ee9a11584789373c7cf2168640d308`, inner SBOM SHA-256 `b6056920ebf73e272f0dc74119480dcfd04b769bccb884067e0771e2e91255e5`, CycloneDX 1.5 root `swift-ai@0.99.1`, component count `2`, matching `git.revision`, `git.dirty=false`, and clean OSV/security/license scans.

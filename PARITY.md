@@ -1,6 +1,6 @@
 # swift-ai parity status
 
-Tracks upstream `@earendil-works/pi-ai` **v0.87.1** via direct upstream inspection (release tag `f07218c4d4bbc12bef056a7058c3dd49dfe41abe`). `STATUS.json` contains the same high-level status in machine-readable form.
+Tracks upstream `@earendil-works/pi-ai` **v0.99.1** via direct upstream inspection (release tag `d86654abb8862e201933517d6f1fce9f88dd117f`). `STATUS.json` contains the same high-level status in machine-readable form.
 
 ## Implemented
 
@@ -9,8 +9,9 @@ Tracks upstream `@earendil-works/pi-ai` **v0.87.1** via direct upstream inspecti
 - Core image type system: image APIs/providers, image context/input/output, image model metadata, assistant image result shape, image options.
 - Event protocol as a Swift `AIEvent` enum.
 - Actor-backed registries for text API providers, text models, image API providers, and image models.
-- Full embedded text model registry generated from exact upstream `pi-ai` v0.87.1 tag `f07218c`: **1495 models / 41 providers / 10 APIs**, with an upstream-source comparator gate.
-- Full embedded image model registry generated from exact upstream `pi-ai` v0.87.1 tag `f07218c`: **55 models / 1 provider**.
+- Full embedded chat model registry generated from exact upstream `pi-ai` v0.99.1 tag `d86654a`: **1523 models / 41 providers / 10 APIs**, with an upstream-source comparator gate.
+- Full embedded image model registry generated from exact upstream `pi-ai` v0.99.1 tag `d86654a`: **57 models / 1 provider**.
+- Full embedded classifier model registry generated from exact upstream `pi-ai` v0.99.1 tag `d86654a`: **12 models / 5 providers / 2 APIs**.
 - Environment key lookup with per-request `StreamOptions.env` / `ImagesOptions.env` overlay.
 - OpenAI-compatible compat detection, including v0.80.2 `chat-template` thinking kwargs metadata.
 - Basic context overflow detection and tool required-argument validation helpers.
@@ -37,6 +38,10 @@ Tracks upstream `@earendil-works/pi-ai` **v0.87.1** via direct upstream inspecti
 - Google Gemini/Vertex REST provider: request construction, Gemini thinking config, tools/images/function calls, functionResponse tool results including multimodal image parts when supported, same-model thought signature replay, stream URL construction, SSE parsing for text/thinking/tool events, usage, and stop reasons.
 - Google Gemini CLI / Cloud Code Assist provider: OAuth JSON credential parsing, CCA wrapper request construction, functionResponse tool results, session ID support, headers, request/response hooks, and wrapped Gemini SSE unwrapping/parsing.
 - Amazon Bedrock provider surface: registration, pluggable `BedrockTransport`, region/endpoint/ARN resolution helpers, and serializable ConverseStream request construction for messages, system prompts, tools, inference config, request metadata, images, tool calls, and tool results.
+
+## v0.99.1 release audit
+
+See `docs/upstream-v0.99.1-audit.md` for the exact 169-path disposition matrix from accepted v0.87.1 `f07218c4d4bbc12bef056a7058c3dd49dfe41abe` through release tag `d86654abb8862e201933517d6f1fce9f88dd117f`. The full 160-test crosswalk is in `docs/upstream-v0.99.1-test-crosswalk.md`; its 58 changed rows are fail-closed validated against the changed-test manifest.
 
 ## v0.87.1 release audit
 

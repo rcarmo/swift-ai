@@ -160,8 +160,7 @@ def check_ci_workflow() -> None:
     publish_text = publish.read_text()
     publish_required = [
         "release_kind:",
-        "options:",
-        "- native",
+        '*) echo "release_kind must be upstream or native',
         'expected_tag="v${{ inputs.upstream_version }}"',
         'git tag -a "$tag" "$runtime_sha"',
         'git push origin "refs/tags/${tag}"',

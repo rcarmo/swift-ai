@@ -17,10 +17,7 @@ on:
         description: Release kind: upstream alias (upstream-vX.Y.Z) or native Swift tag (vX.Y.Z)
         default: upstream
         required: true
-        type: choice
-        options:
-          - upstream
-          - native
+        type: string
       runtime_ref:
         description: Accepted 40-hex runtime commit SHA to build the SBOM from
         required: true

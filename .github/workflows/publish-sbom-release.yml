@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag to publish SBOM assets under
+        description: Release tag to publish SBOM assets under (upstream-vX.Y.Z alias or native vX.Y.Z)
         default: upstream-v0.85.1
         required: true
         type: string
@@ -13,6 +13,14 @@ on:
         default: 0.85.1
         required: true
         type: string
+      release_kind:
+        description: Release kind: upstream alias (upstream-vX.Y.Z) or native Swift tag (vX.Y.Z)
+        default: upstream
+        required: true
+        type: choice
+        options:
+          - upstream
+          - native
       runtime_ref:
         description: Accepted 40-hex runtime commit SHA to build the SBOM from
         required: true
@@ -33,9 +41,13 @@ jobs:
             echo "upstream_version must be strict semver without leading v: ${{ inputs.upstream_version }}" >&2
             exit 1
           fi
-          expected_tag="upstream-v${{ inputs.upstream_version }}"
+          case "${{ inputs.release_kind }}" in
+            upstream) expected_tag="upstream-v${{ inputs.upstream_version }}" ;;
+            native) expected_tag="v${{ inputs.upstream_version }}" ;;
+            *) echo "release_kind must be upstream or native: ${{ inputs.release_kind }}" >&2; exit 1 ;;
+          esac
           if [[ "${{ inputs.release_tag }}" != "$expected_tag" ]]; then
-            echo "release_tag must match upstream_version: ${{ inputs.release_tag }} != $expected_tag" >&2
+            echo "release_tag must match release_kind/upstream_version: ${{ inputs.release_tag }} != $expected_tag" >&2
             exit 1
           fi
           if [[ ! "${{ inputs.runtime_ref }}" =~ ^[0-9a-f]{40}$ ]]; then
@@ -102,10 +114,32 @@ jobs:
           set -euo pipefail
           tag='${{ inputs.release_tag }}'
           runtime_ref='${{ inputs.runtime_ref }}'
+          release_kind='${{ inputs.release_kind }}'
           runtime_sha="$(git rev-parse HEAD)"
           upstream_version='${{ inputs.upstream_version }}'
-          title="SBOM for @earendil-works/pi-ai v${upstream_version}"
-          notes="CycloneDX SBOM for @earendil-works/pi-ai v${upstream_version}, generated from swift-ai runtime ref ${runtime_ref} (${runtime_sha}) and validated by make sbom-check."
+          if [[ "$release_kind" == "native" ]]; then
+            title="swift-ai v${upstream_version}"
+            notes="CycloneDX SBOM for swift-ai v${upstream_version}, generated from accepted runtime ref ${runtime_ref} (${runtime_sha}) and validated by make sbom-check."
+            if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+              tag_target="$(git rev-parse --verify "${tag}^{commit}")"
+              if [[ "$tag_target" != "$runtime_sha" ]]; then
+                echo "existing tag $tag peels to $tag_target, expected $runtime_sha" >&2
+                exit 1
+              fi
+            else
+              git tag -a "$tag" "$runtime_sha" -m "swift-ai v${upstream_version}"
+              git push origin "refs/tags/${tag}"
+            fi
+            tag_object="$(git rev-parse --verify "${tag}^{tag}")"
+            tag_target="$(git rev-parse --verify "${tag}^{commit}")"
+            if [[ -z "$tag_object" || "$tag_target" != "$runtime_sha" ]]; then
+              echo "tag $tag verification failed: object=$tag_object target=$tag_target expected=$runtime_sha" >&2
+              exit 1
+            fi
+          else
+            title="SBOM for @earendil-works/pi-ai v${upstream_version}"
+            notes="CycloneDX SBOM for @earendil-works/pi-ai v${upstream_version}, generated from swift-ai runtime ref ${runtime_ref} (${runtime_sha}) and validated by make sbom-check."
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             existing_target="$(gh release view "$tag" --json targetCommitish --jq '.targetCommitish')"
             existing_sha="$(git rev-parse --verify "${existing_target}^{commit}")"

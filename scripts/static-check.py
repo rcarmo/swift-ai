@@ -154,6 +154,24 @@ def check_ci_workflow() -> None:
     missing = [item for item in required if item not in text]
     if missing:
         raise SystemExit("CI workflow missing required entries: " + ", ".join(missing))
+    publish = ROOT / ".github" / "workflows" / "publish-sbom-release.yml"
+    if not publish.exists():
+        raise SystemExit("missing GitHub Actions workflow: .github/workflows/publish-sbom-release.yml")
+    publish_text = publish.read_text()
+    publish_required = [
+        "release_kind:",
+        "options:",
+        "- native",
+        'expected_tag="v${{ inputs.upstream_version }}"',
+        'git tag -a "$tag" "$runtime_sha"',
+        'git push origin "refs/tags/${tag}"',
+        'git rev-parse --verify "${tag}^{tag}"',
+        "swift-ai v${upstream_version}",
+        "SBOM for @earendil-works/pi-ai v${upstream_version}",
+    ]
+    missing_publish = [item for item in publish_required if item not in publish_text]
+    if missing_publish:
+        raise SystemExit("publish workflow missing required native/upstream release entries: " + ", ".join(missing_publish))
     print("ok: CI workflow checks")
 
 

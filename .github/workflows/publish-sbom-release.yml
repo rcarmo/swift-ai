@@ -124,6 +124,8 @@ jobs:
                 exit 1
               fi
             else
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
               git tag -a "$tag" "$runtime_sha" -m "swift-ai v${upstream_version}"
               git push origin "refs/tags/${tag}"
             fi

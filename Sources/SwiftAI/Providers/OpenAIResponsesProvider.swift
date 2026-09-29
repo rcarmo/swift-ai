@@ -36,7 +36,18 @@ public enum OpenAIResponsesProvider {
         }
     }
 
+    public static let chatGPTUsageURL = "https://chatgpt.com/settings/usage"
+
+    public static func isChatGPTSignIn(model: Model, apiKey: String?) -> Bool {
+        model.provider == .openAI && model.baseUrl == "https://api.openai.com/v1" && apiKey != nil && apiKey?.hasPrefix("sk-") == false
+    }
+
+    public static func appendChatGPTUsageHelp(_ message: String) -> String {
+        message.contains("subscription_sharing_usage_limit_exceeded") ? "\(message)\nCheck your ChatGPT usage: \(chatGPTUsageURL)" : message
+    }
+
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
+        let omitUnsupportedFields = isChatGPTSignIn(model: model, apiKey: options?.apiKey)
         let plan = deferredToolPlan(model: model, context: context)
         var input = convertInput(model: model, context: context, deferredMarkers: plan.markers, deferredMode: deferredToolsMode(model))
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
@@ -45,8 +56,8 @@ public enum OpenAIResponsesProvider {
         for (key, value) in options?.samplingParams ?? [:] { body[key] = value }
         let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
         if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0, supportsOpenAIGrammarTools: supportsGrammar) }) }
-        if let t = options?.temperature { body["temperature"] = .number(t) }
-        if model.responsesCompat?.supportsMaxOutputTokens != false, let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(Swift.max(16, max))) }
+        if !omitUnsupportedFields, let t = options?.temperature { body["temperature"] = .number(t) }
+        if !omitUnsupportedFields, model.responsesCompat?.supportsMaxOutputTokens != false, let max = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body["max_output_tokens"] = .number(Double(Swift.max(16, max))) }
         if model.reasoning {
             let effort: String
             if let reasoning = options?.reasoning { effort = mappedThinkingEffort(model: model, effort: reasoning.rawValue) }
@@ -61,8 +72,8 @@ public enum OpenAIResponsesProvider {
         if let tier = options?.serviceTier, !tier.isEmpty { body["service_tier"] = .string(tier) }
         let cacheRetention = ProviderEnvironment.resolveCacheRetention(options?.cacheRetention, env: options?.env)
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
-        if let promptCacheOptions = promptCacheOptions(model: model, cacheRetention: cacheRetention) { body["prompt_cache_options"] = promptCacheOptions }
-        else if cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
+        if !omitUnsupportedFields, let promptCacheOptions = promptCacheOptions(model: model, cacheRetention: cacheRetention) { body["prompt_cache_options"] = promptCacheOptions }
+        else if !omitUnsupportedFields, cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
         return body
     }
 
@@ -223,7 +234,10 @@ public enum OpenAIResponsesProvider {
                 buffer += String(decoding: [byte], as: UTF8.self)
                 while let range = buffer.range(of: "\n\n") ?? buffer.range(of: "\r\n\r\n") {
                     let frame = String(buffer[..<range.lowerBound]); buffer.removeSubrange(..<range.upperBound)
-                    for event in SSEParser().parse(frame + "\n\n") { process(event: event, state: &state) { continuation.yield($0) } }
+                    for event in SSEParser().parse(frame + "\n\n") {
+                        if let hook = options?.onProviderStreamEvent { await notifyProviderStreamEvent(event, model: model, hook: hook) }
+                        process(event: event, state: &state) { continuation.yield($0) }
+                    }
                 }
             }
             finish(state: &state) { continuation.yield($0) }
@@ -233,10 +247,21 @@ public enum OpenAIResponsesProvider {
     }
 
     public static func processSSEText(_ text: String, model: Model) -> [AIEvent] {
+        processSSEText(text, model: model, providerEvents: nil)
+    }
+
+    public static func processSSEText(_ text: String, model: Model, providerEvents: ((JSONValue) -> Void)?) -> [AIEvent] {
         var events: [AIEvent] = []; var state = ResponsesStreamState(model: model)
-        for event in SSEParser().parse(text) { process(event: event, state: &state) { events.append($0) } }
+        for event in SSEParser().parse(text) { providerEvents?(providerStreamEventValue(event)); process(event: event, state: &state) { events.append($0) } }
         finish(state: &state) { events.append($0) }
         return events
+    }
+
+    private static func notifyProviderStreamEvent(_ event: SSEEvent, model: Model, hook: @Sendable (JSONValue, Model) async -> Void) async { await hook(providerStreamEventValue(event), model) }
+    private static func providerStreamEventValue(_ event: SSEEvent) -> JSONValue {
+        let dataValue: JSONValue
+        if let data = event.data.data(using: .utf8), let decoded = try? JSONDecoder().decode(JSONValue.self, from: data) { dataValue = decoded } else { dataValue = .string(event.data) }
+        return .object(["event": .string(event.event ?? ""), "data": dataValue])
     }
 
     private static func process(event: SSEEvent, state: inout ResponsesStreamState, yield: (AIEvent) -> Void) {
@@ -266,7 +291,7 @@ public enum OpenAIResponsesProvider {
         case "response.custom_tool_call_input.done": if let idx = state.current?.index, let raw = try? JSONDecoder().decode(CustomToolInputDone.self, from: data), let delta = appendCustomInput(index: idx, nextInput: raw.input ?? state.customInputs[idx]?.input ?? "", close: true, state: &state) { yield(.toolCallDelta(contentIndex: idx, delta: delta, partial: state.partial)) }
         case "response.output_item.done": if let raw = try? JSONDecoder().decode(ResponseOutputItemDone.self, from: data) { applyReasoningItem(raw.item, state: &state, overwriteEncryptedContent: true) }; closeCurrent(state: &state, yield: yield)
         case "response.completed", "response.incomplete": if let raw = try? JSONDecoder().decode(ResponseCompleted.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; if let responseModel = raw.response?.model, !responseModel.isEmpty, responseModel != state.model.id { state.partial.responseModel = responseModel }; if let endTurn = raw.response?.endTurn { state.partial.endTurn = endTurn }; for item in raw.response?.output ?? [] { applyReasoningItem(item, state: &state, overwriteEncryptedContent: false) }; applyUsage(raw.response?.usage, serviceTier: raw.response?.serviceTier, state: &state); let status = raw.response?.status ?? (eventName == "response.incomplete" ? "incomplete" : nil); let incompleteReason = raw.response?.incompleteDetails?.reason; state.partial.rawStopReason = incompleteReason.map { (status ?? "incomplete") + "." + $0 } ?? status; let mapped = mapStatus(status, incompleteReason: incompleteReason); state.partial.stopReason = mapped.reason; state.partial.errorMessage = mapped.errorMessage; if state.partial.stopReason == .stop && state.partial.content.contains(where: { $0.type == "toolCall" }) { state.partial.stopReason = .toolUse; state.partial.errorMessage = nil } }
-        case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; state.partial.stopReason = .error; let msg = raw.response?.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? raw.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? "response failed"; state.partial.errorMessage = msg; yield(.error(reason: .error, message: state.partial, error: AIError.provider(msg))) }
+        case "response.failed": if let raw = try? JSONDecoder().decode(ResponseFailed.self, from: data) { state.sawTerminal = true; state.partial.responseId = raw.response?.id ?? state.partial.responseId; state.partial.stopReason = .error; let msg = raw.response?.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? raw.error.map { "\($0.code ?? "unknown"): \($0.message ?? "")" } ?? "response failed"; let enriched = appendChatGPTUsageHelp(msg); state.partial.errorMessage = enriched; yield(.error(reason: .error, message: state.partial, error: AIError.provider(enriched))) }
         case "error": if let raw = try? JSONDecoder().decode(ResponseAPIError.self, from: data) { state.sawTerminal = true; state.partial.stopReason = .error; state.partial.errorMessage = "API error \(raw.code ?? "unknown"): \(raw.message ?? "")"; yield(.error(reason: .error, message: state.partial, error: AIError.provider(state.partial.errorMessage ?? "API error"))) }
         default: break
         }

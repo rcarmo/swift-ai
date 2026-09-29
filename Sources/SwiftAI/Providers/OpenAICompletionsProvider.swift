@@ -361,7 +361,7 @@ public enum OpenAICompletionsProvider {
             while let range = buffer.range(of: "\n\n") ?? buffer.range(of: "\r\n\r\n") {
                 let frame = String(buffer[..<range.lowerBound])
                 buffer.removeSubrange(..<range.upperBound)
-                processSSEFrame(frame, model: model, state: &state, continuation: continuation)
+                await processSSEFrame(frame, model: model, state: &state, continuation: continuation, options: options)
             }
         }
         finishStream(state: &state, continuation: continuation)
@@ -383,19 +383,30 @@ public enum OpenAICompletionsProvider {
         return message
     }
     public static func processSSEText(_ text: String, model: Model) -> [AIEvent] {
+        processSSEText(text, model: model, providerEvents: nil)
+    }
+
+    public static func processSSEText(_ text: String, model: Model, providerEvents: ((JSONValue) -> Void)?) -> [AIEvent] {
         var events: [AIEvent] = []
         var state = StreamState(model: model)
         for event in SSEParser().parse(text) {
+            if let value = providerStreamEventValue(event.data) { providerEvents?(value) }
             processSSEData(event.data, model: model, state: &state) { events.append($0) }
         }
         finishStream(state: &state) { events.append($0) }
         return events
     }
 
-    private static func processSSEFrame(_ frame: String, model: Model, state: inout StreamState, continuation: AsyncStream<AIEvent>.Continuation) {
+    private static func processSSEFrame(_ frame: String, model: Model, state: inout StreamState, continuation: AsyncStream<AIEvent>.Continuation, options: StreamOptions?) async {
         for event in SSEParser().parse(frame + "\n\n") {
+            if let hook = options?.onProviderStreamEvent, let value = providerStreamEventValue(event.data) { await hook(value, model) }
             processSSEData(event.data, model: model, state: &state) { continuation.yield($0) }
         }
+    }
+
+    private static func providerStreamEventValue(_ dataText: String) -> JSONValue? {
+        guard dataText != "[DONE]", let data = dataText.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(JSONValue.self, from: data)
     }
 
     private static func processSSEData(_ data: String, model: Model, state: inout StreamState, yield: (AIEvent) -> Void) {

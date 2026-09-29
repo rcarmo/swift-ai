@@ -161,6 +161,7 @@ public struct Message: Codable, Equatable, Sendable {
     public var responseId: String?
     public var responseModel: String?
     public var providerThinkingLevel: String?
+    public var thinkingLevel: ModelThinkingLevel?
     public var diagnostics: [AssistantMessageDiagnostic]?
     public var usage: Usage?
     public var stopReason: StopReason?
@@ -173,8 +174,9 @@ public struct Message: Codable, Equatable, Sendable {
     public var details: JSONValue?
     public var addedToolNames: [String]?
     public var endTurn: Bool?
+    public var nestedCalls: JSONValue?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, endTurn }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, thinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, endTurn, nestedCalls }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -189,6 +191,7 @@ public struct Message: Codable, Equatable, Sendable {
         responseId = try c.decodeIfPresent(String.self, forKey: .responseId)
         responseModel = try c.decodeIfPresent(String.self, forKey: .responseModel)
         providerThinkingLevel = try c.decodeIfPresent(String.self, forKey: .providerThinkingLevel)
+        thinkingLevel = try c.decodeIfPresent(ModelThinkingLevel.self, forKey: .thinkingLevel)
         diagnostics = try c.decodeIfPresent([AssistantMessageDiagnostic].self, forKey: .diagnostics)
         usage = try c.decodeIfPresent(Usage.self, forKey: .usage)
         stopReason = try c.decodeIfPresent(StopReason.self, forKey: .stopReason)
@@ -201,6 +204,7 @@ public struct Message: Codable, Equatable, Sendable {
         details = try c.decodeIfPresent(JSONValue.self, forKey: .details)
         addedToolNames = try c.decodeIfPresent([String].self, forKey: .addedToolNames)
         endTurn = try c.decodeIfPresent(Bool.self, forKey: .endTurn)
+        nestedCalls = try c.decodeIfPresent(JSONValue.self, forKey: .nestedCalls)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -214,6 +218,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(responseId, forKey: .responseId)
         try c.encodeIfPresent(responseModel, forKey: .responseModel)
         try c.encodeIfPresent(providerThinkingLevel, forKey: .providerThinkingLevel)
+        try c.encodeIfPresent(thinkingLevel, forKey: .thinkingLevel)
         try c.encodeIfPresent(diagnostics, forKey: .diagnostics)
         try c.encodeIfPresent(usage, forKey: .usage)
         try c.encodeIfPresent(stopReason, forKey: .stopReason)
@@ -226,6 +231,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(details, forKey: .details)
         try c.encodeIfPresent(addedToolNames, forKey: .addedToolNames)
         try c.encodeIfPresent(endTurn, forKey: .endTurn)
+        try c.encodeIfPresent(nestedCalls, forKey: .nestedCalls)
     }
 
     public static func user(_ text: String) -> Message { Message(role: .user, content: [.text(text)]) }
@@ -400,6 +406,7 @@ public struct StreamOptions: Sendable {
 
     public var onPayload: (@Sendable ([String: JSONValue], Model) async throws -> [String: JSONValue])?
     public var onResponse: (@Sendable (HTTPResponseMetadata, Model) async -> Void)?
+    public var onProviderStreamEvent: (@Sendable (JSONValue, Model) async -> Void)?
 
     public init() {}
 }

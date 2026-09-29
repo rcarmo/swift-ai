@@ -62,6 +62,24 @@ public enum ProviderEnvironment {
         return value(envFallbackName(provider), env: env)
     }
 
+    public static func apiKey(for provider: ClassifierProvider, env: ProviderEnv? = nil) -> String? {
+        let names: [String]
+        switch provider {
+        case .typesafe:
+            names = ["TYPESAFE_API_KEY"]
+        case .cloudflareWorkersAI:
+            names = ["CLOUDFLARE_API_KEY"]
+        case .openRouter:
+            names = ["OPENROUTER_API_KEY"]
+        case .vercelAIGateway:
+            names = ["AI_GATEWAY_API_KEY"]
+        case .openCode:
+            names = ["OPENCODE_API_KEY"]
+        }
+        for name in names { if let key = value(name, env: env), !key.isEmpty { return key } }
+        return value(provider.rawValue.map { ch in ch == "-" || ch == "." ? "_" : String(ch).uppercased() }.joined() + "_API_KEY", env: env)
+    }
+
     public static func resolveAPIKey(model: Model?, options: StreamOptions?) -> String? {
         if let key = options?.apiKey, !key.isEmpty { return key }
         guard let model else { return nil }

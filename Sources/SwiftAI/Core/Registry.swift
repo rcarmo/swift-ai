@@ -35,6 +35,7 @@ public enum SwiftAI {
     public static func bootstrap() async {
         await BuiltinModels.registerAll()
         await BuiltinImageModels.registerAll()
+        await BuiltinClassifierModels.registerAll()
         await ModelRuntime.shared.clear()
         if let models = try? BuiltinModels.all() {
             let grouped = Dictionary(grouping: models, by: \.provider)
@@ -55,6 +56,16 @@ public enum SwiftAI {
         await AIRegistry.shared.register(APIProvider(api: .googleGeminiCLI, stream: { model, context, options in GoogleGeminiCLIProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .bedrockConverseStream, stream: { model, context, options in BedrockProvider.stream(model: model, context: context, options: options) }))
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: { model, context, options in await OpenRouterImagesProvider.generateImages(model: model, context: context, options: options) }))
+        await ClassifierRegistry.shared.register(ClassifierAPIProvider(api: .typeSafeSystemOne, classify: { model, context, options in
+            var resolved = options ?? ClassifierOptions()
+            if (resolved.apiKey ?? "").isEmpty { resolved.apiKey = ProviderEnvironment.apiKey(for: model.provider, env: resolved.env) }
+            return await SystemOneClassifierProvider.classify(model: model, context: context, options: resolved, transport: .typeSafe)
+        }))
+        await ClassifierRegistry.shared.register(ClassifierAPIProvider(api: .cloudflareWorkersAISystemOne, classify: { model, context, options in
+            var resolved = options ?? ClassifierOptions()
+            if (resolved.apiKey ?? "").isEmpty { resolved.apiKey = ProviderEnvironment.apiKey(for: model.provider, env: resolved.env) }
+            return await SystemOneClassifierProvider.classify(model: model, context: context, options: resolved, transport: .cloudflareWorkersAI)
+        }))
         await OAuthRegistry.shared.register(GitHubCopilotOAuthProvider())
         await OAuthRegistry.shared.register(OpenAICodexOAuthProvider())
         await OAuthRegistry.shared.register(AnthropicOAuthProvider())

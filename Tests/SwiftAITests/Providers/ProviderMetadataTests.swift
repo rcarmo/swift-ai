@@ -323,20 +323,20 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(BedrockProvider.createImageBlock(data: "YWJj", mimeType: "image/png"), .object(["image": .object(["format": .string("png"), "source": .object(["bytes": .string("YWJj")])])]))
     }
 
-    func testFireworksKimiK26ModelMetadataAndCompat() throws {
-        let model = try model(.fireworks, "accounts/fireworks/models/kimi-k2p6")
-        XCTAssertEqual(model.api, .anthropicMessages)
+    func testFireworksKimiK3ModelMetadataAndCompat() throws {
+        let model = try model(.fireworks, "accounts/fireworks/models/kimi-k3")
+        XCTAssertEqual(model.api, .openAICompletions)
         XCTAssertEqual(model.provider, .fireworks)
-        XCTAssertEqual(model.baseUrl, "https://api.fireworks.ai/inference")
+        XCTAssertEqual(model.baseUrl, "https://api.fireworks.ai/inference/v1")
         XCTAssertTrue(model.reasoning)
         XCTAssertEqual(model.input, ["text", "image"])
-        XCTAssertEqual(model.contextWindow, 262_000)
-        XCTAssertEqual(model.maxTokens, 262_000)
-        XCTAssertEqual(model.cost, ModelCost(input: 0.95, output: 4, cacheRead: 0.16, cacheWrite: 0))
-        XCTAssertEqual(model.anthropicCompat?.sendSessionAffinityHeaders, true)
-        XCTAssertEqual(model.anthropicCompat?.supportsEagerToolInputStreaming, false)
-        XCTAssertEqual(model.anthropicCompat?.supportsCacheControlOnTools, false)
-        XCTAssertEqual(model.anthropicCompat?.supportsLongCacheRetention, false)
+        XCTAssertEqual(model.contextWindow, 1_048_576)
+        XCTAssertEqual(model.maxTokens, 131_072)
+        XCTAssertEqual(model.cost, ModelCost(input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0))
+        XCTAssertEqual(model.completionsCompat?.supportsStore, false)
+        XCTAssertEqual(model.completionsCompat?.supportsDeveloperRole, false)
+        XCTAssertEqual(model.completionsCompat?.sendSessionAffinityHeaders, true)
+        XCTAssertEqual(model.completionsCompat?.thinkingFormat, "openai")
         XCTAssertNil(try BuiltinModels.all().first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .fireworks, env: ["FIREWORKS_API_KEY": "test-fireworks-key"]), "test-fireworks-key")
     }
@@ -355,8 +355,8 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(nativeTool["eager_input_streaming"], .bool(true))
     }
 
-    func testTogetherKimiK26ModelMetadata() throws {
-        let model = try model(.together, "moonshotai/Kimi-K2.6")
+    func testTogetherKimiK3ModelMetadata() throws {
+        let model = try model(.together, "moonshotai/Kimi-K3")
         XCTAssertEqual(model.api, .openAICompletions)
         XCTAssertEqual(model.provider, .together)
         XCTAssertEqual(model.baseUrl, "https://api.together.ai/v1")
@@ -365,9 +365,9 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertNil(model.thinkingLevelMap?[.low]!)
         XCTAssertNil(model.thinkingLevelMap?[.medium]!)
         XCTAssertEqual(model.input, ["text", "image"])
-        XCTAssertEqual(model.contextWindow, 262_144)
-        XCTAssertEqual(model.maxTokens, 131_000)
-        XCTAssertEqual(model.cost, ModelCost(input: 1.2, output: 4.5, cacheRead: 0.2, cacheWrite: 0))
+        XCTAssertEqual(model.contextWindow, 1_048_576)
+        XCTAssertEqual(model.maxTokens, 131_072)
+        XCTAssertEqual(model.cost, ModelCost(input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0))
         XCTAssertEqual(model.completionsCompat?.supportsStore, false)
         XCTAssertEqual(model.completionsCompat?.supportsDeveloperRole, false)
         XCTAssertEqual(model.completionsCompat?.supportsReasoningEffort, false)
@@ -427,9 +427,10 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertFalse(xaiIDs.contains("grok-4.3-fast"))
 
         let openCodeIDs = Set(models.filter { $0.provider == .openCodeGo }.map(\.id))
-        XCTAssertTrue(openCodeIDs.contains("qwen3.7-max"))
+        XCTAssertFalse(openCodeIDs.contains("qwen3.7-max"))
+        XCTAssertTrue(openCodeIDs.contains("qwen3.8-max"))
         XCTAssertTrue(openCodeIDs.contains("kimi-k3"))
-        XCTAssertTrue(openCodeIDs.contains("glm-5.2"))
+        XCTAssertTrue(openCodeIDs.contains("glm-5.3"))
         XCTAssertFalse(openCodeIDs.contains("qwen3-coder"))
         XCTAssertFalse(openCodeIDs.contains("glm-4.6"))
 

@@ -123,19 +123,20 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.87.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1495)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 55)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.99.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1523)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 57)
+        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 12)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.87.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1495)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.99.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1523)
         XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1495)
+        XCTAssertEqual(models.count, 1523)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -293,11 +294,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.87.1")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 55)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.99.1")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 57)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 55)
+        XCTAssertEqual(models.count, 57)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -408,7 +409,7 @@ final class SwiftAITests: XCTestCase {
     func testProviderEnvironmentResolution() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_OAUTH_TOKEN": "oauth", "ANTHROPIC_API_KEY": "api"]), "oauth")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .anthropic, env: ["ANTHROPIC_AUTH_TOKEN": "auth", "ANTHROPIC_API_KEY": "api"]), "auth")
-        XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "router"]), "router")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: Provider.openRouter, env: ["OPENROUTER_API_KEY": "router"]), "router")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .radius, env: ["PI_GATEWAY_API_KEY": "radius-key"]), "radius-key")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_PROFILE": "default"]), "<authenticated>")
         XCTAssertEqual(ProviderEnvironment.envFallbackName(.zaiCodingCN), "ZAI_CODING_CN_API_KEY")
@@ -443,7 +444,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.deepSeek, "deepseek-flash")).contains(.max))
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "deepseek/deepseek-v4-flash-0731")).contains(.xhigh))
         XCTAssertTrue(AIUtilities.supportedThinkingLevels(model: try model(.openRouter, "deepseek/deepseek-v4-flash-0731")).contains(.max))
-        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "kimi-k2.6")).contains(.xhigh))
+        XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCodeGo, "kimi-k2.7-code")).contains(.xhigh))
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAI, "kimi-k2.7-code")).isEmpty)
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.moonshotAICN, "kimi-k2.7-code")).isEmpty)
         XCTAssertFalse(AIUtilities.supportedThinkingLevels(model: try model(.openCode, "grok-build-0.1")).isEmpty)
@@ -494,7 +495,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1495)
+        XCTAssertEqual(models.count, 1523)
         XCTAssertEqual(Set(models.map(\.provider)).count, 41)
         XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -512,7 +513,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
 
         let images = try BuiltinImageModels.all()
-        XCTAssertEqual(images.count, 55)
+        XCTAssertEqual(images.count, 57)
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "inclusionai/ming-image-0.1-design" })
@@ -751,7 +752,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testOpenRouterImageAPIKeyResolution() {
-        XCTAssertEqual(ProviderEnvironment.apiKey(for: .openRouter, env: ["OPENROUTER_API_KEY": "env-key"]), "env-key")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: Provider.openRouter, env: ["OPENROUTER_API_KEY": "env-key"]), "env-key")
         var options = ImagesOptions()
         options.apiKey = "explicit"
         XCTAssertEqual(options.apiKey, "explicit")
@@ -4522,6 +4523,190 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(saved.extra?["availableModelIds"], .array([.string("available")]))
         XCTAssertEqual(box.requests.count, 1)
         XCTAssertTrue(box.requests.first?.url?.absoluteString.contains("/models/huge/policy") == true)
+    }
+
+
+
+    func testV0991GPT61SolAndCodexDefaults() throws {
+        let models = try BuiltinModels.all()
+        func model(_ provider: Provider, _ id: String) throws -> Model {
+            try XCTUnwrap(models.first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
+        }
+        let openAI = try model(.openAI, "gpt-6.1-sol")
+        XCTAssertEqual(openAI.api, .openAIResponses)
+        XCTAssertEqual(openAI.contextWindow, 272_000)
+        XCTAssertEqual(openAI.maxTokens, 128_000)
+        XCTAssertEqual(openAI.input, ["text", "image"])
+        XCTAssertEqual(openAI.cost.input, 2)
+        XCTAssertEqual(openAI.cost.output, 10)
+        XCTAssertEqual(openAI.cost.cacheRead, 0.1)
+        XCTAssertEqual(openAI.cost.cacheWrite, 2.5)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: openAI), [.low, .medium, .high, .xhigh, .max])
+        XCTAssertEqual(AIUtilities.mapThinkingLevel(model: openAI, level: .minimal), "low")
+        let defaultBody = OpenAIResponsesProvider.buildRequestBody(model: openAI, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertNil(defaultBody["reasoning"])
+        XCTAssertNil(defaultBody["include"])
+        var minimal = StreamOptions(); minimal.reasoning = .minimal
+        let minimalBody = OpenAIResponsesProvider.buildRequestBody(model: openAI, context: AIContext(messages: [.user("hi")]), options: minimal)
+        XCTAssertEqual(minimalBody["reasoning"], .object(["effort": .string("low"), "summary": .string("auto")]))
+        XCTAssertEqual(minimalBody["include"], .array([.string("reasoning.encrypted_content")]))
+
+        let codex = try model(.openAICodex, "gpt-6.1-sol")
+        XCTAssertEqual(codex.api, .openAICodexResponses)
+        XCTAssertEqual(codex.contextWindow, 272_000)
+        XCTAssertEqual(codex.maxTokens, 128_000)
+        XCTAssertEqual(codex.cost, openAI.cost)
+        XCTAssertEqual(codex.responsesCompat?.supportsToolSearch, true)
+        XCTAssertEqual(codex.responsesCompat?.supportsAdditionalTools, true)
+        let codexDefault = OpenAIResponsesProvider.buildRequestBody(model: codex, context: AIContext(messages: [.user("hi")]), options: nil)
+        XCTAssertNil(codexDefault["reasoning"])
+        var high = StreamOptions(); high.reasoning = .xhigh
+        let codexXHigh = OpenAIResponsesProvider.buildRequestBody(model: codex, context: AIContext(messages: [.user("hi")]), options: high)
+        XCTAssertEqual(codexXHigh["reasoning"], .object(["effort": .string("xhigh"), "summary": .string("auto")]))
+
+        let azure = try model(.azureOpenAI, "gpt-6.1-sol")
+        XCTAssertEqual(azure.api, .azureOpenAIResponses)
+        XCTAssertEqual(azure.cost.input, openAI.cost.input)
+        XCTAssertEqual(azure.cost.output, openAI.cost.output)
+        XCTAssertEqual(azure.cost.cacheRead, openAI.cost.cacheRead)
+        XCTAssertEqual(azure.cost.cacheWrite, openAI.cost.cacheWrite)
+        let openRouter = try model(.openRouter, "openai/gpt-6.1-sol")
+        XCTAssertEqual(openRouter.api, .openAICompletions)
+        XCTAssertEqual(openRouter.contextWindow, 1_050_000)
+        XCTAssertEqual(openRouter.maxTokens, 128_000)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: openRouter), [.low, .medium, .high, .xhigh, .max])
+        let gateway = try model(.vercelAIGateway, "openai/gpt-6.1-sol")
+        XCTAssertEqual(gateway.api, .anthropicMessages)
+        XCTAssertEqual(gateway.contextWindow, 1_050_000)
+        XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: gateway), [.off, .minimal, .low, .medium, .high, .xhigh])
+    }
+
+    func testV0991OAuthCallbackAndOpenAIChatGPTOAuthPrimitives() throws {
+        XCTAssertEqual(OAuthCallbackUtilities.redirectURI(host: "127.0.0.1", port: 1455, path: "/callback", redirectHost: "localhost"), "http://localhost:1455/callback")
+        XCTAssertEqual(OAuthCallbackUtilities.handle(method: "POST", rawURL: "http://localhost:1455/callback?code=c", path: "/callback", providerName: "Example", expectedState: "s").status, 404)
+        let mismatch = OAuthCallbackUtilities.handle(method: "GET", rawURL: "http://localhost:1455/callback?code=c&state=bad", path: "/callback", providerName: "Example", expectedState: "good")
+        XCTAssertEqual(mismatch.status, 400)
+        XCTAssertEqual(mismatch.title, "State mismatch.")
+        let denied = OAuthCallbackUtilities.handle(method: "GET", rawURL: "http://localhost:1455/callback?error=access_denied&error_description=User%20denied%20access&state=s", path: "/callback", providerName: "Example", expectedState: "s")
+        XCTAssertEqual(denied.status, 400)
+        XCTAssertEqual(denied.title, "Example authorization failed.")
+        XCTAssertEqual(denied.detail, "User denied access")
+        let ok = OAuthCallbackUtilities.handle(method: "GET", rawURL: "http://localhost:1455/callback?code=the-code&state=s", path: "/callback", providerName: "Example", expectedState: "s")
+        XCTAssertEqual(ok.status, 200)
+        XCTAssertEqual(ok.code, "the-code")
+        XCTAssertTrue(ok.shouldComplete)
+        XCTAssertEqual(OAuthCallbackUtilities.handle(method: "GET", rawURL: "http://localhost:1455/callback?code=late&state=s", path: "/callback", providerName: "Example", expectedState: "s", claimed: true).status, 409)
+
+        let device = "e61bbe28-07ef-466d-8e5d-a344f94ab305"
+        XCTAssertEqual(try OpenAIChatGPTOAuthUtilities.agentHostID(deviceID: device), "urn:uuid:\(device)")
+        XCTAssertThrowsError(try OpenAIChatGPTOAuthUtilities.agentHostID(deviceID: "not-a-uuid"))
+        let auth = try URLComponents(string: OpenAIChatGPTOAuthUtilities.authorizationURL(deviceID: device, state: "state", nonce: "nonce", challenge: "challenge"))!
+        let query = Dictionary(uniqueKeysWithValues: (auth.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(query["client_id"], "dynamic_agent_client")
+        XCTAssertEqual(query["agent_name_hint"], "Pi")
+        XCTAssertEqual(query["ext_agent_host_id"], "urn:uuid:\(device)")
+        XCTAssertEqual(query["scope"], OpenAIChatGPTOAuthUtilities.scope)
+        XCTAssertEqual(query["redirect_uri"], OpenAIChatGPTOAuthUtilities.redirectURI)
+        XCTAssertEqual(query["resource"], OpenAIChatGPTOAuthUtilities.resource)
+        XCTAssertEqual(query["code_challenge_method"], "S256")
+        let callback = "http://127.0.0.1:1455/auth/callback?code=authorization-code&state=state&client_id=oaiapp_issued"
+        let result = try OpenAIChatGPTOAuthUtilities.authorizationResult(callbackURL: callback, expectedState: "state")
+        XCTAssertEqual(result.code, "authorization-code")
+        XCTAssertEqual(result.clientID, "oaiapp_issued")
+        XCTAssertEqual(OpenAIChatGPTOAuthUtilities.exchangeBody(code: "c", verifier: "v", clientID: "client")["resource"], "https://api.openai.com/v1")
+        XCTAssertEqual(OpenAIChatGPTOAuthUtilities.refreshBody(refreshToken: "old", clientID: "client")["refresh_token"], "old")
+        let token: [String: JSONValue] = ["access_token": .string("access"), "refresh_token": .string("refresh"), "expires_in": .number(3600), "id_token": .string("id"), "scope": .string(OpenAIChatGPTOAuthUtilities.scope)]
+        let credential = try OpenAIChatGPTOAuthUtilities.credential(token: token, clientID: "oaiapp_issued", nowMs: 1_000_000)
+        XCTAssertEqual(credential.access, "access")
+        XCTAssertEqual(credential.refresh, "refresh")
+        XCTAssertEqual(credential.extra?["clientId"], .string("oaiapp_issued"))
+        XCTAssertEqual(credential.expires, 1_000_000 + 3_600_000 - 180_000)
+        XCTAssertThrowsError(try OpenAIChatGPTOAuthUtilities.credential(token: ["access_token": .string("a"), "refresh_token": .string("r"), "expires_in": .number(3600), "scope": .string("openid")], clientID: "client", nowMs: 0)) { error in
+            XCTAssertTrue(String(describing: error).contains("chatgpt.tokens.use.direct"))
+        }
+    }
+
+    func testV0991OpenAIResponsesChatGPTTokenSuppressesUnsupportedFieldsAndUsageLimitHelp() {
+        let model = Model(id: "gpt-5-mini", name: "GPT", api: .openAIResponses, provider: .openAI, baseUrl: "https://api.openai.com/v1", reasoning: true, contextWindow: 128_000, maxTokens: 8192)
+        var options = StreamOptions()
+        options.apiKey = "chatgpt-user-access-token"
+        options.temperature = 0.7
+        options.maxTokens = 123
+        options.sessionId = "session"
+        options.cacheRetention = .long
+        let direct = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertNil(direct["temperature"])
+        XCTAssertNil(direct["max_output_tokens"])
+        XCTAssertNil(direct["prompt_cache_retention"])
+        XCTAssertNil(direct["prompt_cache_options"])
+        XCTAssertEqual(direct["prompt_cache_key"], .string("session"))
+        options.apiKey = "sk-test"
+        let apiKey = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")]), options: options)
+        XCTAssertEqual(apiKey["temperature"], .number(0.7))
+        XCTAssertEqual(apiKey["max_output_tokens"], .number(123))
+        XCTAssertNotNil(apiKey["prompt_cache_retention"])
+
+        let sse = """
+        event: response.failed
+        data: {"response":{"id":"resp","error":{"code":"subscription_sharing_usage_limit_exceeded","message":"Usage limit reached."}}}
+
+        """
+        let events = OpenAIResponsesProvider.processSSEText(sse, model: model)
+        guard case .error(_, let message, _)? = events.first(where: { if case .error = $0 { return true }; return false }) else { return XCTFail("missing error") }
+        XCTAssertTrue(message?.errorMessage?.contains("subscription_sharing_usage_limit_exceeded") == true)
+        XCTAssertTrue(message?.errorMessage?.contains("Check your ChatGPT usage: https://chatgpt.com/settings/usage") == true)
+    }
+
+    func testV0991ProviderStreamEventsExposeRawChunksBeforeNormalization() {
+        let model = Model(id: "openrouter/auto", name: "Auto", api: .openAICompletions, provider: .openRouter, baseUrl: "https://openrouter.ai/api/v1")
+        let sse = """
+        data: {"id":"r","model":"router-model","choices":[{"delta":{"content":"hi"}}],"openrouter_metadata":{"route":"test"}}
+
+        data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}
+
+        data: [DONE]
+
+        """
+        var raw: [JSONValue] = []
+        let events = OpenAICompletionsProvider.processSSEText(sse, model: model) { raw.append($0) }
+        XCTAssertEqual(raw.count, 2)
+        XCTAssertEqual(raw.first?.objectValue?["openrouter_metadata"]?.objectValue?["route"], .string("test"))
+        XCTAssertEqual(raw.last?.objectValue?["usage"]?.objectValue?["total_tokens"], .number(5))
+        guard case .done(_, let message)? = events.last else { return XCTFail("missing done") }
+        XCTAssertEqual(message.content.first?.text, "hi")
+        XCTAssertEqual(message.usage?.totalTokens, 5)
+
+        let responseSSE = """
+        event: response.created
+        data: {"response":{"id":"resp_1"}}
+
+        event: response.completed
+        data: {"response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}
+
+        """
+        var responseRaw: [JSONValue] = []
+        _ = OpenAIResponsesProvider.processSSEText(responseSSE, model: Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI)) { responseRaw.append($0) }
+        XCTAssertEqual(responseRaw.first?.objectValue?["event"], .string("response.created"))
+        XCTAssertEqual(responseRaw.first?.objectValue?["data"]?.objectValue?["response"]?.objectValue?["id"], .string("resp_1"))
+    }
+
+    func testV0991ThinkingLevelAndNestedCallsDoNotLeakToProviderPayloads() {
+        var tool = Message(role: .toolResult, content: [.text("done")])
+        tool.toolCallId = "call_1"
+        tool.toolName = "lookup"
+        tool.thinkingLevel = .high
+        tool.nestedCalls = .object(["lookup": .array([.string("nested")])])
+        let context = AIContext(messages: [tool])
+        let completions = OpenAICompletionsProvider.buildRequestBody(model: Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI), context: context, options: nil)
+        XCTAssertFalse(String(describing: completions).contains("thinkingLevel"))
+        XCTAssertFalse(String(describing: completions).contains("nestedCalls"))
+        let responses = OpenAIResponsesProvider.buildRequestBody(model: Model(id: "m", name: "M", api: .openAIResponses, provider: .openAI), context: context, options: nil)
+        XCTAssertFalse(String(describing: responses).contains("thinkingLevel"))
+        XCTAssertFalse(String(describing: responses).contains("nestedCalls"))
+        let data = try! JSONEncoder().encode(tool)
+        let decoded = try! JSONDecoder().decode(Message.self, from: data)
+        XCTAssertEqual(decoded.thinkingLevel, .high)
+        XCTAssertEqual(decoded.nestedCalls, .object(["lookup": .array([.string("nested")])]))
     }
 
 }

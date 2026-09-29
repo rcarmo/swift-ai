@@ -2,8 +2,9 @@
 """Generate Swift embedded model registries from exported pi-ai model JSON.
 
 Usage:
-    python3 scripts/generate-models.py scripts/models.v0.87.1.json Sources/SwiftAI/Models/Generated/ModelsGenerated.swift
-    python3 scripts/generate-models.py scripts/image-models.v0.87.1.json Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift
+    python3 scripts/generate-models.py scripts/models.v0.99.1.json Sources/SwiftAI/Models/Generated/ModelsGenerated.swift
+    python3 scripts/generate-models.py scripts/image-models.v0.99.1.json Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift
+    python3 scripts/generate-models.py scripts/classifier-models.v0.99.1.json Sources/SwiftAI/Models/Generated/ClassifierModelsGenerated.swift
 """
 from __future__ import annotations
 
@@ -51,10 +52,22 @@ def main() -> int:
     encoded = base64.b64encode(json.dumps(models, separators=(",", ":"), sort_keys=True).encode()).decode()
     body = "\n".join(chunks(encoded))
     is_image = "image" in src.name or "ImageModelsGenerated" in dst.name
-    enum_name = "BuiltinImageModels" if is_image else "BuiltinModels"
-    model_type = "ImagesModel" if is_image else "Model"
-    registry = "ImagesRegistry" if is_image else "AIRegistry"
-    failure = "failed to decode embedded image model registry" if is_image else "failed to decode embedded model registry"
+    is_classifier = "classifier" in src.name or "ClassifierModelsGenerated" in dst.name
+    if is_classifier:
+        enum_name = "BuiltinClassifierModels"
+        model_type = "ClassifierModel"
+        registry = "ClassifierRegistry"
+        failure = "failed to decode embedded classifier model registry"
+    elif is_image:
+        enum_name = "BuiltinImageModels"
+        model_type = "ImagesModel"
+        registry = "ImagesRegistry"
+        failure = "failed to decode embedded image model registry"
+    else:
+        enum_name = "BuiltinModels"
+        model_type = "Model"
+        registry = "AIRegistry"
+        failure = "failed to decode embedded model registry"
     dst.write_text(f'''import Foundation
 
 // Generated from @earendil-works/pi-ai/go-ai v{version} model registry.

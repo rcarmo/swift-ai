@@ -11,6 +11,8 @@
     "mistral-conversations",
     "pi-messages",
     "openrouter-images",
+    "typesafe-system-one",
+    "cloudflare-workers-ai-system-one",
     "faux"
   ],
   "knownNonBundledCapabilities": [
@@ -41,11 +43,14 @@
     }
   ],
   "registries": {
+    "classifierAPIs": 2,
+    "classifierModels": 12,
+    "classifierProviders": 5,
     "imageAPIs": 1,
-    "imageModels": 55,
+    "imageModels": 57,
     "imageProviders": 1,
     "textAPIs": 10,
-    "textModels": 1495,
+    "textModels": 1523,
     "textProviders": 41
   },
   "swiftPM": {
@@ -64,13 +69,13 @@
     "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
   },
   "upstream": {
-    "commit": "f07218c4d4bbc12bef056a7058c3dd49dfe41abe",
+    "commit": "d86654abb8862e201933517d6f1fce9f88dd117f",
     "package": "@earendil-works/pi-ai",
-    "version": "0.87.1"
+    "version": "0.99.1"
   },
   "usageDocumentation": "docs/USAGE.md",
   "validation": {
-    "latestStaticCheck": "python3 scripts/static-check.py and python3 scripts/audit-parity.py passed in this container for v0.87.1 parity changes",
+    "latestStaticCheck": "pending v0.99.1 runtime validation; README/PARITY/RELEASE/public SBOM remain blocked until runtime acceptance",
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test",
     "swiftToolchainUnavailableInContainer": true

@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       release_kind:
-        description: Release kind: upstream alias (upstream-vX.Y.Z) or native Swift tag (vX.Y.Z)
+        description: "Release kind: upstream alias (upstream-vX.Y.Z) or native Swift tag (vX.Y.Z)"
         default: upstream
         required: true
         type: string

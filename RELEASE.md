@@ -83,7 +83,7 @@ Pre-commit local gate matrix for the final runtime candidate passed on 2026-09-3
 - `grep -R "XCTSkip" -n Tests || true`: no matches (`.artifacts/v0.99.2-validation/xctskip-scan.log`).
 - Clean source snapshot validation: `python3 scripts/audit-parity.py`, `swift build -j 2 -Xswiftc -warnings-as-errors`, and `swift test -j 2` passed from a temporary tracked+untracked source export (`.artifacts/v0.99.2-validation/clean-source-snapshot.log`).
 
-Hosted CI and exact committed-SHA SBOM evidence are pending for the final runtime candidate.
+Hosted CI and exact committed-SHA SBOM evidence are accepted for runtime commit `379018acd61375462d02a971e5283be6b009d33e`; publication remains blocked pending explicit tag/release authorization.
 
 ## SBOM/security evidence model
 
@@ -96,7 +96,16 @@ Hosted CI and exact committed-SHA SBOM evidence are pending for the final runtim
 
 ## v0.99.2 runtime candidate evidence
 
-Runtime candidate SHA, hosted CI, and SHA-specific clean-tree SBOM evidence are pending. Publication is blocked until auditor acceptance of the exact pushed runtime SHA. Local dirty-tree pre-commit SBOM/security/license validation passed with `make sbom-check` and will be regenerated after commit for exact-SHA provenance.
+Accepted runtime commit: `379018acd61375462d02a971e5283be6b009d33e` (`Update Swift AI parity to v0.99.2`).
+
+- Runtime CI run: <https://github.com/rcarmo/swift-ai/actions/runs/36782139648>
+- Runtime CI jobs: `110114736031` (`static-check`) and `110114736235` (`swift-test (ubuntu-latest)`)
+- Runtime SBOM artifact: `11127418783` / `swift-ai-sbom-379018acd61375462d02a971e5283be6b009d33e`
+- Runtime inner SBOM SHA-256: `4167897e88c69f56d861a8e2831fdd7db14ca0758940beb44cae552397b9701a`
+- SBOM provenance: root component `swift-ai@0.99.2`; embedded `git.revision=379018acd61375462d02a971e5283be6b009d33e`; `git.dirty=false`; CycloneDX component count `2` (`swift-crypto`, `swift-asn1`); dependency graph has the root edge `swift-ai -> swift-crypto -> swift-asn1`.
+- Security/license: OSV scanner `2.5.1` returned no vulnerabilities; high/critical findings are empty; license review passed for `swift-asn1` and `swift-crypto` under approved licenses.
+- Rollback SHA: accepted v0.99.1 runtime `dc549fe0709128c73d9d8f8f2d5a031c1a6b6482`.
+- Publication remains blocked. No tag, release, alias, or manual SBOM release has been published. Eventual `v0.99.2` and `upstream-v0.99.2` refs must target tested runtime `379018acd61375462d02a971e5283be6b009d33e`, not this docs-only evidence head.
 
 ## Accepted v0.99.1 runtime evidence
 

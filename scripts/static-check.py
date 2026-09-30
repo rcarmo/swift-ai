@@ -127,6 +127,92 @@ def _extract_test_body(lines: list[str], start: int) -> str:
     return "\n".join(body)
 
 
+def _collect_yaml_literal_blocks(text: str, key: str = "run") -> list[str]:
+    lines = text.splitlines()
+    blocks: list[str] = []
+    index = 0
+    pattern = re.compile(rf"^(?P<indent>\s*){re.escape(key)}:\s*\|\s*$")
+    while index < len(lines):
+        match = pattern.match(lines[index])
+        if not match:
+            index += 1
+            continue
+        base_indent = len(match.group("indent"))
+        index += 1
+        block_lines: list[str] = []
+        while index < len(lines):
+            line = lines[index]
+            if line.strip() and len(line) - len(line.lstrip(" ")) <= base_indent:
+                break
+            block_lines.append(line[base_indent + 2:] if len(line) >= base_indent + 2 else "")
+            index += 1
+        blocks.append("\n".join(block_lines))
+    return blocks
+
+
+def _bash_syntax_check(script: str, label: str) -> None:
+    # GitHub expression interpolation happens before bash runs. Replace expressions with
+    # inert text so local syntax checks validate the shell structure around them.
+    scrubbed = re.sub(r"\$\{\{[^}]+\}\}", "GITHUB_EXPR", script)
+    subprocess.run(["bash", "-n"], input=scrubbed, text=True, cwd=ROOT, check=True)
+
+
+def _validate_native_tag_policy(ref: dict | None, tag_object: dict | None, runtime_ref: str, tag: str = "v0.99.2") -> None:
+    expected_tagger = {"name": "Rui Carmo", "email": "rui.carmo@gmail.com"}
+    if not ref:
+        raise SystemExit(f"native release tag {tag} is missing or cannot be read")
+    ref_object = ref.get("object") or {}
+    if ref_object.get("type") != "tag":
+        raise SystemExit(f"native release tag {tag} must be an annotated tag object, got {ref_object.get('type')!r}")
+    if not tag_object:
+        raise SystemExit(f"native release tag {tag} tag object is missing or cannot be read")
+    tagger = tag_object.get("tagger") or {}
+    if tagger.get("name") != expected_tagger["name"] or tagger.get("email") != expected_tagger["email"]:
+        raise SystemExit(
+            f"native release tag {tag} tagger must be {expected_tagger['name']} <{expected_tagger['email']}>, "
+            f"got {tagger.get('name')!r} <{tagger.get('email')!r}>"
+        )
+    target = tag_object.get("object") or {}
+    if target.get("type") != "commit":
+        raise SystemExit(f"native release tag {tag} must target a commit, got {target.get('type')!r}")
+    if target.get("sha") != runtime_ref:
+        raise SystemExit(f"native release tag {tag} targets {target.get('sha')}, expected {runtime_ref}")
+
+
+def _expect_native_tag_policy_failure(label: str, ref: dict | None, tag_object: dict | None, runtime_ref: str) -> None:
+    try:
+        _validate_native_tag_policy(ref, tag_object, runtime_ref)
+    except SystemExit:
+        return
+    raise SystemExit(f"native tag policy simulation should reject {label}")
+
+
+def check_native_tag_policy_simulation() -> None:
+    runtime = "379018acd61375462d02a971e5283be6b009d33e"
+    tag_sha = "1111111111111111111111111111111111111111"
+    exact_ref = {"object": {"type": "tag", "sha": tag_sha}}
+    exact_tag = {
+        "tagger": {"name": "Rui Carmo", "email": "rui.carmo@gmail.com"},
+        "object": {"type": "commit", "sha": runtime},
+    }
+    _expect_native_tag_policy_failure("absent tag", None, None, runtime)
+    _expect_native_tag_policy_failure("lightweight tag", {"object": {"type": "commit", "sha": runtime}}, None, runtime)
+    _expect_native_tag_policy_failure(
+        "wrong tagger",
+        exact_ref,
+        {"tagger": {"name": "github-actions[bot]", "email": "41898282+github-actions[bot]@users.noreply.github.com"}, "object": {"type": "commit", "sha": runtime}},
+        runtime,
+    )
+    _expect_native_tag_policy_failure(
+        "wrong target",
+        exact_ref,
+        {"tagger": {"name": "Rui Carmo", "email": "rui.carmo@gmail.com"}, "object": {"type": "commit", "sha": "0" * 40}},
+        runtime,
+    )
+    _validate_native_tag_policy(exact_ref, exact_tag, runtime)
+    print("ok: native tag policy simulations")
+
+
 def check_xctest_hygiene() -> None:
     assertion_tokens = ["XCTAssert", "XCTFail", "XCTUnwrap", "XCTSkip", "#expect", "try await SwiftAI.complete"]
     for path in (ROOT / "Tests").rglob("*.swift"):
@@ -154,6 +240,9 @@ def check_ci_workflow() -> None:
     missing = [item for item in required if item not in text]
     if missing:
         raise SystemExit("CI workflow missing required entries: " + ", ".join(missing))
+    for idx, block in enumerate(_collect_yaml_literal_blocks(text), start=1):
+        _bash_syntax_check(block, f"ci.yml run block {idx}")
+
     publish = ROOT / ".github" / "workflows" / "publish-sbom-release.yml"
     if not publish.exists():
         raise SystemExit("missing GitHub Actions workflow: .github/workflows/publish-sbom-release.yml")
@@ -162,15 +251,29 @@ def check_ci_workflow() -> None:
         "release_kind:",
         '*) echo "release_kind must be upstream or native',
         'expected_tag="v${{ inputs.upstream_version }}"',
-        'git tag -a "$tag" "$runtime_sha"',
-        'git push origin "refs/tags/${tag}"',
-        'git rev-parse --verify "${tag}^{tag}"',
+        'gh_api(f"git/ref/tags/{tag}")',
+        'ref_object.get("type") != "tag"',
+        'expected_tagger = {"name": "Rui Carmo", "email": "rui.carmo@gmail.com"}',
+        'target.get("type") != "commit"',
+        'target.get("sha") != runtime_ref',
+        'gh release create "$tag" --verify-tag',
         "swift-ai v${upstream_version}",
         "SBOM for @earendil-works/pi-ai v${upstream_version}",
     ]
     missing_publish = [item for item in publish_required if item not in publish_text]
     if missing_publish:
         raise SystemExit("publish workflow missing required native/upstream release entries: " + ", ".join(missing_publish))
+    forbidden_native = [
+        'git tag -a "$tag"',
+        'git push origin "refs/tags/${tag}"',
+        'github-actions[bot]',
+        '41898282+github-actions[bot]@users.noreply.github.com',
+    ]
+    present_forbidden = [item for item in forbidden_native if item in publish_text]
+    if present_forbidden:
+        raise SystemExit("publish workflow must not create/push native tags: " + ", ".join(present_forbidden))
+    for idx, block in enumerate(_collect_yaml_literal_blocks(publish_text), start=1):
+        _bash_syntax_check(block, f"publish-sbom-release.yml run block {idx}")
     print("ok: CI workflow checks")
 
 
@@ -180,6 +283,7 @@ def main() -> int:
     grep_guard()
     check_package_manifest()
     check_ci_workflow()
+    check_native_tag_policy_simulation()
     check_xctest_hygiene()
     return 0
 

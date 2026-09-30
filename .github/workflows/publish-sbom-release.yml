@@ -117,24 +117,45 @@ jobs:
           if [[ "$release_kind" == "native" ]]; then
             title="swift-ai v${upstream_version}"
             notes="CycloneDX SBOM for swift-ai v${upstream_version}, generated from accepted runtime ref ${runtime_ref} (${runtime_sha}) and validated by make sbom-check."
-            if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
-              tag_target="$(git rev-parse --verify "${tag}^{commit}")"
-              if [[ "$tag_target" != "$runtime_sha" ]]; then
-                echo "existing tag $tag peels to $tag_target, expected $runtime_sha" >&2
-                exit 1
-              fi
-            else
-              git config user.name "github-actions[bot]"
-              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-              git tag -a "$tag" "$runtime_sha" -m "swift-ai v${upstream_version}"
-              git push origin "refs/tags/${tag}"
-            fi
-            tag_object="$(git rev-parse --verify "${tag}^{tag}")"
-            tag_target="$(git rev-parse --verify "${tag}^{commit}")"
-            if [[ -z "$tag_object" || "$tag_target" != "$runtime_sha" ]]; then
-              echo "tag $tag verification failed: object=$tag_object target=$tag_target expected=$runtime_sha" >&2
-              exit 1
-            fi
+            export NATIVE_RELEASE_TAG="$tag"
+            export NATIVE_RUNTIME_REF="$runtime_ref"
+            python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tag = os.environ["NATIVE_RELEASE_TAG"]
+          runtime_ref = os.environ["NATIVE_RUNTIME_REF"]
+          expected_tagger = {"name": "Rui Carmo", "email": "rui.carmo@gmail.com"}
+
+          def gh_api(path: str) -> dict:
+              try:
+                  raw = subprocess.check_output(["gh", "api", f"repos/{repo}/{path}"], text=True, stderr=subprocess.STDOUT)
+              except subprocess.CalledProcessError as error:
+                  sys.stderr.write(error.output)
+                  raise SystemExit(f"native release tag {tag} is missing or cannot be read") from error
+              return json.loads(raw)
+
+          ref = gh_api(f"git/ref/tags/{tag}")
+          ref_object = ref.get("object") or {}
+          if ref_object.get("type") != "tag":
+              raise SystemExit(f"native release tag {tag} must be an annotated tag object, got {ref_object.get('type')!r}")
+          tag_object = gh_api(f"git/tags/{ref_object.get('sha')}")
+          tagger = tag_object.get("tagger") or {}
+          if tagger.get("name") != expected_tagger["name"] or tagger.get("email") != expected_tagger["email"]:
+              raise SystemExit(
+                  f"native release tag {tag} tagger must be {expected_tagger['name']} <{expected_tagger['email']}>, "
+                  f"got {tagger.get('name')!r} <{tagger.get('email')!r}>"
+              )
+          target = tag_object.get("object") or {}
+          if target.get("type") != "commit":
+              raise SystemExit(f"native release tag {tag} must target a commit, got {target.get('type')!r}")
+          if target.get("sha") != runtime_ref:
+              raise SystemExit(f"native release tag {tag} targets {target.get('sha')}, expected {runtime_ref}")
+          print(f"ok: native release tag {tag} is an annotated Rui tag for {runtime_ref}")
+          PY
           else
             title="SBOM for @earendil-works/pi-ai v${upstream_version}"
             notes="CycloneDX SBOM for @earendil-works/pi-ai v${upstream_version}, generated from swift-ai runtime ref ${runtime_ref} (${runtime_sha}) and validated by make sbom-check."
@@ -147,6 +168,8 @@ jobs:
               exit 1
             fi
             gh release edit "$tag" --title "$title" --notes "$notes"
+          elif [[ "$release_kind" == "native" ]]; then
+            gh release create "$tag" --verify-tag --title "$title" --notes "$notes"
           else
             gh release create "$tag" --target "$runtime_sha" --title "$title" --notes "$notes"
           fi

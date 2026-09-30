@@ -44,13 +44,13 @@
   ],
   "registries": {
     "classifierAPIs": 2,
-    "classifierModels": 12,
+    "classifierModels": 15,
     "classifierProviders": 5,
     "imageAPIs": 1,
     "imageModels": 57,
     "imageProviders": 1,
     "textAPIs": 10,
-    "textModels": 1523,
+    "textModels": 1529,
     "textProviders": 41
   },
   "swiftPM": {
@@ -69,13 +69,13 @@
     "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
   },
   "upstream": {
-    "commit": "d86654abb8862e201933517d6f1fce9f88dd117f",
+    "commit": "005af57d88ee23b33778f343a9595b32e67ff788",
     "package": "@earendil-works/pi-ai",
-    "version": "0.99.1"
+    "version": "0.99.2"
   },
   "usageDocumentation": "docs/USAGE.md",
   "validation": {
-    "latestStaticCheck": "pending v0.99.1 runtime validation; README/PARITY/RELEASE/public SBOM remain blocked until runtime acceptance",
+    "latestStaticCheck": "pending v0.99.2 runtime validation; publication blocked until auditor acceptance",
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test",
     "swiftToolchainUnavailableInContainer": true

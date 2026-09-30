@@ -9,7 +9,7 @@ public enum ContextUtilities {
         "maximum allowed input length", "exceeds the maximum allowed input length", "exceeds the available context size", "greater than the context length",
         "context window exceeds limit", "exceeded model token limit", "model_context_window_exceeded",
         "prompt too long", "range of input length should be", "context_length_exceeded", "context length exceeded", "too many tokens",
-        "token limit exceeded", "400 (no body)", "413 (no body)"
+        "token limit exceeded", "exceed model context window", "exceed the model context window", "400 (no body)", "413 (no body)"
     ]
     private static let nonOverflowPatterns = ["rate limit", "too many requests", "service unavailable", "throttling error"]
 

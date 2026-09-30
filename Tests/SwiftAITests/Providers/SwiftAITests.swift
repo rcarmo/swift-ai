@@ -123,20 +123,20 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.99.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1523)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.99.2")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1529)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 57)
-        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 12)
+        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 15)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.99.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1523)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.99.2")
+        XCTAssertEqual(BuiltinModels.modelCount, 1529)
         XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1523)
+        XCTAssertEqual(models.count, 1529)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -294,7 +294,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.99.1")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.99.2")
         XCTAssertEqual(BuiltinImageModels.modelCount, 57)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -495,7 +495,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1523)
+        XCTAssertEqual(models.count, 1529)
         XCTAssertEqual(Set(models.map(\.provider)).count, 41)
         XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })

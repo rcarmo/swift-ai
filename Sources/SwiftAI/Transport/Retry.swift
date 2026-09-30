@@ -154,11 +154,12 @@ public enum ProviderRetry {
 
     public static func retryDelayMilliseconds(_ error: ProviderRetryError, retryIndex: Int, maxRetryDelayMs: Int = 60_000, now: Date = Date()) throws -> Int {
         let headers = Dictionary(uniqueKeysWithValues: error.headers.map { ($0.key.lowercased(), $0.value) })
+        let fallback = Int(min(0.5 * pow(2.0, Double(max(0, retryIndex))), 8.0) * 1000)
         let parsed: Int?
-        if let retryAfterMs = headers["retry-after-ms"], let value = Double(retryAfterMs) { parsed = Int(value) }
+        if let retryAfterMs = headers["retry-after-ms"], let value = Double(retryAfterMs), value.isFinite { parsed = Int(value) }
         else if let retryAfter = headers["retry-after"] { parsed = HTTPRetry.parseRetryAfterHeader(retryAfter, now: now) }
-        else { parsed = Int(min(0.5 * pow(2.0, Double(max(0, retryIndex))), 8.0) * 1000) }
-        let delay = max(0, parsed ?? 0)
+        else { parsed = fallback }
+        let delay = max(0, parsed ?? fallback)
         if maxRetryDelayMs > 0, delay > maxRetryDelayMs { throw AIError.provider("Server requested \(Int(ceil(Double(delay) / 1000.0)))s retry delay (max: \(Int(ceil(Double(maxRetryDelayMs) / 1000.0)))s). \(error.message)") }
         return delay
     }

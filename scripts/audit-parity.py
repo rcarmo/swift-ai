@@ -16,15 +16,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.99.1.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.d86654a.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.87.1.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.1.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.d86654a.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.87.1.json"
-CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.1.json"
-UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.d86654a.json"
-PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v0.99.1.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v0.99.2.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.005af57.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.99.1.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.2.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.005af57.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.1.json"
+CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.2.json"
+UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.005af57.json"
+PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.1.json"
+PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v0.99.2.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -35,38 +36,38 @@ IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" /
 CLASSIFIER_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ClassifierModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1523
+EXPECTED_TEXT_MODELS = 1529
 EXPECTED_TEXT_PROVIDERS = 41
 EXPECTED_TEXT_APIS = 10
 EXPECTED_IMAGE_MODELS = 57
 EXPECTED_IMAGE_PROVIDERS = 1
 EXPECTED_IMAGE_APIS = 1
-EXPECTED_CLASSIFIER_MODELS = 12
+EXPECTED_CLASSIFIER_MODELS = 15
 EXPECTED_CLASSIFIER_PROVIDERS = 5
 EXPECTED_CLASSIFIER_APIS = 2
-EXPECTED_TOTAL_MODELS = 1592
+EXPECTED_TOTAL_MODELS = 1601
 EXPECTED_PROVIDER_FILES = 42
 EXPECTED_SCHEMA_VERSION = 6
-EXPECTED_STRUCTURE_HASH = "58511a57fb2db5e984ee62857d8079aec6ff800e19226c327c118e7f57ea916b"
-EXPECTED_TEXT_ADDED = 59
-EXPECTED_TEXT_REMOVED = 31
-EXPECTED_TEXT_CHANGED = 110
-EXPECTED_IMAGE_ADDED = 2
+EXPECTED_STRUCTURE_HASH = "3e97a64c71ef31a515f668d9fbc653d49b3ece171d88bfd103001e963497661f"
+EXPECTED_TEXT_ADDED = 6
+EXPECTED_TEXT_REMOVED = 0
+EXPECTED_TEXT_CHANGED = 23
+EXPECTED_IMAGE_ADDED = 0
 EXPECTED_IMAGE_REMOVED = 0
-EXPECTED_IMAGE_CHANGED = 54
-EXPECTED_CLASSIFIER_ADDED = 12
-CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v0.99.1-changed-paths.txt"
-CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v0.99.1-changed-tests.txt"
-TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v0.99.1-test-corpus-basename.txt"
-UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v0.99.1-audit.md"
-UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v0.99.1-test-crosswalk.md"
-EXPECTED_CHANGED_PATHS = 169
-EXPECTED_CHANGED_PATHS_HASH = "086beb5b751f144f9e45034bfbb2b0f4e8a0d3a00f9e17ec1b073b3a8397221e"
-EXPECTED_CHANGED_TESTS = 58
-EXPECTED_CHANGED_TESTS_HASH = "d8eefa94ed87c03de0545965351de4d800cf76ce1db33b0f62fab0f9ab3c7acc"
-EXPECTED_TEST_CORPUS = 160
-EXPECTED_TEST_CORPUS_HASH = "7ad5f140edc5bc49a348b7b7e36ea266dd82a3075c23ad9997b6e8bc21992b06"
-EXPECTED_CHANGED_TEST_DISPOSITIONS = {"ported": 9, "adapted": 49}
+EXPECTED_IMAGE_CHANGED = 0
+EXPECTED_CLASSIFIER_ADDED = 3
+CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v0.99.2-changed-paths.txt"
+CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v0.99.2-changed-tests.txt"
+TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v0.99.2-test-corpus-basename.txt"
+UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v0.99.2-audit.md"
+UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v0.99.2-test-crosswalk.md"
+EXPECTED_CHANGED_PATHS = 15
+EXPECTED_CHANGED_PATHS_HASH = "53b2c290d902bb8d79c87e035b87c52a13b97617849ea85b51c8e2b11133cc15"
+EXPECTED_CHANGED_TESTS = 6
+EXPECTED_CHANGED_TESTS_HASH = "1ad16f63dc47b019cdcf4fdf7029c86785f4cbac38158e7fb63db963ce9ce66d"
+EXPECTED_TEST_CORPUS = 171
+EXPECTED_TEST_CORPUS_HASH = "9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc"
+EXPECTED_CHANGED_TEST_DISPOSITIONS = {"ported": 4, "adapted": 1, "n/a": 1}
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Core/Classifiers.swift",
     "Sources/SwiftAI/Providers/SystemOneClassifierProvider.swift",
@@ -156,8 +157,8 @@ def normalize_records(records: list[dict]) -> list[dict]:
     return [normalize_model(record) for record in records]
 
 
-def comparable_v0991_delta(record: dict) -> dict:
-    """Normalize schema-v6 additions to the auditor's baked release delta contract."""
+def comparable_release_delta(record: dict) -> dict:
+    """Normalize generated Swift field-shape differences for release delta checks."""
     record = normalize_model(record)
     return {
         key: value
@@ -192,7 +193,7 @@ def record_delta_counts(previous: list[dict], current: list[dict]) -> tuple[int,
     current_map = keyed_records(current, "current catalog")
     added = current_map.keys() - previous_map.keys()
     removed = previous_map.keys() - current_map.keys()
-    changed = {key for key in current_map.keys() & previous_map.keys() if comparable_v0991_delta(current_map[key]) != comparable_v0991_delta(previous_map[key])}
+    changed = {key for key in current_map.keys() & previous_map.keys() if comparable_release_delta(current_map[key]) != comparable_release_delta(previous_map[key])}
     return (len(added), len(removed), len(changed))
 
 
@@ -219,7 +220,7 @@ def clean_markdown_code(value: str) -> str:
     return value
 
 
-def validate_changed_test_crosswalk(failures: list[str], crosswalk_text: str | None = None, changed_manifest_text: str | None = None, label: str = "v0.99.1 crosswalk") -> None:
+def validate_changed_test_crosswalk(failures: list[str], crosswalk_text: str | None = None, changed_manifest_text: str | None = None, label: str = "v0.99.2 crosswalk") -> None:
     crosswalk_text = UPSTREAM_CROSSWALK_DOC.read_text() if crosswalk_text is None else crosswalk_text
     changed_manifest_text = CHANGED_TESTS_MANIFEST.read_text() if changed_manifest_text is None else changed_manifest_text
     expected_paths = [line.strip() for line in changed_manifest_text.splitlines() if line.strip()]
@@ -280,6 +281,7 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     previous_images = json.loads(PREVIOUS_IMAGE_MODELS.read_text())
     classifiers = json.loads(CLASSIFIER_MODELS.read_text())
     upstream_classifiers = json.loads(UPSTREAM_CLASSIFIER_MODELS.read_text())
+    previous_classifiers = json.loads(PREVIOUS_CLASSIFIER_MODELS.read_text())
     if self_test_mutation:
         text = copy.deepcopy(text); text[0]["name"] = str(text[0].get("name", "")) + " fault-injected"
     if image_self_test_mutation:
@@ -347,20 +349,20 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
 
     text_added, text_removed, text_changed = record_delta_counts(previous_text, text)
     image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
-    classifier_added = len(classifiers)
-    # The v0.99.1 schema-v6 oracle publishes normalized delta counts; enforce those rather than live hydration.
+    classifier_added, classifier_removed, classifier_changed = record_delta_counts(previous_classifiers, classifiers)
+    # The v0.99.2 schema-v6 oracle publishes normalized delta counts; enforce those rather than live hydration.
     if (text_added, text_removed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED):
-        failures.append(f"v0.87.1..v0.99.1 text id delta: got +{text_added}/-{text_removed}, want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}")
+        failures.append(f"v0.99.1..v0.99.2 text id delta: got +{text_added}/-{text_removed}, want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}")
     # The signed schema-v6 oracle supplies normalized changed-record counts. Swift's
     # reduced legacy image/chat structs intentionally cannot recompute those counts
     # byte-for-byte, so local validation enforces ID deltas, exact snapshots, and
     # manifest hashes, then reports the oracle changed counts.
     text_changed = EXPECTED_TEXT_CHANGED
     if (image_added, image_removed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED):
-        failures.append(f"v0.87.1..v0.99.1 image id delta: got +{image_added}/-{image_removed}, want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}")
+        failures.append(f"v0.99.1..v0.99.2 image id delta: got +{image_added}/-{image_removed}, want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}")
     image_changed = EXPECTED_IMAGE_CHANGED
-    if classifier_added != EXPECTED_CLASSIFIER_ADDED:
-        failures.append(f"v0.99.1 classifier additions: got +{classifier_added}, want +{EXPECTED_CLASSIFIER_ADDED}")
+    if (classifier_added, classifier_removed, classifier_changed) != (EXPECTED_CLASSIFIER_ADDED, 0, 0):
+        failures.append(f"v0.99.1..v0.99.2 classifier delta: got +{classifier_added}/-{classifier_removed}/{classifier_changed} changed, want +{EXPECTED_CLASSIFIER_ADDED}/-0/0 changed")
 
     all_generated_raw = text_providers | text_apis | image_providers | image_apis | classifier_providers | classifier_apis
     missing = sorted(all_generated_raw - raw)
@@ -408,9 +410,9 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         if digest != expected_hash:
             failures.append(f"{label} sha256: got {digest}, want {expected_hash}")
     if UPSTREAM_AUDIT_DOC.exists() and markdown_table_data_rows(UPSTREAM_AUDIT_DOC) != EXPECTED_CHANGED_PATHS:
-        failures.append(f"v0.99.1 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
+        failures.append(f"v0.99.2 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
     if UPSTREAM_CROSSWALK_DOC.exists() and markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC) != EXPECTED_TEST_CORPUS:
-        failures.append(f"v0.99.1 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
+        failures.append(f"v0.99.2 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
     if UPSTREAM_CROSSWALK_DOC.exists() and CHANGED_TESTS_MANIFEST.exists():
         validate_changed_test_crosswalk(failures)
 

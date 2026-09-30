@@ -514,4 +514,148 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     func testTogetherAPIKeyEnvironment() {
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .together, env: ["TOGETHER_API_KEY": "test-together-key"]), "test-together-key")
     }
+
+    func testV0992AnthropicFederationAndStrictToolBehavior() async throws {
+        await AnthropicMessagesProvider.clearFederationTokenCache()
+        defer { Task { await AnthropicMessagesProvider.clearFederationTokenCache() } }
+        let tokenFile = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("anthropic-identity-\(UUID().uuidString).jwt")
+        try "  header.payload.signature  \n".write(to: tokenFile, atomically: true, encoding: .utf8)
+        let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, baseUrl: "https://api.anthropic.com/v1")
+        var options = StreamOptions()
+        options.env = [
+            "ANTHROPIC_FEDERATION_RULE_ID": "fdrl_test",
+            "ANTHROPIC_ORGANIZATION_ID": "org-test",
+            "ANTHROPIC_WORKSPACE_ID": "wrk-test",
+            "ANTHROPIC_SERVICE_ACCOUNT_ID": "svc-test",
+            "ANTHROPIC_IDENTITY_TOKEN_FILE": tokenFile.path
+        ]
+        XCTAssertNotNil(AnthropicMessagesProvider.workloadIdentityFederationConfig(model: model, options: options))
+        var explicit = options
+        explicit.apiKey = "anthropic-key"
+        XCTAssertNil(AnthropicMessagesProvider.workloadIdentityFederationConfig(model: model, options: explicit))
+        var headerOptions = options
+        headerOptions.headers = ["Authorization": "Bearer explicit"]
+        XCTAssertNil(AnthropicMessagesProvider.workloadIdentityFederationConfig(model: model, options: headerOptions))
+
+        let config = try XCTUnwrap(AnthropicMessagesProvider.workloadIdentityFederationConfig(model: model, options: options))
+        let (request, body) = try AnthropicMessagesProvider.federationTokenRequest(model: model, config: config, identityToken: "jwt-token")
+        XCTAssertEqual(request.url?.absoluteString, "https://api.anthropic.com/v1/oauth/token")
+        XCTAssertFalse(request.url?.absoluteString.contains("jwt-token") == true)
+        XCTAssertFalse((request.allHTTPHeaderFields ?? [:]).values.contains { $0.contains("jwt-token") })
+        XCTAssertEqual(body["subject_token"], .string("jwt-token"))
+        XCTAssertEqual(body["federation_rule_id"], .string("fdrl_test"))
+        XCTAssertEqual(body["organization_id"], .string("org-test"))
+        XCTAssertEqual(body["workspace_id"], .string("wrk-test"))
+        XCTAssertEqual(body["service_account_id"], .string("svc-test"))
+
+        final class Box: @unchecked Sendable { var calls = 0; var bodies: [[String: JSONValue]] = []; func record(_ body: [String: JSONValue]) { calls += 1; bodies.append(body) } }
+        let box = Box()
+        await AnthropicMessagesProvider.setFederationTokenTransport { _, body in
+            box.record(body)
+            return ["access_token": .string("federated-access"), "expires_in": .number(3600)]
+        }
+        async let first = AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 1_000)
+        async let second = AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 1_000)
+        let tokens = try await [first, second]
+        XCTAssertEqual(tokens, ["federated-access", "federated-access"])
+        XCTAssertEqual(box.calls, 1)
+        XCTAssertEqual(box.bodies.first?["subject_token"], .string("header.payload.signature"))
+        let cached = try await AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 2_000)
+        XCTAssertEqual(cached, "federated-access")
+        XCTAssertEqual(box.calls, 1)
+        _ = try await AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 3_600_000)
+        XCTAssertEqual(box.calls, 2)
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(messages: [.user("hi")]), apiKey: "Bearer federated-access", options: options)
+        XCTAssertEqual(headers["Authorization"], "Bearer federated-access")
+        XCTAssertNil(headers["X-Api-Key"])
+
+        await AnthropicMessagesProvider.clearFederationTokenCache()
+        await AnthropicMessagesProvider.setFederationTokenTransport { _, _ in ["expires_in": .number(3600)] }
+        do {
+            _ = try await AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 1_000)
+            XCTFail("missing access_token should throw")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("access_token"))
+            XCTAssertFalse(String(describing: error).contains("header.payload.signature"))
+        }
+        await AnthropicMessagesProvider.clearFederationTokenCache()
+        await AnthropicMessagesProvider.setFederationTokenTransport { _, _ in throw AIError.provider("exchange failed") }
+        do {
+            _ = try await AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 1_000)
+            XCTFail("transport error should throw")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("exchange failed"))
+            XCTAssertFalse(String(describing: error).contains("header.payload.signature"))
+        }
+
+        let strictTool = Tool(name: "lookup", description: "Lookup", parameters: .object([
+            "type": .string("object"),
+            "properties": .object(["query": .object(["type": .string("string")]), "limit": .object(["type": .string("number")])]),
+            "required": .array([.string("query")])
+        ]), constrainedSampling: .jsonSchema(strict: "prefer"))
+        let bodyStrict = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [strictTool]), options: nil)
+        guard case .array(let tools)? = bodyStrict["tools"], case .object(let toolJSON) = tools.first, case .object(let schema)? = toolJSON["input_schema"] else { return XCTFail("missing strict tool") }
+        XCTAssertEqual(toolJSON["strict"], .bool(true))
+        XCTAssertEqual(schema["additionalProperties"], .bool(false))
+        XCTAssertEqual(schema["required"], .array([.string("limit"), .string("query")]))
+        XCTAssertNotNil(schema["properties"]?.objectValue?["limit"]?.objectValue?["anyOf"])
+        XCTAssertEqual(toolJSON["eager_input_streaming"], .bool(true))
+        let unsupportedPrefer = Tool(name: "prefer", description: "Prefer", parameters: .object([
+            "type": .string("object"),
+            "properties": .object(["count": .object(["type": .string("integer"), "minimum": .number(1)])])
+        ]), constrainedSampling: .jsonSchema(strict: "prefer"))
+        XCTAssertNoThrow(try ContextUtilities.makeStrictJSONSchema(unsupportedPrefer.parameters), "OpenAI/generic strict schema still accepts numeric bounds")
+        let preferBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [unsupportedPrefer]), options: nil)
+        guard case .array(let preferTools)? = preferBody["tools"], case .object(let preferTool)? = preferTools.first else { return XCTFail("missing prefer tool") }
+        XCTAssertNil(preferTool["strict"])
+        XCTAssertEqual(preferTool["input_schema"]?.objectValue?["properties"]?.objectValue?["count"]?.objectValue?["minimum"], .number(1))
+        let unsupportedArrayPrefer = Tool(name: "prefer_array", description: "Prefer array", parameters: .object([
+            "type": .string("object"),
+            "properties": .object(["items": .object(["type": .string("array"), "minItems": .number(2), "items": .object(["type": .string("string")])])])
+        ]), constrainedSampling: .jsonSchema(strict: "prefer"))
+        let arrayBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [unsupportedArrayPrefer]), options: nil)
+        guard case .array(let arrayTools)? = arrayBody["tools"], case .object(let arrayTool)? = arrayTools.first else { return XCTFail("missing array prefer tool") }
+        XCTAssertNil(arrayTool["strict"])
+        XCTAssertEqual(arrayTool["input_schema"]?.objectValue?["properties"]?.objectValue?["items"]?.objectValue?["minItems"], .number(2))
+        let unsupportedFormatPrefer = Tool(name: "prefer_format", description: "Prefer format", parameters: .object([
+            "type": .string("object"),
+            "properties": .object(["pattern": .object(["type": .string("string"), "format": .string("regex")])])
+        ]), constrainedSampling: .jsonSchema(strict: "prefer"))
+        let formatBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [unsupportedFormatPrefer]), options: nil)
+        guard case .array(let formatTools)? = formatBody["tools"], case .object(let formatTool)? = formatTools.first else { return XCTFail("missing format prefer tool") }
+        XCTAssertNil(formatTool["strict"])
+        XCTAssertEqual(formatTool["input_schema"]?.objectValue?["properties"]?.objectValue?["pattern"]?.objectValue?["format"], .string("regex"))
+        let supportedAnthropic = Tool(name: "supported", description: "Supported", parameters: .object([
+            "type": .string("object"),
+            "properties": .object(["url": .object(["type": .string("string"), "format": .string("uri")]), "tags": .object(["type": .string("array"), "minItems": .number(1), "items": .object(["type": .string("string")])])])
+        ]), constrainedSampling: .jsonSchema(strict: "prefer"))
+        let supportedBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [.user("hi")], tools: [supportedAnthropic]), options: nil)
+        guard case .array(let supportedTools)? = supportedBody["tools"], case .object(let supportedTool)? = supportedTools.first else { return XCTFail("missing supported strict tool") }
+        XCTAssertEqual(supportedTool["strict"], .bool(true))
+        XCTAssertTrue(String(describing: supportedTool["input_schema"] ?? .null).contains("uri"))
+        XCTAssertTrue(String(describing: supportedTool["input_schema"] ?? .null).contains("minItems"))
+        let unsupportedRequire = Tool(name: "require", description: "Require", parameters: unsupportedPrefer.parameters, constrainedSampling: .jsonSchema(strict: "require"))
+        XCTAssertThrowsError(try AnthropicMessagesProvider.validateConstrainedSampling(tools: [unsupportedRequire])) { error in
+            XCTAssertTrue(String(describing: error).contains("requires JSON-schema constrained sampling"))
+        }
+        var compat = AnthropicMessagesCompat(); compat.supportsEagerToolInputStreaming = false
+        let legacy = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, anthropicCompat: compat)
+        let legacyHeaders = AnthropicMessagesProvider.buildRequestHeaders(model: legacy, context: AIContext(messages: [.user("hi")], tools: [strictTool]), apiKey: "key", options: nil)
+        XCTAssertTrue(legacyHeaders["Anthropic-Beta"]?.contains("fine-grained-tool-streaming") == true)
+        let legacyBody = AnthropicMessagesProvider.buildRequestBody(model: legacy, context: AIContext(messages: [.user("hi")], tools: [strictTool]), options: nil)
+        guard case .array(let legacyTools)? = legacyBody["tools"], case .object(let legacyTool)? = legacyTools.first else { return XCTFail("missing legacy tool") }
+        XCTAssertNil(legacyTool["eager_input_streaming"])
+    }
+
+    func testV0992RetryAfterFallbackAndZAICNOverflow() throws {
+        let invalid = ProviderRetryError(status: 429, headers: ["Retry-After": "not-a-date"], message: "rate limited")
+        XCTAssertEqual(try ProviderRetry.retryDelayMilliseconds(invalid, retryIndex: 0, maxRetryDelayMs: 60_000), 500)
+        let nonFinite = ProviderRetryError(status: 429, headers: ["Retry-After-Ms": "inf"], message: "rate limited")
+        XCTAssertEqual(try ProviderRetry.retryDelayMilliseconds(nonFinite, retryIndex: 1, maxRetryDelayMs: 60_000), 1000)
+        var msg = Message(role: .assistant, content: [])
+        msg.stopReason = .error
+        msg.errorMessage = "Z.AI API error: prompt tokens exceed model context window"
+        XCTAssertTrue(ContextUtilities.isContextOverflow(msg, contextWindow: 131_072))
+    }
+
 }

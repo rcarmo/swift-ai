@@ -24,12 +24,12 @@ final class ClassifierRegistryTests: XCTestCase {
         await SwiftAI.bootstrap()
     }
 
-    func testBuiltinClassifierCatalogMatchesV0991Oracle() throws {
-        XCTAssertEqual(BuiltinClassifierModels.upstreamVersion, "0.99.1")
-        XCTAssertEqual(BuiltinClassifierModels.modelCount, 12)
+    func testBuiltinClassifierCatalogMatchesV0992Oracle() throws {
+        XCTAssertEqual(BuiltinClassifierModels.upstreamVersion, "0.99.2")
+        XCTAssertEqual(BuiltinClassifierModels.modelCount, 15)
         XCTAssertEqual(BuiltinClassifierModels.providerCount, 5)
         let models = try BuiltinClassifierModels.all()
-        XCTAssertEqual(models.count, 12)
+        XCTAssertEqual(models.count, 15)
         XCTAssertEqual(Set(models.map(\.api)), [.typeSafeSystemOne, .cloudflareWorkersAISystemOne])
         XCTAssertEqual(Set(models.map(\.provider)), [ClassifierProvider.typesafe, .cloudflareWorkersAI, .openRouter, .vercelAIGateway, .openCode])
 

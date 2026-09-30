@@ -4,6 +4,8 @@ import FoundationNetworking
 #endif
 
 public enum AnthropicMessagesProvider {
+    public typealias FederationTokenTransport = @Sendable (_ request: URLRequest, _ body: [String: JSONValue]) async throws -> [String: JSONValue]
+    private static let federationState = AnthropicFederationTokenState()
     private static let apiVersion = "2023-06-01"
     private static let interleavedThinkingBeta = "interleaved-thinking-2025-05-14"
     private static let fineGrainedToolStreamingBeta = "fine-grained-tool-streaming-2025-05-14"
@@ -55,6 +57,59 @@ public enum AnthropicMessagesProvider {
         return body
     }
 
+    public static func setFederationTokenTransport(_ transport: FederationTokenTransport?) async { await federationState.setTransport(transport) }
+    public static func clearFederationTokenCache() async { await federationState.clear() }
+
+    public static func workloadIdentityFederationConfig(model: Model, options: StreamOptions?) -> [String: String]? {
+        guard model.provider == .anthropic else { return nil }
+        if let apiKey = options?.apiKey, !apiKey.isEmpty { return nil }
+        let headers = AIUtilities.mergeProviderHeaders(model.headers, override: options?.headers)
+        if AIUtilities.hasHeader(headers?.mapValues { Optional($0) }, "authorization") || AIUtilities.hasHeader(headers?.mapValues { Optional($0) }, "x-api-key") || AIUtilities.hasHeader(headers?.mapValues { Optional($0) }, "cf-aig-authorization") { return nil }
+        let env = options?.env
+        guard let rule = ProviderEnvironment.value("ANTHROPIC_FEDERATION_RULE_ID", env: env), !rule.isEmpty,
+              let org = ProviderEnvironment.value("ANTHROPIC_ORGANIZATION_ID", env: env), !org.isEmpty,
+              let tokenFile = ProviderEnvironment.value("ANTHROPIC_IDENTITY_TOKEN_FILE", env: env), !tokenFile.isEmpty else { return nil }
+        var out = ["ruleId": rule, "organizationId": org, "identityTokenFile": tokenFile]
+        if let workspace = ProviderEnvironment.value("ANTHROPIC_WORKSPACE_ID", env: env), !workspace.isEmpty { out["workspaceId"] = workspace }
+        if let serviceAccount = ProviderEnvironment.value("ANTHROPIC_SERVICE_ACCOUNT_ID", env: env), !serviceAccount.isEmpty { out["serviceAccountId"] = serviceAccount }
+        return out
+    }
+
+    public static func federationCacheKey(model: Model, config: [String: String]) -> String {
+        [model.baseUrl, config["ruleId"] ?? "", config["organizationId"] ?? "", config["workspaceId"] ?? "", config["serviceAccountId"] ?? "", config["identityTokenFile"] ?? ""].joined(separator: "\u{0}")
+    }
+
+    public static func federationTokenRequest(model: Model, config: [String: String], identityToken: String) throws -> (URLRequest, [String: JSONValue]) {
+        let url = URL(string: normalizeBaseURL(model.baseUrl) + "/oauth/token")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(AIUtilities.piUserAgent(), forHTTPHeaderField: "User-Agent")
+        var body: [String: JSONValue] = [
+            "grant_type": .string("urn:ietf:params:oauth:grant-type:token-exchange"),
+            "subject_token_type": .string("urn:ietf:params:oauth:token-type:jwt"),
+            "subject_token": .string(identityToken),
+            "federation_rule_id": .string(config["ruleId"] ?? ""),
+            "organization_id": .string(config["organizationId"] ?? "")
+        ]
+        if let workspace = config["workspaceId"] { body["workspace_id"] = .string(workspace) }
+        if let serviceAccount = config["serviceAccountId"] { body["service_account_id"] = .string(serviceAccount) }
+        return (request, body)
+    }
+
+    public static func resolveFederationAccessToken(model: Model, options: StreamOptions?, nowMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)) async throws -> String? {
+        guard let config = workloadIdentityFederationConfig(model: model, options: options) else { return nil }
+        let key = federationCacheKey(model: model, config: config)
+        guard let path = config["identityTokenFile"], let identityToken = try? String(contentsOfFile: path, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines), !identityToken.isEmpty else { throw AIError.provider("missing Anthropic federation identity token") }
+        return try await federationState.accessToken(key: key, nowMs: nowMs) { transport in
+            let (request, body) = try federationTokenRequest(model: model, config: config, identityToken: identityToken)
+            let response = try await transport(request, body)
+            guard let access = response["access_token"]?.stringValue, !access.isEmpty else { throw AIError.provider("Anthropic federation token response missing access_token") }
+            let expires = Int64((response["expires_in"]?.doubleValue ?? 3600) * 1000)
+            return (access, nowMs + max(0, expires))
+        }
+    }
+
     public static func buildRequestHeaders(model: Model, context: AIContext, apiKey key: String, options: StreamOptions?) -> [String: String] {
         var headers: [String: String] = ["Content-Type": "application/json", "Accept": "text/event-stream", "Anthropic-Version": apiVersion, "User-Agent": AIUtilities.piUserAgent()]
         if model.provider == .githubCopilot {
@@ -83,10 +138,13 @@ public enum AnthropicMessagesProvider {
     }
 
     private static func streamRequest(model: Model, context: AIContext, options: StreamOptions?, continuation: AsyncStream<AIEvent>.Continuation) async throws {
-        guard let key = ProviderEnvironment.resolveAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
+        let resolvedKey = ProviderEnvironment.resolveAPIKey(model: model, options: options)
+        let federationKey = try await resolveFederationAccessToken(model: model, options: options).map { "Bearer \($0)" }
+        guard let key = resolvedKey ?? federationKey, !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
         var request = URLRequest(url: URL(string: normalizeBaseURL(model.baseUrl) + "/messages")!)
         request.httpMethod = "POST"
         for (k, v) in buildRequestHeaders(model: model, context: context, apiKey: key, options: options) { request.setValue(v, forHTTPHeaderField: k) }
+        try validateConstrainedSampling(tools: context.tools)
         var payload = buildRequestBody(model: model, context: context, options: options)
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)
@@ -351,7 +409,47 @@ public enum AnthropicMessagesProvider {
         return messages
     }
 
-    private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, deferred: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue { var obj: [String: JSONValue] = ["name": .string(isOAuthToken ? toClaudeCodeName(tool.name) : tool.name), "description": .string(tool.description), "input_schema": tool.parameters]; if deferred { obj["defer_loading"] = .bool(true) }; if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }; if let cacheControl { obj["cache_control"] = cacheControl }; return .object(obj) }
+    public static func validateConstrainedSampling(tools: [Tool]?) throws {
+        for tool in tools ?? [] where tool.constrainedSampling?.type == "json_schema" && tool.constrainedSampling?.strict == "require" {
+            do { _ = try makeAnthropicStrictJSONSchema(tool.parameters) }
+            catch { throw AIError.provider("Tool \"\(tool.name)\" requires JSON-schema constrained sampling, but Anthropic strict schema conversion failed.") }
+        }
+    }
+
+    public static func makeAnthropicStrictJSONSchema(_ schema: JSONValue) throws -> JSONValue {
+        try rejectAnthropicUnsupportedStrictKeywords(schema)
+        return try ContextUtilities.makeStrictJSONSchema(schema)
+    }
+
+    private static func rejectAnthropicUnsupportedStrictKeywords(_ schema: JSONValue) throws {
+        switch schema {
+        case .object(let object):
+            let unsupported = ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "maxItems", "uniqueItems", "minProperties", "maxProperties"]
+            for key in unsupported where object[key] != nil { throw AIError.provider("unsupported Anthropic strict schema keyword: \(key)") }
+            if case .number(let minItems)? = object["minItems"], minItems > 1 { throw AIError.provider("unsupported Anthropic strict schema keyword: minItems") }
+            if object["format"] == .string("regex") { throw AIError.provider("unsupported Anthropic strict schema format: regex") }
+            for value in object.values { try rejectAnthropicUnsupportedStrictKeywords(value) }
+        case .array(let values):
+            for value in values { try rejectAnthropicUnsupportedStrictKeywords(value) }
+        default:
+            return
+        }
+    }
+
+    private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, deferred: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue {
+        var schema = tool.parameters
+        var strict = false
+        if tool.constrainedSampling?.type == "json_schema", let strictSchema = try? makeAnthropicStrictJSONSchema(tool.parameters) {
+            schema = strictSchema
+            strict = true
+        }
+        var obj: [String: JSONValue] = ["name": .string(isOAuthToken ? toClaudeCodeName(tool.name) : tool.name), "description": .string(tool.description), "input_schema": schema]
+        if strict { obj["strict"] = .bool(true) }
+        if deferred { obj["defer_loading"] = .bool(true) }
+        if model.anthropicCompat?.supportsEagerToolInputStreaming != false { obj["eager_input_streaming"] = .bool(true) }
+        if let cacheControl { obj["cache_control"] = cacheControl }
+        return .object(obj)
+    }
     private static func deferredToolPlan(model: Model, context: AIContext, isOAuthToken: Bool) -> (tools: [(tool: Tool, deferred: Bool)], markers: [Int64: [String]]) {
         let rawTools = context.tools ?? []
         var toolsByKey: [String: Tool] = [:]
@@ -399,3 +497,33 @@ private struct AnthropicContentBlockStart: Decodable { var index: Int; var conte
 private struct AnthropicContentBlockDelta: Decodable { var index: Int; var delta: Delta; struct Delta: Decodable { var type: String; var text: String?; var thinking: String?; var partialJSON: String?; enum CodingKeys: String, CodingKey { case type, text, thinking; case partialJSON = "partial_json" } } }
 private struct AnthropicContentBlockStop: Decodable { var index: Int }
 private struct AnthropicMessageDelta: Decodable { var delta: Delta; var usage: AnthropicUsage?; var inputTransformations: [JSONValue]?; enum CodingKeys: String, CodingKey { case delta, usage; case inputTransformations = "input_transformations" }; struct Delta: Decodable { var stopReason: String?; var stopDetails: StopDetails?; enum CodingKeys: String, CodingKey { case stopReason = "stop_reason"; case stopDetails = "stop_details" }; struct StopDetails: Decodable { var explanation: String? } } }
+
+private actor AnthropicFederationTokenState {
+    private var transport: AnthropicMessagesProvider.FederationTokenTransport?
+    private var cache: [String: (accessToken: String, expiresAtMs: Int64)] = [:]
+    private var inFlight: [String: Task<(String, Int64), Error>] = [:]
+
+    func setTransport(_ transport: AnthropicMessagesProvider.FederationTokenTransport?) { self.transport = transport }
+    func clear() { cache.removeAll(); inFlight.removeAll(); transport = nil }
+
+    func accessToken(key: String, nowMs: Int64, fetch: @escaping @Sendable (AnthropicMessagesProvider.FederationTokenTransport) async throws -> (String, Int64)) async throws -> String {
+        if let cached = cache[key], cached.expiresAtMs - nowMs > 60_000 { return cached.accessToken }
+        if let task = inFlight[key] {
+            let (token, expiry) = try await task.value
+            cache[key] = (token, expiry)
+            return token
+        }
+        guard let transport else { throw AIError.provider("Anthropic federation token transport is not configured") }
+        let task = Task { try await fetch(transport) }
+        inFlight[key] = task
+        do {
+            let (token, expiry) = try await task.value
+            cache[key] = (token, expiry)
+            inFlight.removeValue(forKey: key)
+            return token
+        } catch {
+            inFlight.removeValue(forKey: key)
+            throw error
+        }
+    }
+}

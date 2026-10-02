@@ -75,9 +75,10 @@
   },
   "usageDocumentation": "docs/USAGE.md",
   "validation": {
-    "latestStaticCheck": "pending v1.0.0 local runtime/classifier validation; no commit/push/tag/release authorized",
+    "latestStaticCheck": "completed v1.0.0 runtime 7e7e2de2495c646857369d6ac63cb64a5bced5a6; CI 36975868783 successful; native v1.0.0 and upstream-v1.0.0 published",
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test",
-    "swiftToolchainUnavailableInContainer": true
+    "swiftToolchainUnavailableInContainer": false,
+    "swiftToolchain": "local /home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift (6.3.2); hosted ubuntu Swift 6.4"
   }
 }

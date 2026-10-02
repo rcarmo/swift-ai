@@ -9,7 +9,7 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 - Current upstream tag commit: `a13d35a742c6ef8462812a28fbe1d8c8b7431c32`
 - Verified npm tarball SHA-256: `f39b99c29b8598f175b10840e5d2a81983e7c0ce5cae4d7df83a1007447d2c2b`
 - Swift parity branch: `main`
-- Current Swift v1.0.0 runtime/classifier candidate: local only, no commit/push/tag/release authorized.
+- Current Swift v1.0.0 runtime/classifier release: completed; runtime commit `7e7e2de2495c646857369d6ac63cb64a5bced5a6`, native `v1.0.0`, and upstream alias `upstream-v1.0.0` are published and verified.
 - Accepted rollback runtime: v0.99.2 commit `379018acd61375462d02a971e5283be6b009d33e`.
 
 ## Exact upstream delta
@@ -92,9 +92,20 @@ Hosted CI/SHA-specific SBOM evidence is pending. No v1.0.0 commit/push/tag/relea
 - SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for accepted releases are version-pinned under `upstream-vX.Y.Z` and published by the manual SBOM release workflow after validation.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
 
-## v1.0.0 runtime candidate evidence
+## v1.0.0 runtime evidence
 
-Runtime candidate SHA, hosted CI, and SHA-specific clean-tree SBOM evidence are pending. Publication is blocked until auditor acceptance of the exact pushed runtime SHA. Local dirty-tree validation is in progress.
+Accepted runtime commit: `7e7e2de2495c646857369d6ac63cb64a5bced5a6` (`Port pi-ai v1.0.0 and align classifier contract`). Parent/rollback lineage: `4dc7db8f4e9f68488f65f785e8abea29f53cf8f7` docs/status head after v0.99.2, with accepted v0.99.2 runtime `379018acd61375462d02a971e5283be6b009d33e`.
+
+- Runtime CI run: <https://github.com/rcarmo/swift-ai/actions/runs/36975868783>
+- Runtime CI jobs: `110739451479` (`static-check`) and `110739451623` (`swift-test (ubuntu-latest)`)
+- Runtime SBOM artifact: `11213542896` / `swift-ai-sbom-7e7e2de2495c646857369d6ac63cb64a5bced5a6`
+- Runtime SBOM archive SHA-256: `6ee0577132499facf1cf5d5253e3f1b6de0fbbb326dfde55ffe256b7bb576f55`
+- Runtime inner SBOM SHA-256: `0f2d015b7ff90e6bce928ba55279fa0eb6e0125b5028b6c2ba09df68ef6a747c`
+- SBOM provenance: root component `swift-ai@1.0.0`; embedded `git.revision=7e7e2de2495c646857369d6ac63cb64a5bced5a6`; `git.dirty=false`; CycloneDX component count `2` (`swift-crypto`, `swift-asn1`); dependency graph has the root edge `swift-ai -> swift-crypto -> swift-asn1` with `3` dependency entries.
+- Security/license: OSV scanner `2.5.1` returned no vulnerabilities; high/critical findings are empty; no waivers; license review passed for `swift-asn1` and `swift-crypto` under approved licenses.
+- Native release: `v1.0.0`, release database ID `401602448`, workflow run `36976441736` (`publish-sbom` job `110741196478`), annotated tag object `0058c94c523539e5869fe10d6e42ea919288eef2` by `Rui Carmo <rui.carmo@gmail.com>` targeting runtime `7e7e2de2495c646857369d6ac63cb64a5bced5a6`; assets `605030772` (`sbom.cdx.json`, digest `sha256:0f2d015b7ff90e6bce928ba55279fa0eb6e0125b5028b6c2ba09df68ef6a747c`) and `605030770` (`sbom.cdx.json.sha256`, digest `sha256:919a78b5e50df1313fd700b72008a54badd85f9e7de3a3c71cca60a475beb855`).
+- Upstream alias release: `upstream-v1.0.0`, release database ID `401604641`, workflow run `36976866533` (`publish-sbom` job `110742466133`), ref targets runtime `7e7e2de2495c646857369d6ac63cb64a5bced5a6`; assets `605037982` (`sbom.cdx.json`, digest `sha256:0f2d015b7ff90e6bce928ba55279fa0eb6e0125b5028b6c2ba09df68ef6a747c`) and `605037981` (`sbom.cdx.json.sha256`, digest `sha256:919a78b5e50df1313fd700b72008a54badd85f9e7de3a3c71cca60a475beb855`).
+- Native and alias SBOM bytes are identical to the accepted hosted runtime artifact. Future `v1.0.0` or `upstream-v1.0.0` references must continue to target runtime `7e7e2de2495c646857369d6ac63cb64a5bced5a6`, not this docs/status receipt head.
 
 ## Accepted v0.99.2 runtime evidence
 

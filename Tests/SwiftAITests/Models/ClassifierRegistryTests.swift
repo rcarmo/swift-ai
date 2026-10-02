@@ -24,8 +24,8 @@ final class ClassifierRegistryTests: XCTestCase {
         await SwiftAI.bootstrap()
     }
 
-    func testBuiltinClassifierCatalogMatchesV0992Oracle() throws {
-        XCTAssertEqual(BuiltinClassifierModels.upstreamVersion, "0.99.2")
+    func testBuiltinClassifierCatalogMatchesV100Oracle() throws {
+        XCTAssertEqual(BuiltinClassifierModels.upstreamVersion, "1.0.0")
         XCTAssertEqual(BuiltinClassifierModels.modelCount, 15)
         XCTAssertEqual(BuiltinClassifierModels.providerCount, 5)
         let models = try BuiltinClassifierModels.all()

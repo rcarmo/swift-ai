@@ -1,10 +1,10 @@
 import Foundation
 
-// Generated from @earendil-works/pi-ai/go-ai v0.99.2 model registry.
-// Source JSON: scripts/classifier-models.v0.99.2.json
+// Generated from @earendil-works/pi-ai/go-ai v1.0.0 model registry.
+// Source JSON: scripts/classifier-models.v1.0.0.json
 
 public enum BuiltinClassifierModels {
-    public static let upstreamVersion = "0.99.2"
+    public static let upstreamVersion = "1.0.0"
     public static let modelCount = 15
     public static let providerCount = 5
 
@@ -73,14 +73,14 @@ aGVSZWFkIjowLCJjYWNoZVdyaXRlIjowLCJpbnB1dCI6MCwib3V0cHV0IjowfSwiaWQiOiJqZXYt
 bGF0ZXN0IiwiaW5wdXQiOlsidGV4dCJdLCJuYW1lIjoiSmV2IiwicHJvdmlkZXIiOiJ0eXBlc2Fm
 ZSIsInR5cGUiOiJjbGFzc2lmaWVyIn0seyJhcGkiOiJ0eXBlc2FmZS1zeXN0ZW0tb25lIiwiYmFz
 ZVVybCI6Imh0dHBzOi8vYWktZ2F0ZXdheS52ZXJjZWwuc2gvdHlwZXNhZmUvdjEiLCJjb250ZXh0
-V2luZG93IjozMjAwMCwiY29zdCI6eyJjYWNoZVJlYWQiOjAsImNhY2hlV3JpdGUiOjAsImlucHV0
-IjowLCJvdXRwdXQiOjB9LCJpZCI6ImxpcXVpZC9kMSIsImlucHV0IjpbInRleHQiXSwibmFtZSI6
-IkxpcXVpZCBkMSIsInByb3ZpZGVyIjoidmVyY2VsLWFpLWdhdGV3YXkiLCJ0eXBlIjoiY2xhc3Np
-ZmllciJ9LHsiYXBpIjoidHlwZXNhZmUtc3lzdGVtLW9uZSIsImJhc2VVcmwiOiJodHRwczovL2Fp
-LWdhdGV3YXkudmVyY2VsLnNoL3R5cGVzYWZlL3YxIiwiY29udGV4dFdpbmRvdyI6MzIwMDAsImNv
-c3QiOnsiY2FjaGVSZWFkIjowLCJjYWNoZVdyaXRlIjowLCJpbnB1dCI6MC4wNDIsIm91dHB1dCI6
-MH0sImlkIjoidHlwZXNhZmUtYWkvamV2IiwiaW5wdXQiOlsidGV4dCJdLCJuYW1lIjoiSmV2Iiwi
-cHJvdmlkZXIiOiJ2ZXJjZWwtYWktZ2F0ZXdheSIsInR5cGUiOiJjbGFzc2lmaWVyIn1d
+V2luZG93Ijo2NTUzNiwiY29zdCI6eyJjYWNoZVJlYWQiOjAsImNhY2hlV3JpdGUiOjAsImlucHV0
+IjowLjA0LCJvdXRwdXQiOjB9LCJpZCI6ImxpcXVpZC9kMSIsImlucHV0IjpbInRleHQiXSwibmFt
+ZSI6IkxpcXVpZCBkMSIsInByb3ZpZGVyIjoidmVyY2VsLWFpLWdhdGV3YXkiLCJ0eXBlIjoiY2xh
+c3NpZmllciJ9LHsiYXBpIjoidHlwZXNhZmUtc3lzdGVtLW9uZSIsImJhc2VVcmwiOiJodHRwczov
+L2FpLWdhdGV3YXkudmVyY2VsLnNoL3R5cGVzYWZlL3YxIiwiY29udGV4dFdpbmRvdyI6MzIwMDAs
+ImNvc3QiOnsiY2FjaGVSZWFkIjowLCJjYWNoZVdyaXRlIjowLCJpbnB1dCI6MC4wNDIsIm91dHB1
+dCI6MH0sImlkIjoidHlwZXNhZmUtYWkvamV2IiwiaW5wdXQiOlsidGV4dCJdLCJuYW1lIjoiSmV2
+IiwicHJvdmlkZXIiOiJ2ZXJjZWwtYWktZ2F0ZXdheSIsInR5cGUiOiJjbGFzc2lmaWVyIn1d
 """#
 
     public static func all() throws -> [ClassifierModel] {

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum ClassifierAPI: String, Codable, Sendable {
     case typeSafeSystemOne = "typesafe-system-one"
@@ -77,6 +80,7 @@ public struct ClassificationContext: Codable, Equatable, Sendable {
     public var state: JSONValue
     public var questions: [String: ClassifierQuestion]
     public init(state: JSONValue, questions: [String: ClassifierQuestion]) { self.state = state; self.questions = questions }
+    public init(stateObject: [String: JSONValue], questions: [String: ClassifierQuestion]) { self.state = .object(stateObject); self.questions = questions }
     public init(input: String, questions: [String: ClassifierQuestion]) { self.state = .string(input); self.questions = questions }
 }
 
@@ -116,6 +120,7 @@ public struct ClassificationResult: Codable, Equatable, Sendable {
 public struct ClassifierResponseMetadata: Codable, Equatable, Sendable { public var status: Int; public var headers: [String: String]; public init(status: Int, headers: [String: String]) { self.status = status; self.headers = headers } }
 
 public struct ClassifierOptions: Sendable {
+    public typealias RequestTransport = @Sendable (URLRequest, RetryPolicy) async throws -> (Data, URLResponse)
     public var apiKey: String?
     public var headers: ProviderHeaders?
     public var timeoutMs: Int?
@@ -124,6 +129,7 @@ public struct ClassifierOptions: Sendable {
     public var metadata: [String: JSONValue]?
     public var env: ProviderEnv?
     public var telemetryContext: TelemetryContext?
+    public var requestTransport: RequestTransport?
     public var onPayload: (@Sendable ([String: JSONValue], ClassifierModel) async throws -> [String: JSONValue])?
     public var onResponse: (@Sendable (ClassifierResponseMetadata, ClassifierModel) async -> Void)?
     public init() {}

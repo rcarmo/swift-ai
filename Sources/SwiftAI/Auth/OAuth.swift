@@ -20,7 +20,8 @@ public struct OAuthLoginCallbacks: Sendable {
     public var onAuth: (@Sendable (OAuthAuthInfo) async -> Void)?
     public var onPrompt: (@Sendable (OAuthPrompt) async throws -> String)?
     public var onProgress: (@Sendable (String) async -> Void)?
-    public init(onAuth: (@Sendable (OAuthAuthInfo) async -> Void)? = nil, onPrompt: (@Sendable (OAuthPrompt) async throws -> String)? = nil, onProgress: (@Sendable (String) async -> Void)? = nil) { self.onAuth = onAuth; self.onPrompt = onPrompt; self.onProgress = onProgress }
+    public var onAuthPrompt: (@Sendable (AuthPrompt) async throws -> String)?
+    public init(onAuth: (@Sendable (OAuthAuthInfo) async -> Void)? = nil, onPrompt: (@Sendable (OAuthPrompt) async throws -> String)? = nil, onProgress: (@Sendable (String) async -> Void)? = nil, onAuthPrompt: (@Sendable (AuthPrompt) async throws -> String)? = nil) { self.onAuth = onAuth; self.onPrompt = onPrompt; self.onProgress = onProgress; self.onAuthPrompt = onAuthPrompt }
 }
 
 public protocol OAuthProvider: Sendable {

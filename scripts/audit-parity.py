@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static parity audit for the SwiftPM registry/runtime surface.
 
-Checks that generated registries match the signed @earendil-works/pi-ai v0.99.1
+Checks that generated registries match the signed @earendil-works/pi-ai v1.0.0
 npm tarball's baked schema-v6 exports and provider-data manifest. This gate is
 toolchain-light and deliberately avoids live catalog hydration.
 """
@@ -16,16 +16,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v0.99.2.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.005af57.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.99.1.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.2.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.005af57.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.1.json"
-CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.2.json"
-UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.005af57.json"
-PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.1.json"
-PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v0.99.2.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v1.0.0.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.a13d35a.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.99.2.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.0.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.a13d35a.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.2.json"
+CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.0.json"
+UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.a13d35a.json"
+PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.2.json"
+PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v1.0.0.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -36,7 +36,7 @@ IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" /
 CLASSIFIER_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ClassifierModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1529
+EXPECTED_TEXT_MODELS = 1532
 EXPECTED_TEXT_PROVIDERS = 41
 EXPECTED_TEXT_APIS = 10
 EXPECTED_IMAGE_MODELS = 57
@@ -45,29 +45,31 @@ EXPECTED_IMAGE_APIS = 1
 EXPECTED_CLASSIFIER_MODELS = 15
 EXPECTED_CLASSIFIER_PROVIDERS = 5
 EXPECTED_CLASSIFIER_APIS = 2
-EXPECTED_TOTAL_MODELS = 1601
+EXPECTED_TOTAL_MODELS = 1604
 EXPECTED_PROVIDER_FILES = 42
 EXPECTED_SCHEMA_VERSION = 6
-EXPECTED_STRUCTURE_HASH = "3e97a64c71ef31a515f668d9fbc653d49b3ece171d88bfd103001e963497661f"
-EXPECTED_TEXT_ADDED = 6
-EXPECTED_TEXT_REMOVED = 0
-EXPECTED_TEXT_CHANGED = 23
+EXPECTED_STRUCTURE_HASH = "235f2f320916ab6b0d7193e0bf66ec7983e9bc05abeddd7264923fb1e7eaf76e"
+EXPECTED_TEXT_ADDED = 5
+EXPECTED_TEXT_REMOVED = 2
+EXPECTED_TEXT_CHANGED = 19
 EXPECTED_IMAGE_ADDED = 0
 EXPECTED_IMAGE_REMOVED = 0
 EXPECTED_IMAGE_CHANGED = 0
-EXPECTED_CLASSIFIER_ADDED = 3
-CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v0.99.2-changed-paths.txt"
-CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v0.99.2-changed-tests.txt"
-TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v0.99.2-test-corpus-basename.txt"
-UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v0.99.2-audit.md"
-UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v0.99.2-test-crosswalk.md"
-EXPECTED_CHANGED_PATHS = 15
-EXPECTED_CHANGED_PATHS_HASH = "53b2c290d902bb8d79c87e035b87c52a13b97617849ea85b51c8e2b11133cc15"
-EXPECTED_CHANGED_TESTS = 6
-EXPECTED_CHANGED_TESTS_HASH = "1ad16f63dc47b019cdcf4fdf7029c86785f4cbac38158e7fb63db963ce9ce66d"
+EXPECTED_CLASSIFIER_ADDED = 0
+EXPECTED_CLASSIFIER_REMOVED = 0
+EXPECTED_CLASSIFIER_CHANGED = 1
+CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v1.0.0-changed-paths.txt"
+CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v1.0.0-changed-tests.txt"
+TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v1.0.0-test-corpus-basename.txt"
+UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v1.0.0-audit.md"
+UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v1.0.0-test-crosswalk.md"
+EXPECTED_CHANGED_PATHS = 8
+EXPECTED_CHANGED_PATHS_HASH = "b8db49581470036b68078ac093dc6b41eaa92222647b14cf44a92b870d54eab4"
+EXPECTED_CHANGED_TESTS = 3
+EXPECTED_CHANGED_TESTS_HASH = "fbe3c63453261a58352b5e238f5f9488f33a13016485c7e3a49cce17bfdaaca2"
 EXPECTED_TEST_CORPUS = 171
 EXPECTED_TEST_CORPUS_HASH = "9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc"
-EXPECTED_CHANGED_TEST_DISPOSITIONS = {"ported": 4, "adapted": 1, "n/a": 1}
+EXPECTED_CHANGED_TEST_DISPOSITIONS = {"ported": 2, "adapted": 1}
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Core/Classifiers.swift",
     "Sources/SwiftAI/Providers/SystemOneClassifierProvider.swift",
@@ -220,7 +222,7 @@ def clean_markdown_code(value: str) -> str:
     return value
 
 
-def validate_changed_test_crosswalk(failures: list[str], crosswalk_text: str | None = None, changed_manifest_text: str | None = None, label: str = "v0.99.2 crosswalk") -> None:
+def validate_changed_test_crosswalk(failures: list[str], crosswalk_text: str | None = None, changed_manifest_text: str | None = None, label: str = "v1.0.0 crosswalk") -> None:
     crosswalk_text = UPSTREAM_CROSSWALK_DOC.read_text() if crosswalk_text is None else crosswalk_text
     changed_manifest_text = CHANGED_TESTS_MANIFEST.read_text() if changed_manifest_text is None else changed_manifest_text
     expected_paths = [line.strip() for line in changed_manifest_text.splitlines() if line.strip()]
@@ -350,19 +352,19 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     text_added, text_removed, text_changed = record_delta_counts(previous_text, text)
     image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
     classifier_added, classifier_removed, classifier_changed = record_delta_counts(previous_classifiers, classifiers)
-    # The v0.99.2 schema-v6 oracle publishes normalized delta counts; enforce those rather than live hydration.
+    # The v1.0.0 schema-v6 oracle publishes normalized delta counts; enforce those rather than live hydration.
     if (text_added, text_removed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED):
-        failures.append(f"v0.99.1..v0.99.2 text id delta: got +{text_added}/-{text_removed}, want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}")
+        failures.append(f"v0.99.2..v1.0.0 text id delta: got +{text_added}/-{text_removed}, want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}")
     # The signed schema-v6 oracle supplies normalized changed-record counts. Swift's
     # reduced legacy image/chat structs intentionally cannot recompute those counts
     # byte-for-byte, so local validation enforces ID deltas, exact snapshots, and
     # manifest hashes, then reports the oracle changed counts.
     text_changed = EXPECTED_TEXT_CHANGED
     if (image_added, image_removed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED):
-        failures.append(f"v0.99.1..v0.99.2 image id delta: got +{image_added}/-{image_removed}, want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}")
+        failures.append(f"v0.99.2..v1.0.0 image id delta: got +{image_added}/-{image_removed}, want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}")
     image_changed = EXPECTED_IMAGE_CHANGED
-    if (classifier_added, classifier_removed, classifier_changed) != (EXPECTED_CLASSIFIER_ADDED, 0, 0):
-        failures.append(f"v0.99.1..v0.99.2 classifier delta: got +{classifier_added}/-{classifier_removed}/{classifier_changed} changed, want +{EXPECTED_CLASSIFIER_ADDED}/-0/0 changed")
+    if (classifier_added, classifier_removed, classifier_changed) != (EXPECTED_CLASSIFIER_ADDED, EXPECTED_CLASSIFIER_REMOVED, EXPECTED_CLASSIFIER_CHANGED):
+        failures.append(f"v0.99.2..v1.0.0 classifier delta: got +{classifier_added}/-{classifier_removed}/{classifier_changed} changed, want +{EXPECTED_CLASSIFIER_ADDED}/-{EXPECTED_CLASSIFIER_REMOVED}/{EXPECTED_CLASSIFIER_CHANGED} changed")
 
     all_generated_raw = text_providers | text_apis | image_providers | image_apis | classifier_providers | classifier_apis
     missing = sorted(all_generated_raw - raw)
@@ -410,9 +412,9 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         if digest != expected_hash:
             failures.append(f"{label} sha256: got {digest}, want {expected_hash}")
     if UPSTREAM_AUDIT_DOC.exists() and markdown_table_data_rows(UPSTREAM_AUDIT_DOC) != EXPECTED_CHANGED_PATHS:
-        failures.append(f"v0.99.2 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
+        failures.append(f"v1.0.0 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
     if UPSTREAM_CROSSWALK_DOC.exists() and markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC) != EXPECTED_TEST_CORPUS:
-        failures.append(f"v0.99.2 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
+        failures.append(f"v1.0.0 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
     if UPSTREAM_CROSSWALK_DOC.exists() and CHANGED_TESTS_MANIFEST.exists():
         validate_changed_test_crosswalk(failures)
 
@@ -450,6 +452,8 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         "image_removed": EXPECTED_IMAGE_REMOVED,
         "image_changed": EXPECTED_IMAGE_CHANGED,
         "classifier_added": classifier_added,
+        "classifier_removed": classifier_removed,
+        "classifier_changed": classifier_changed,
     }
     return failures, summary
 
@@ -496,7 +500,7 @@ def main() -> int:
         f"{summary['classifier_models']} classifier models / {summary['classifier_providers']} providers / {summary['classifier_apis']} APIs; "
         f"text delta +{summary['text_added']}/-{summary['text_removed']}/{summary['text_changed']} changed; "
         f"image delta +{summary['image_added']}/-{summary['image_removed']}/{summary['image_changed']} changed; "
-        f"classifier delta +{summary['classifier_added']}" + suffix
+        f"classifier delta +{summary['classifier_added']}/-{summary['classifier_removed']}/{summary['classifier_changed']} changed" + suffix
     )
     return 0
 

@@ -1,89 +1,87 @@
-# Release parity record
+# Release status
 
-This file is the durable release-audit ledger for `swift-ai`. It must be updated as part of every future upstream `@earendil-works/pi-ai` release parity commit before the work is reported complete.
+This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
-## Current upstream parity baseline
+## Current target
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v0.99.2`
-- Current upstream tag commit: `005af57d88ee23b33778f343a9595b32e67ff788`
-- Published: `2026-09-30T19:25:25.472Z`
-- Previous accepted upstream release: `v0.99.1`
-- Previous accepted upstream tag commit: `d86654abb8862e201933517d6f1fce9f88dd117f`
-- Previous accepted Swift runtime baseline: `dc549fe0709128c73d9d8f8f2d5a031c1a6b6482`
-- Previous accepted Swift README documentation commit: `40c823a064f83c676513e17926ebaa28c624228e`
-- Previous accepted Swift evidence documentation commit: `7149ae964cec4adc869d89ef0137d7bf2669837c`
-- Verified npm artifact SHA-256: `0b3df8791b488216f309d908789294a744bb61bbaad123d94098e56df9538d25`
-- Verified npm artifact SHA-512: `f958152090e40ced9e7d824a104aaf3d31f8ce69c8697740a6919b3bebca140f6acb93dd8458807a7b8502453ea220927ce0b874c1c3cab8dd41e2f86680b909`
+- Current upstream release: `v1.0.0`
+- Current upstream tag commit: `a13d35a742c6ef8462812a28fbe1d8c8b7431c32`
+- Verified npm tarball SHA-256: `f39b99c29b8598f175b10840e5d2a81983e7c0ce5cae4d7df83a1007447d2c2b`
 - Swift parity branch: `main`
-- Current Swift parity runtime candidate for v0.99.2: pending commit.
-- Runtime v0.99.2 candidate is in progress; publication/tag/release is blocked until exact-SHA hosted runtime acceptance. v0.99.1/v0.87.x/v0.85.x evidence remains preserved below.
+- Current Swift v1.0.0 runtime/classifier candidate: local only, no commit/push/tag/release authorized.
+- Accepted rollback runtime: v0.99.2 commit `379018acd61375462d02a971e5283be6b009d33e`.
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from accepted v0.99.1 `d86654abb8862e201933517d6f1fce9f88dd117f` to v0.99.2 `005af57d88ee23b33778f343a9595b32e67ff788`.
+Release-only audit scope: `packages/ai` diff from accepted v0.99.2 `005af57d88ee23b33778f343a9595b32e67ff788` to v1.0.0 `a13d35a742c6ef8462812a28fbe1d8c8b7431c32`.
 
-Exact changed-path count: **15**. Changed-path manifest hash: `53b2c290d902bb8d79c87e035b87c52a13b97617849ea85b51c8e2b11133cc15`. Source/package diff: `+726/-77`; status classes: `4A/11M`.
+Exact changed-path count: **8**. Changed-path manifest hash: `b8db49581470036b68078ac093dc6b41eaa92222647b14cf44a92b870d54eab4`. Source/package diff: `+192/-14`; status classes: `8M`.
 
-Changed executable upstream tests: **6**, manifest hash `1ad16f63dc47b019cdcf4fdf7029c86785f4cbac38158e7fb63db963ce9ce66d`. Final executable upstream test corpus: **171** basename rows, manifest hash `9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc`.
+Changed executable upstream tests: **3**, manifest hash `fbe3c63453261a58352b5e238f5f9488f33a13016485c7e3a49cce17bfdaaca2`. Final executable upstream test corpus: **171** basename rows, manifest hash `9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc`.
 
-The detailed disposition matrix is in [`docs/upstream-v0.99.2-audit.md`](docs/upstream-v0.99.2-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v0.99.2-test-crosswalk.md`](docs/upstream-v0.99.2-test-crosswalk.md) and is fail-closed validated: 6 unique changed rows, dispositions `4 ported / 1 adapted / 1 N/A / 0 live-only / 0 pending`.
+The detailed disposition matrix is in [`docs/upstream-v1.0.0-audit.md`](docs/upstream-v1.0.0-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v1.0.0-test-crosswalk.md`](docs/upstream-v1.0.0-test-crosswalk.md) and is fail-closed validated: 3 unique changed rows, dispositions `2 ported / 1 adapted / 0 pending`.
 
 ## Exact catalog parity
 
 Signed npm tarball schema-v6 oracle:
 
-- Provider-data manifest: schema `6`, provider files `42`, structure hash `3e97a64c71ef31a515f668d9fbc653d49b3ece171d88bfd103001e963497661f`.
-- Chat snapshot: `scripts/models.v0.99.2.json` / exact upstream comparator `scripts/upstream-models.005af57.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`; **1529 models / 41 providers / 10 APIs**.
-- Image snapshot: `scripts/image-models.v0.99.2.json` / exact upstream comparator `scripts/upstream-image-models.005af57.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`; **57 models / 1 provider / 1 API**.
-- Classifier snapshot: `scripts/classifier-models.v0.99.2.json` / exact upstream comparator `scripts/upstream-classifier-models.005af57.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ClassifierModelsGenerated.swift`; **15 models / 5 providers / 2 APIs**.
-- Normalized deltas vs accepted v0.99.1: chat `+6/-0/23 changed`, image `+0/-0/0 changed`, classifier `+3`.
+- Provider-data manifest: schema `6`, provider files `42`, structure hash `235f2f320916ab6b0d7193e0bf66ec7983e9bc05abeddd7264923fb1e7eaf76e`.
+- Chat snapshot: `scripts/models.v1.0.0.json` / exact upstream comparator `scripts/upstream-models.a13d35a.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`; **1532 models / 41 providers / 10 APIs**.
+- Image snapshot: `scripts/image-models.v1.0.0.json` / exact upstream comparator `scripts/upstream-image-models.a13d35a.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`; **57 models / 1 provider / 1 API**.
+- Classifier snapshot: `scripts/classifier-models.v1.0.0.json` / exact upstream comparator `scripts/upstream-classifier-models.a13d35a.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ClassifierModelsGenerated.swift`; **15 models / 5 providers / 2 APIs**.
+- Normalized deltas vs accepted v0.99.2: chat `+5/-2/19 changed`, image `+0/-0/0 changed`, classifier `+0/-0/1 changed`.
 
 Expected comparator output:
 
 ```text
-ok: 1529 chat models / 41 providers / 10 APIs; 57 image models / 1 providers / 1 APIs; 15 classifier models / 5 providers / 2 APIs; text delta +6/-0/23 changed; image delta +0/-0/0 changed; classifier delta +3
+ok: 1532 chat models / 41 providers / 10 APIs; 57 image models / 1 providers / 1 APIs; 15 classifier models / 5 providers / 2 APIs; text delta +5/-2/19 changed; image delta +0/-0/0 changed; classifier delta +0/-0/1 changed
 ```
 
-## Swift implementation, adaptations, and N/A decisions
+## Swift implementation, adaptations, and separate follow-up scope
 
-Implemented/adapted:
+Implemented/adapted in the v1.0.0 local candidate:
 
-- Regenerated v0.99.2 chat, image, and classifier catalogs from the verified signed npm artifact; live catalog hydration remains excluded.
-- Added deterministic Anthropic workload identity federation primitives and actor-isolated token transport/cache behavior, including explicit auth precedence, token exchange body/header handling, cache reuse/expiry, failure propagation, concurrent coalescing, and reset hooks.
-- Added Anthropic-only strict schema compatibility wrapper while preserving generic/OpenAI/Bedrock strict schema behavior; `prefer` falls back non-strict for Anthropic-unsupported constraints and `require` fails closed.
-- Preserved eager tool input compatibility and legacy fine-grained-tool-streaming beta behavior.
-- Ported Z.AI CN overflow detection and invalid/non-finite `Retry-After` fallback behavior with dedicated deterministic tests.
+- Regenerated v1.0.0 chat, image, and classifier catalogs from the verified signed npm artifact; live catalog hydration remains excluded.
+- Ported OpenAI Responses grammar replay so one capability/transcript-resolved grammar map drives tool declarations, assistant replay items and tool-result outputs.
+- Preserved function-call foreign ID normalization while dropping foreign/different-model custom grammar item IDs against the expected `ctc_` prefix.
+- Ported Anthropic OAuth browser/copy-code selection through an additive Swift auth prompt adapter, exact upstream constants, JSON token POST/refresh bodies, parser/state behavior, cancellation checkpoints and request/response secret redaction.
+- Kept OAuth callback browser-page SVG branding as N/A/adapted because this Swift package has a callback decision utility but no bound page renderer; no server/renderer was introduced solely for branding.
 
-N/A/adapted/live-only:
+Separate classifier contract follow-up, included in this local candidate but distinct from the 8-path upstream delta:
 
-- Anthropic JS SDK constructor/default credential-chain mechanics are adapted/N/A with Swift architecture evidence; Swift uses deterministic provider primitives rather than SDK default credential discovery.
-- Live workload identity credentials/network remain live-only and are not used to hide deterministic gaps.
-- JS `./models` export entry is N/A for SwiftPM; static manifest/source layout checks cover Swift package surface.
+- Enforces System One object-state wire contract with a new object-safe initializer while preserving the public `JSONValue` state API.
+- Preserves `bool -> noul` wire mapping and public bool probability output.
+- Requires bool criteria to include both `true` and `false` for System One wire requests.
+- Requires finite choice probabilities/confidence and finite score/confidence.
+- Parses usage before answer semantics and preserves valid billed usage on structurally valid JSON with semantic answer errors.
+- Treats malformed usage as optional and ignored; fractional/out-of-range usage and total-token overflow do not trap.
+- Native Foundation/Swift `Double` cannot represent whole-body JSON numeric overflow such as `1e400`; those syntactically valid JavaScript-number bodies fail Swift whole-JSON decode and intentionally return stable error/no hook/no usage as a documented native adaptation rather than partial billing recovery.
+- Implements deterministic production classify transport for TypeSafe and Cloudflare envelopes through `SwiftAI.classify`, existing retry/cancel/header/env/hook patterns, option-scoped request transport injection, case-insensitive header nil suppression, timestamping, and absolute HTTP(S) URL validation.
+- Llama classifier provider remains outside the current two-API Swift surface and is N/A for this lane.
+
+Durable execution support requested after this lane is intentionally not part of this candidate and must remain a separate future feature.
 
 ## Tests and gates
 
-Local validation for v0.99.2 parity work uses Swift `6.3.2`; heavy Swift gates must run under nice `10` with `-j 2`.
+Local validation for v1.0.0 parity work uses Swift `6.3.2`; heavy Swift gates must run under nice `10` with `-j 2`.
 
-Focused v0.99.2 blocker gate already passed:
+Final local gates passed for the current local candidate:
 
-- `ProviderMetadataTests.testV0992AnthropicFederationAndStrictToolBehavior`: passed.
-- `ProviderMetadataTests.testV0992RetryAfterFallbackAndZAICNOverflow`: passed.
+- Focused auditor/runtime filter covering Anthropic OAuth, Responses grammar replay, and System One classifier: `14` auditor-filter tests / `0` failures independently; local broader focused filter: `15` tests / `0` failures (`.artifacts/v1.0.0-validation/focused-runtime-classifier-final.log`).
+- `nice -n 10 swift build -j 2 -Xswiftc -warnings-as-errors`: passed using `/home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift` (`6.3.2`) with no warnings (`final-swift-build-warnings-as-errors.log`).
+- `nice -n 10 swift test -j 2`: `299` tests, `0` failures (`final-swift-test-full.log`).
+- Deterministic repeats before final doc-only ledger updates: `nice -n 10 swift test -j 2` ×2 passed, `295` tests / `0` failures each (`swift-test-deterministic-1.log`, `swift-test-deterministic-2.log`).
+- `nice -n 10 make check MAKEFLAGS=-j2`: passed static checks, SBOM generation/check/scan, warnings-as-errors build, and full tests (`final-make-check.log`).
+- `nice -n 10 make sbom-check`: passed; local dirty-tree SBOM SHA-256 `e8f92d7c04ead6f3e8601f7cb8aaf0c07d716eb872932ee0e53126e977233736`; OSV and license checks passed with `2` components (`corrections-make-sbom-check.log`).
+- `python3 scripts/audit-parity.py`: passed exact full-record text/image/classifier comparators (`final-audit-parity.log`).
+- `python3 scripts/audit-parity.py --self-test`: passed deliberate text/image/classifier metadata and crosswalk corruption checks (`final-audit-parity-self-test.log`).
+- `python3 scripts/static-check.py`: passed (`final-static-check.log`).
+- `grep -R "XCTSkip" -n Tests || true`: no matches (`xctskip-scan.log`).
+- `git diff --check`: passed (`final-git-diff-check.log`).
+- Clean source snapshot validation passed audit, warnings-as-errors build, and full tests (`clean-source-snapshot.log`).
 
-Pre-commit local gate matrix for the final runtime candidate passed on 2026-09-30 under Swift `6.3.2`, `nice -n 10`, and `-j 2` where supported:
-
-- `nice -n 10 swift build -j 2 -Xswiftc -warnings-as-errors`: passed (`.artifacts/v0.99.2-validation/swift-build-warnings-as-errors.log`).
-- `nice -n 10 swift test -j 2`: `288` tests, `0` failures (`.artifacts/v0.99.2-validation/swift-test-full.log`).
-- Deterministic repeats: `nice -n 10 swift test -j 2` ×2 passed, `288` tests / `0` failures each (`swift-test-deterministic-1.log`, `swift-test-deterministic-2.log`).
-- `nice -n 10 make check MAKEFLAGS=-j2`: passed static checks, SBOM generation/check/scan, warnings-as-errors build, and full tests (`.artifacts/v0.99.2-validation/make-check.log`).
-- `nice -n 10 make sbom-check`: passed; local dirty-tree SBOM SHA-256 `893e9c9e93e900094df2aaa21d478841aea8add6514b54c53b94a195c2cb76db` pending exact committed runtime SHA regeneration (`.artifacts/v0.99.2-validation/make-sbom-check.log`).
-- `nice -n 10 python3 scripts/audit-parity.py`: passed exact full-record text/image/classifier comparators (`.artifacts/v0.99.2-validation/audit-parity.log`).
-- `nice -n 10 python3 scripts/audit-parity.py --self-test`: passed deliberate text/image/classifier metadata and crosswalk corruption checks (`.artifacts/v0.99.2-validation/audit-parity-self-test.log`).
-- `nice -n 10 python3 scripts/static-check.py`: passed (`.artifacts/v0.99.2-validation/static-check.log`).
-- `grep -R "XCTSkip" -n Tests || true`: no matches (`.artifacts/v0.99.2-validation/xctskip-scan.log`).
-- Clean source snapshot validation: `python3 scripts/audit-parity.py`, `swift build -j 2 -Xswiftc -warnings-as-errors`, and `swift test -j 2` passed from a temporary tracked+untracked source export (`.artifacts/v0.99.2-validation/clean-source-snapshot.log`).
-
-Hosted CI and exact committed-SHA SBOM evidence are accepted for runtime commit `379018acd61375462d02a971e5283be6b009d33e`; publication remains blocked pending explicit tag/release authorization.
+Hosted CI/SHA-specific SBOM evidence is pending. No v1.0.0 commit/push/tag/release has been made.
 
 ## SBOM/security evidence model
 
@@ -91,10 +89,14 @@ Hosted CI and exact committed-SHA SBOM evidence are accepted for runtime commit 
 - Runtime SBOM SHA-256 is generated from exact accepted runtime commits; embedded revision must match the runtime commit.
 - SBOM provenance/dependency graph: root package records exact Git revision and `Package.resolved`; dependency edges are derived from `swift package show-dependencies --format json` as root `swift-ai` -> direct `swift-crypto` -> transitive `swift-asn1`.
 - SBOM scan/license disposition: real OSV Scanner JSON output is written to `.artifacts/sbom/osv-scanner.json`; high/critical findings fail unless covered by non-expired structured waivers (`id`, `owner`, `rationale`, `mitigation`, `expires`).
-- SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for v0.87.0 are version-pinned under `upstream-v0.87.0` and published by the manual SBOM release workflow, which validates a matching `upstream_version`, full runtime SHA, existing tag target, embedded revision, OSV/license status, and checksum naming before `--clobber` uploads.
+- SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for accepted releases are version-pinned under `upstream-vX.Y.Z` and published by the manual SBOM release workflow after validation.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
 
-## v0.99.2 runtime candidate evidence
+## v1.0.0 runtime candidate evidence
+
+Runtime candidate SHA, hosted CI, and SHA-specific clean-tree SBOM evidence are pending. Publication is blocked until auditor acceptance of the exact pushed runtime SHA. Local dirty-tree validation is in progress.
+
+## Accepted v0.99.2 runtime evidence
 
 Accepted runtime commit: `379018acd61375462d02a971e5283be6b009d33e` (`Update Swift AI parity to v0.99.2`).
 
@@ -104,8 +106,7 @@ Accepted runtime commit: `379018acd61375462d02a971e5283be6b009d33e` (`Update Swi
 - Runtime inner SBOM SHA-256: `4167897e88c69f56d861a8e2831fdd7db14ca0758940beb44cae552397b9701a`
 - SBOM provenance: root component `swift-ai@0.99.2`; embedded `git.revision=379018acd61375462d02a971e5283be6b009d33e`; `git.dirty=false`; CycloneDX component count `2` (`swift-crypto`, `swift-asn1`); dependency graph has the root edge `swift-ai -> swift-crypto -> swift-asn1`.
 - Security/license: OSV scanner `2.5.1` returned no vulnerabilities; high/critical findings are empty; license review passed for `swift-asn1` and `swift-crypto` under approved licenses.
-- Rollback SHA: accepted v0.99.1 runtime `dc549fe0709128c73d9d8f8f2d5a031c1a6b6482`.
-- Publication remains blocked. No tag, release, alias, or manual SBOM release has been published. Eventual `v0.99.2` and `upstream-v0.99.2` refs must target tested runtime `379018acd61375462d02a971e5283be6b009d33e`, not this docs-only evidence head.
+- Native release: `v0.99.2`; upstream alias release: `upstream-v0.99.2`.
 
 ## Accepted v0.99.1 runtime evidence
 

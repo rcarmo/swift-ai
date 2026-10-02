@@ -50,7 +50,7 @@
     "imageModels": 57,
     "imageProviders": 1,
     "textAPIs": 10,
-    "textModels": 1529,
+    "textModels": 1532,
     "textProviders": 41
   },
   "swiftPM": {
@@ -69,13 +69,13 @@
     "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
   },
   "upstream": {
-    "commit": "005af57d88ee23b33778f343a9595b32e67ff788",
+    "commit": "a13d35a742c6ef8462812a28fbe1d8c8b7431c32",
     "package": "@earendil-works/pi-ai",
-    "version": "0.99.2"
+    "version": "1.0.0"
   },
   "usageDocumentation": "docs/USAGE.md",
   "validation": {
-    "latestStaticCheck": "completed v0.99.2 runtime 379018acd61375462d02a971e5283be6b009d33e; CI 36782139648 successful; native v0.99.2 and upstream-v0.99.2 published",
+    "latestStaticCheck": "pending v1.0.0 local runtime/classifier validation; no commit/push/tag/release authorized",
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test",
     "swiftToolchainUnavailableInContainer": true

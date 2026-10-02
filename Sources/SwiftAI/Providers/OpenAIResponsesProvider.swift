@@ -49,7 +49,8 @@ public enum OpenAIResponsesProvider {
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
         let omitUnsupportedFields = isChatGPTSignIn(model: model, apiKey: options?.apiKey)
         let plan = deferredToolPlan(model: model, context: context)
-        var input = convertInput(model: model, context: context, deferredMarkers: plan.markers, deferredMode: deferredToolsMode(model))
+        let grammarInputProperties = grammarToolInputProperties(model: model, tools: context.tools)
+        var input = convertInput(model: model, context: context, deferredMarkers: plan.markers, deferredMode: deferredToolsMode(model), grammarInputProperties: grammarInputProperties)
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
         for (key, value) in model.samplingParams ?? [:] { body[key] = value }
@@ -318,7 +319,7 @@ public enum OpenAIResponsesProvider {
     private static func applyUsage(_ raw: ResponseUsage?, serviceTier: String?, state: inout ResponsesStreamState) { guard let raw else { return }; let cached = raw.inputTokenDetails?.cachedTokens ?? 0; let cacheWrite = raw.inputTokenDetails?.cacheWriteTokens ?? 0; var u = Usage(); u.input = max(0, (raw.inputTokens ?? 0) - cached); u.output = raw.outputTokens ?? 0; u.reasoning = raw.outputTokenDetails?.reasoningTokens ?? 0; u.cacheRead = cached; u.cacheWrite = cacheWrite; u.totalTokens = raw.totalTokens ?? (u.input + u.output + u.cacheRead + u.cacheWrite); AIUtilities.applyCost(model: state.model, usage: &u); applyServiceTierMultiplier(serviceTier, model: state.model, usage: &u); state.partial.usage = u }
     private static func applyServiceTierMultiplier(_ serviceTier: String?, model: Model, usage: inout Usage) { guard let serviceTier else { return }; let multiplier: Double?; switch serviceTier { case "priority": multiplier = model.id.hasPrefix("gpt-5.5") ? 2.5 : 2.0; case "flex": multiplier = 0.5; default: multiplier = nil }; guard let multiplier else { return }; usage.cost.input *= multiplier; usage.cost.output *= multiplier; usage.cost.cacheRead *= multiplier; usage.cost.cacheWrite *= multiplier; usage.cost.total *= multiplier }
 
-    private static func convertInput(model: Model, context: AIContext, deferredMarkers: [Int64: [Tool]] = [:], deferredMode: String? = nil) -> [JSONValue] {
+    private static func convertInput(model: Model, context: AIContext, deferredMarkers: [Int64: [Tool]] = [:], deferredMode: String? = nil, grammarInputProperties: [String: String]? = nil) -> [JSONValue] {
         var out: [JSONValue] = []
         if let system = context.systemPrompt, !system.isEmpty { out.append(.object(["role": .string(model.reasoning ? "developer" : "system"), "content": .string(AIUtilities.sanitizeSurrogates(system))])) }
         for (msgIndex, msg) in AIUtilities.transformMessages(context.messages, for: model).enumerated() {
@@ -326,7 +327,7 @@ public enum OpenAIResponsesProvider {
             case .user:
                 out.append(.object(["role": .string("user"), "content": .array(msg.content.compactMap(userContent))]))
             case .assistant:
-                out.append(contentsOf: assistantItems(msg, model: model, messageIndex: msgIndex))
+                out.append(contentsOf: assistantItems(msg, model: model, messageIndex: msgIndex, grammarInputProperties: grammarInputProperties))
             case .toolResult:
                 if let tools = deferredMarkers[msg.timestamp], !tools.isEmpty {
                     if deferredMode == "additional-tools" {
@@ -338,13 +339,14 @@ public enum OpenAIResponsesProvider {
                     }
                 }
                 let callID = (msg.toolCallId ?? "").split(separator: "|").first.map(String.init) ?? (msg.toolCallId ?? "")
-                out.append(.object(["type": .string("function_call_output"), "call_id": .string(normalizeResponsesIDPart(callID)), "output": toolResultOutput(msg)]))
+                let outputType = grammarInputProperties?[msg.toolName ?? ""] != nil ? "custom_tool_call_output" : "function_call_output"
+                out.append(.object(["type": .string(outputType), "call_id": .string(normalizeResponsesIDPart(callID)), "output": toolResultOutput(msg)]))
             }
         }
         return out
     }
 
-    private static func assistantItems(_ msg: Message, model: Model, messageIndex: Int) -> [JSONValue] {
+    private static func assistantItems(_ msg: Message, model: Model, messageIndex: Int, grammarInputProperties: [String: String]? = nil) -> [JSONValue] {
         var items: [JSONValue] = []
         var textIndex = 0
         for block in msg.content {
@@ -369,10 +371,26 @@ public enum OpenAIResponsesProvider {
                 let rawID = block.id ?? ""
                 let parts = rawID.split(separator: "|", maxSplits: 1).map(String.init)
                 let callID = normalizeResponsesIDPart(parts.first ?? rawID)
-                var item: [String: JSONValue] = ["type": .string("function_call"), "call_id": .string(callID), "name": .string(block.name ?? ""), "arguments": .string(jsonString(block.arguments ?? [:]))]
-                if let namespace = block.namespace { item["namespace"] = .string(namespace) }
-                if parts.count == 2 { item["id"] = .string(normalizeResponsesItemID(parts[1])) }
-                items.append(.object(item))
+                let isSameProviderAndAPI = msg.provider == model.provider && msg.api == model.api
+                let isSameModel = isSameProviderAndAPI && msg.model == model.id
+                let isDifferentModel = isSameProviderAndAPI && !isSameModel
+                let toolName = block.name ?? ""
+                if let inputProperty = grammarInputProperties?[toolName] {
+                    let input = grammarInput(toolName: toolName, arguments: block.arguments, inputProperty: inputProperty)
+                    var item: [String: JSONValue] = ["type": .string("custom_tool_call"), "call_id": .string(callID), "name": .string(toolName), "input": .string(input)]
+                    if let namespace = block.namespace, isSameModel { item["namespace"] = .string(namespace) }
+                    if parts.count == 2, isSameModel, parts[1].hasPrefix("ctc_") { item["id"] = .string(normalizeResponsesItemID(parts[1])) }
+                    _ = isDifferentModel
+                    items.append(.object(item))
+                } else {
+                    var item: [String: JSONValue] = ["type": .string("function_call"), "call_id": .string(callID), "name": .string(toolName), "arguments": .string(jsonString(block.arguments ?? [:]))]
+                    if let namespace = block.namespace, isSameModel { item["namespace"] = .string(namespace) }
+                    if parts.count == 2 {
+                        if !isSameProviderAndAPI { item["id"] = .string(normalizeResponsesFunctionItemID(parts[1])) }
+                        else if isSameModel, parts[1].hasPrefix("fc_") { item["id"] = .string(normalizeResponsesFunctionItemID(parts[1])) }
+                    }
+                    items.append(.object(item))
+                }
             default:
                 break
             }
@@ -387,7 +405,39 @@ public enum OpenAIResponsesProvider {
         return .string(AIUtilities.sanitizeSurrogates(text.isEmpty ? "(no tool output)" : text))
     }
     private static func normalizeResponsesIDPart(_ value: String) -> String { let filtered = value.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.reduce("", { $0 + String($1) }); return filtered.count <= 64 ? filtered : "id_" + AIUtilities.shortHash(filtered) }
-    private static func normalizeResponsesItemID(_ value: String) -> String { let raw = value.hasPrefix("fc_") ? String(value.dropFirst(3)) : value; let filtered = raw.filter { $0.isLetter || $0.isNumber }; if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }; return "fc_" + AIUtilities.shortHash(raw) }
+    private static func normalizeResponsesItemID(_ value: String) -> String {
+        let prefix = value.hasPrefix("ctc_") ? "ctc_" : "fc_"
+        let raw: String
+        if value.hasPrefix("fc_") || value.hasPrefix("ctc_") { raw = String(value.dropFirst(4)) }
+        else { raw = value }
+        let filtered = raw.filter { $0.isLetter || $0.isNumber }
+        if (prefix + filtered).count <= 64 { return prefix + filtered }
+        return prefix + AIUtilities.shortHash(raw)
+    }
+    private static func normalizeResponsesFunctionItemID(_ value: String) -> String {
+        let raw: String
+        if value.hasPrefix("fc_") || value.hasPrefix("ctc_") { raw = String(value.dropFirst(4)) }
+        else { raw = value }
+        let filtered = raw.filter { $0.isLetter || $0.isNumber }
+        if ("fc_" + filtered).count <= 64 { return "fc_" + filtered }
+        return "fc_" + AIUtilities.shortHash(raw)
+    }
+    private static func grammarToolInputProperties(model: Model, tools: [Tool]?) -> [String: String]? {
+        guard model.responsesCompat?.supportsOpenAIGrammarTools == true else { return nil }
+        var result: [String: String] = [:]
+        for tool in tools ?? [] where tool.constrainedSampling?.type == "grammar" {
+            if let property = try? OpenAICompletionsProvider.grammarInputProperty(tool) { result[tool.name] = property }
+        }
+        return result.isEmpty ? nil : result
+    }
+    private static func grammarInput(toolName: String, arguments: [String: JSONValue]?, inputProperty: String) -> String {
+        guard let value = arguments?[inputProperty] else { return "" }
+        switch value {
+        case .null: return ""
+        case .string(let text): return text
+        default: return ""
+        }
+    }
     private static func jsonString(_ object: [String: JSONValue]) -> String { guard let data = try? JSONEncoder().encode(object) else { return "{}" }; return String(data: data, encoding: .utf8) ?? "{}" }
     private static func toolJSON(_ tool: Tool, deferred: Bool = false, supportsOpenAIGrammarTools: Bool = false) -> JSONValue {
         if tool.constrainedSampling?.type == "grammar", supportsOpenAIGrammarTools {

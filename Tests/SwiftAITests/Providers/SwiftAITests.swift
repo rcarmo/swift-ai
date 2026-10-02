@@ -123,8 +123,8 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "0.99.2")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1529)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "1.0.0")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1532)
         XCTAssertEqual(SwiftAIStatus.imageModelCount, 57)
         XCTAssertEqual(SwiftAIStatus.classifierModelCount, 15)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
@@ -132,11 +132,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "0.99.2")
-        XCTAssertEqual(BuiltinModels.modelCount, 1529)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "1.0.0")
+        XCTAssertEqual(BuiltinModels.modelCount, 1532)
         XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1529)
+        XCTAssertEqual(models.count, 1532)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -294,7 +294,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "0.99.2")
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "1.0.0")
         XCTAssertEqual(BuiltinImageModels.modelCount, 57)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
@@ -495,7 +495,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1529)
+        XCTAssertEqual(models.count, 1532)
         XCTAssertEqual(Set(models.map(\.provider)).count, 41)
         XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -1348,16 +1348,136 @@ final class SwiftAITests: XCTestCase {
         let provider = AnthropicOAuthProvider()
         let url = provider.authorizationURL(challenge: "challenge")
         XCTAssertEqual(provider.id, "anthropic")
+        XCTAssertTrue(url.hasPrefix("https://claude.ai/oauth/authorize?"))
         XCTAssertTrue(url.contains("code_challenge=challenge"))
-        XCTAssertTrue(url.contains("client_id="))
+        XCTAssertTrue(url.contains("client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e"))
         XCTAssertTrue(url.contains("redirect_uri=http://localhost:53692/callback") || url.contains("redirect_uri=http%3A//localhost%3A53692/callback") || url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A53692%2Fcallback"))
         let authFields = AnthropicOAuthProvider.authorizationCodeFields(clientID: "client", code: "manual-code", verifier: "verifier")
         XCTAssertEqual(authFields["redirect_uri"], AnthropicOAuthProvider.redirectURI)
+        XCTAssertEqual(authFields["state"], "verifier")
         let refreshFields = AnthropicOAuthProvider.refreshTokenFields(clientID: "client", refreshToken: "refresh-token")
         XCTAssertEqual(refreshFields["grant_type"], "refresh_token")
         XCTAssertEqual(refreshFields["refresh_token"], "refresh-token")
         XCTAssertNil(refreshFields["scope"])
         XCTAssertEqual(provider.apiKey(credentials: OAuthCredentials(refresh: "r", access: "a", expires: 0)), "a")
+    }
+
+    func testAnthropicOAuthCopyCodeFlowJSONBodyAndParsing() async throws {
+        final class Box: @unchecked Sendable { var requests: [URLRequest] = []; var authURL = ""; var selectPrompt = false; var manualPrompt = false }
+        let box = Box()
+        let provider = AnthropicOAuthProvider(requestTransport: { request, _ in
+            box.requests.append(request)
+            XCTAssertEqual(request.url?.absoluteString, AnthropicOAuthProvider.tokenURL)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/json")
+            let body = try JSONDecoder().decode([String: JSONValue].self, from: request.httpBody ?? Data())
+            XCTAssertEqual(body["grant_type"], .string("authorization_code"))
+            XCTAssertEqual(body["client_id"], .string(AnthropicOAuthProvider.clientID))
+            XCTAssertEqual(body["redirect_uri"], .string(AnthropicOAuthProvider.copyCodeRedirectURI))
+            XCTAssertEqual(body["code"], .string("copied-code"))
+            XCTAssertEqual(body["state"], .string(body["code_verifier"]?.stringValue ?? ""))
+            let data = #"{"access_token":"access-token","refresh_token":"refresh-token","expires_in":3600}"#.data(using: .utf8)!
+            return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        })
+        let credentials = try await provider.login(callbacks: OAuthLoginCallbacks(onAuth: { info in box.authURL = info.url }, onAuthPrompt: { prompt in
+            switch prompt {
+            case .select(let message, let options):
+                box.selectPrompt = true
+                XCTAssertEqual(message, "Select Anthropic login method:")
+                XCTAssertEqual(options.map(\.id), ["browser", "copy_code"])
+                return "copy_code"
+            case .manualCode:
+                box.manualPrompt = true
+                let state = URLComponents(string: box.authURL)?.queryItems?.first { $0.name == "state" }?.value ?? ""
+                return "copied-code#\(state)"
+            default:
+                throw AIError.provider("unexpected prompt")
+            }
+        }))
+        XCTAssertEqual(credentials.access, "access-token")
+        XCTAssertEqual(credentials.refresh, "refresh-token")
+        XCTAssertTrue(box.selectPrompt)
+        XCTAssertTrue(box.manualPrompt)
+        XCTAssertEqual(URLComponents(string: box.authURL)?.queryItems?.first { $0.name == "redirect_uri" }?.value, AnthropicOAuthProvider.copyCodeRedirectURI)
+        XCTAssertEqual(box.requests.count, 1)
+    }
+
+    func testAnthropicOAuthBrowserRichPromptEmptyCodeDoesNotPostAndCancellation() async throws {
+        final class Box: @unchecked Sendable { var posts = 0; var authURL = "" }
+        let box = Box()
+        let provider = AnthropicOAuthProvider(requestTransport: { _, _ in box.posts += 1; throw AIError.provider("should not post") })
+        do {
+            _ = try await provider.login(callbacks: OAuthLoginCallbacks(onAuth: { info in box.authURL = info.url }, onAuthPrompt: { prompt in
+                switch prompt {
+                case .select: return "browser"
+                case .manualCode: return "?code=&state=ignored"
+                default: throw AIError.provider("unexpected prompt")
+                }
+            }))
+            XCTFail("expected missing code")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("Missing authorization code"))
+        }
+        XCTAssertEqual(box.posts, 0)
+        let cancelled = AnthropicOAuthProvider()
+        do {
+            _ = try await cancelled.login(callbacks: OAuthLoginCallbacks(onAuthPrompt: { _ in throw CancellationError() }))
+            XCTFail("expected cancellation")
+        } catch {
+            XCTAssertTrue(error is CancellationError)
+        }
+    }
+
+    func testAnthropicOAuthTokenErrorsRedactRequestAndResponseSecrets() async throws {
+        let provider = AnthropicOAuthProvider(requestTransport: { request, _ in
+            let body = try JSONDecoder().decode([String: JSONValue].self, from: request.httpBody ?? Data())
+            XCTAssertEqual(body["code"], .string("secret-code"))
+            let data = #"{"access_token":"access-secret","refresh_token":"refresh-secret","id_token":"id-secret"}"#.data(using: .utf8)!
+            return (data, HTTPURLResponse(url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!)
+        })
+        do {
+            _ = try await provider.exchangeCode("secret-code", state: "secret-state", verifier: "secret-verifier", redirectURI: AnthropicOAuthProvider.redirectURI)
+            XCTFail("expected API error")
+        } catch {
+            let text = String(describing: error)
+            XCTAssertFalse(text.contains("secret-code"))
+            XCTAssertFalse(text.contains("secret-state"))
+            XCTAssertFalse(text.contains("secret-verifier"))
+            XCTAssertFalse(text.contains("access-secret"))
+            XCTAssertFalse(text.contains("refresh-secret"))
+            XCTAssertFalse(text.contains("id-secret"))
+        }
+
+        let transportError = AnthropicOAuthProvider(requestTransport: { _, _ in
+            throw NSError(domain: "token", code: 1, userInfo: [NSLocalizedDescriptionKey: "access-secret refresh-secret"])
+        })
+        do {
+            _ = try await transportError.exchangeCode("transport-code", state: "transport-state", verifier: "transport-verifier", redirectURI: AnthropicOAuthProvider.redirectURI)
+            XCTFail("expected transport error")
+        } catch {
+            let text = String(describing: error)
+            XCTAssertFalse(text.contains("access-secret"))
+            XCTAssertFalse(text.contains("refresh-secret"))
+            XCTAssertFalse(text.contains("transport-code"))
+            XCTAssertFalse(text.contains("transport-state"))
+            XCTAssertFalse(text.contains("transport-verifier"))
+        }
+
+        let invalidJSON = AnthropicOAuthProvider(requestTransport: { request, _ in
+            let body = try JSONDecoder().decode([String: JSONValue].self, from: request.httpBody ?? Data())
+            XCTAssertEqual(body["code"], .string("input-secret"))
+            let data = #"{"error":"token \"escaped-secret\" leaked","access_token":"access-secret""#.data(using: .utf8)!
+            return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        })
+        do {
+            _ = try await invalidJSON.exchangeCode("input-secret", state: "state-secret", verifier: "verifier-secret", redirectURI: AnthropicOAuthProvider.redirectURI)
+            XCTFail("expected invalid JSON")
+        } catch {
+            let text = String(describing: error)
+            for secret in ["input-secret", "state-secret", "verifier-secret", "escaped-secret", "access-secret"] {
+                XCTAssertFalse(text.contains(secret), "leaked \(secret): \(text)")
+            }
+        }
     }
 
     func testOpenAICodexTokenRefreshFailureDoesNotWriteToStderr() {
@@ -3069,6 +3189,78 @@ final class SwiftAITests: XCTestCase {
         let expected = "fc_" + AIUtilities.shortHash(itemPart)
         XCTAssertEqual(functionCall["id"], .string(expected))
         XCTAssertLessThanOrEqual(expected.count, 64)
+    }
+
+    func testOpenAIResponsesGrammarReplayUsesCapabilityMapForCallsAndOutputs() throws {
+        let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["input": .object(["type": .string("string")])]), "required": .array([.string("input")])])
+        let tool = Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiRegex: "[a-z]+"))
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, responsesCompat: OpenAIResponsesCompat(supportsOpenAIGrammarTools: true))
+        var assistant = Message(role: .assistant, content: [.toolCall(id: "call_1|ctc_same", name: "emit", arguments: ["input": .string("abc")])])
+        assistant.api = .openAIResponses; assistant.provider = .openAI; assistant.model = "gpt"
+        var result = Message(role: .toolResult, content: [.text("done")])
+        result.toolCallId = "call_1|ctc_same"; result.toolName = "emit"
+        let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant, result], tools: [tool]), options: nil)
+        guard case .array(let input)? = body["input"] else { return XCTFail("missing input") }
+        let customCall = input.compactMap { item -> [String: JSONValue]? in if case .object(let obj) = item, obj["type"] == .string("custom_tool_call") { return obj }; return nil }.first
+        XCTAssertEqual(customCall?["id"], .string("ctc_same"))
+        XCTAssertEqual(customCall?["call_id"], .string("call_1"))
+        XCTAssertEqual(customCall?["input"], .string("abc"))
+        XCTAssertTrue(input.contains { if case .object(let obj) = $0 { return obj["type"] == .string("custom_tool_call_output") && obj["call_id"] == .string("call_1") }; return false })
+
+        var missingArg = assistant
+        missingArg.content = [.toolCall(id: "call_2|ctc_missing", name: "emit", arguments: ["input": .null])]
+        let missingBody = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [missingArg], tools: [tool]), options: nil)
+        guard case .array(let missingInput)? = missingBody["input"], case .object(let missingCall)? = missingInput.first else { return XCTFail("missing null-argument custom call") }
+        XCTAssertEqual(missingCall["input"], .string(""))
+    }
+
+    func testOpenAIResponsesGrammarReplayDropsForeignAndDifferentModelIDs() throws {
+        let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["input": .object(["type": .string("string")])]), "required": .array([.string("input")])])
+        let tool = Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiRegex: "[a-z]+"))
+        let model = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, responsesCompat: OpenAIResponsesCompat(supportsOpenAIGrammarTools: true))
+        var foreign = Message(role: .assistant, content: [.toolCall(id: "call_1|foreign/custom/id", name: "emit", arguments: ["input": .string("abc")])])
+        foreign.api = .piMessages; foreign.provider = .radius; foreign.model = "other"
+        let foreignBody = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [foreign], tools: [tool]), options: nil)
+        guard case .array(let foreignInput)? = foreignBody["input"], case .object(let foreignCall)? = foreignInput.first else { return XCTFail("missing foreign custom call") }
+        XCTAssertEqual(foreignCall["type"], .string("custom_tool_call"))
+        XCTAssertNil(foreignCall["id"])
+
+        var differentModel = foreign
+        differentModel.api = .openAIResponses; differentModel.provider = .openAI; differentModel.model = "other-gpt"; differentModel.content = [.toolCall(id: "call_2|ctc_other", name: "emit", arguments: ["input": .string("abc")])]
+        let differentBody = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [differentModel], tools: [tool]), options: nil)
+        guard case .array(let differentInput)? = differentBody["input"], case .object(let differentCall)? = differentInput.first else { return XCTFail("missing different-model custom call") }
+        XCTAssertNil(differentCall["id"])
+
+        var unsupported = Message(role: .assistant, content: [.toolCall(id: "call_3|ctc_unsupported", name: "emit", arguments: ["input": .string("abc")])])
+        unsupported.api = .openAIResponses; unsupported.provider = .openAI; unsupported.model = "gpt"
+        var noGrammar = model; noGrammar.responsesCompat = OpenAIResponsesCompat(supportsOpenAIGrammarTools: false)
+        let unsupportedBody = OpenAIResponsesProvider.buildRequestBody(model: noGrammar, context: AIContext(messages: [unsupported], tools: [tool]), options: nil)
+        guard case .array(let unsupportedInput)? = unsupportedBody["input"], case .object(let unsupportedCall)? = unsupportedInput.first else { return XCTFail("missing unsupported function call") }
+        XCTAssertEqual(unsupportedCall["type"], .string("function_call"))
+        XCTAssertNil(unsupportedCall["id"])
+    }
+
+    func testOpenAIResponsesSameSourceMismatchedItemIDPrefixesAreOmitted() throws {
+        let schema: JSONValue = .object(["type": .string("object"), "properties": .object(["input": .object(["type": .string("string")])]), "required": .array([.string("input")])])
+        let tool = Tool(name: "emit", description: "Emit", parameters: schema, constrainedSampling: .grammar(openaiRegex: "[a-z]+"))
+        let grammarModel = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, responsesCompat: OpenAIResponsesCompat(supportsOpenAIGrammarTools: true))
+        let functionModel = Model(id: "gpt", name: "GPT", api: .openAIResponses, provider: .openAI, responsesCompat: OpenAIResponsesCompat(supportsOpenAIGrammarTools: false))
+        func replay(id: String, model: Model, tools: [Tool]) -> [String: JSONValue] {
+            var assistant = Message(role: .assistant, content: [.toolCall(id: id, name: "emit", arguments: ["input": .string("abc")])])
+            assistant.api = .openAIResponses; assistant.provider = .openAI; assistant.model = "gpt"
+            let body = OpenAIResponsesProvider.buildRequestBody(model: model, context: AIContext(messages: [assistant], tools: tools), options: nil)
+            guard case .array(let input)? = body["input"], case .object(let call)? = input.first else { XCTFail("missing call"); return [:] }
+            return call
+        }
+        let fcAsCustom = replay(id: "call_1|fc_same", model: grammarModel, tools: [tool])
+        XCTAssertEqual(fcAsCustom["type"], .string("custom_tool_call"))
+        XCTAssertNil(fcAsCustom["id"])
+        let ctcAsFunction = replay(id: "call_2|ctc_same", model: functionModel, tools: [tool])
+        XCTAssertEqual(ctcAsFunction["type"], .string("function_call"))
+        XCTAssertNil(ctcAsFunction["id"])
+        let rawAsFunction = replay(id: "call_3|raw_same", model: functionModel, tools: [])
+        XCTAssertEqual(rawAsFunction["type"], .string("function_call"))
+        XCTAssertNil(rawAsFunction["id"])
     }
 
     func testOpenAIResponsesFallbackMessageIDs() throws {

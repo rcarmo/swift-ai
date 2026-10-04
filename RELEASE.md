@@ -9,9 +9,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 - Current upstream tag commit: `a7229ddc21810d6245105978033b7df645ecc2f7`
 - Verified npm tarball SHA-256: `8a9e69b1309cf93405d87729fa123c8b11c6be7c646b16f34f8bef7b792f9138`
 - Swift parity branch: `main`
-- Current Swift v1.0.1 provider candidate: local only; commit, push, hosted CI, tag and release are not yet authorised.
-- Durable native implementation remains a separate mandatory cycle. Rui's policy requires initial `v1.0.1` publication after provider acceptance and later same-version `v1.0.1` retag/release reconciliation after durable acceptance.
-- Accepted rollback runtime: v1.0.0 runtime commit `7e7e2de2495c646857369d6ac63cb64a5bced5a6`; earlier accepted v0.99.2 runtime `379018acd61375462d02a971e5283be6b009d33e`.
+- Accepted Swift v1.0.1 useful durable runtime: `211da0766cce098cc3525eb918e58f982d8453df`; the native `v1.0.1` tag/release and `upstream-v1.0.1` alias now target that runtime and publish its source-bound SBOM.
+- The accepted durable vertical covers the native journal/storage foundation, durable generation/session/recovery and owned-tools runtime. It is useful and published, but it does not claim the full 60-source / 42-suite durable parity roadmap, macOS hosted validation, or completion of later cross-runtime work.
+- Historical provider-only runtime `68e4052fde96cd9404aaddc56742c2ae5348664e`, old native tag object `f120f0c8976df20f82a55d1e5c9acfcceb02ff57`, and their original release assets remain recorded as rollback evidence; they are not the current release targets.
+- Accepted rollback runtime before v1.0.1 provider work: v1.0.0 runtime commit `7e7e2de2495c646857369d6ac63cb64a5bced5a6`; earlier accepted v0.99.2 runtime `379018acd61375462d02a971e5283be6b009d33e`.
 
 ## Exact upstream delta
 
@@ -56,9 +57,9 @@ Implemented/adapted in the local v1.0.1 provider candidate:
 - Added the retryable provider phrase `model is at capacity` while preserving nonretryable quota/billing precedence.
 - Preserved Swift ChatGPT OAuth as primitive utilities only. The package has no host browser callback listener; no listener API was invented for the upstream occupied-port behavior.
 
-Out of scope for this candidate:
+Out of scope for the provider-only candidate described above:
 
-- Native durable implementation. The accepted durable readiness report remains frozen at `/workspace/tmp/swift-ai-durable-v101-plan.md` SHA-256 `5d3a5616aee947d36268c066bf11b19aadcef7b217dd7752fcfa347f44e99e93`.
+- The durable implementation was delivered later as the separately validated and published useful vertical recorded below. The earlier readiness report remains historical planning evidence at `/workspace/tmp/swift-ai-durable-v101-plan.md` SHA-256 `5d3a5616aee947d36268c066bf11b19aadcef7b217dd7752fcfa347f44e99e93`.
 - Dependency, workflow, Package.swift, README, AGENTS, Makefile or live-credential changes.
 
 ## Tests and gates
@@ -85,7 +86,7 @@ Final local gates passed for the current local candidate:
 - `git diff --check`: passed.
 - Clean source snapshot validation passed audit, warnings-as-errors build and full tests (`clean-source-snapshot-final.log`).
 
-No v1.0.1 commit/push/tag/release has been made.
+The provider-only candidate was subsequently published at runtime `68e4052...`; the same-version native and alias releases were later reconciled to accepted useful durable runtime `211da076...` as recorded below.
 
 ## SBOM/security evidence model
 
@@ -110,21 +111,48 @@ Hosted CI for the accepted runtime:
 - SBOM provenance: root component `swift-ai@1.0.1`; embedded `git.revision=68e4052fde96cd9404aaddc56742c2ae5348664e`; `git.dirty=false`; CycloneDX component count `2` (`swift-crypto`, `swift-asn1`); dependency graph has `3` dependency entries.
 - Security/license: OSV scanner returned no vulnerabilities; high/critical findings are empty; no waivers; license review passed for `swift-asn1` and `swift-crypto` under approved licenses.
 
-Initial native release:
+Historical initial native provider release (superseded by the useful durable replacement below):
 
 - Native release: `v1.0.1`, release database ID `402757174`, workflow run `37165998133` (`publish-sbom` job `111328878306`).
 - Annotated tag object: `f120f0c8976df20f82a55d1e5c9acfcceb02ff57` by `Rui Carmo <rui.carmo@gmail.com>`, targeting runtime `68e4052fde96cd9404aaddc56742c2ae5348664e`.
 - Assets: `608838456` (`sbom.cdx.json`, digest `sha256:352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`) and `608838457` (`sbom.cdx.json.sha256`, digest `sha256:438349ed2a330fe02a6d86208c2c8a0bcf6e2b0cb122477d35b3b39708d76d7a`).
 
-Upstream alias release:
+Historical initial upstream alias release (superseded by the useful durable replacement below):
 
 - Upstream alias release: `upstream-v1.0.1`, release database ID `402759260`, workflow run `37166282241` (`publish-sbom` job `111329721226`).
 - Alias ref: lightweight `upstream-v1.0.1 -> 68e4052fde96cd9404aaddc56742c2ae5348664e`.
 - Assets: `608847003` (`sbom.cdx.json`, digest `sha256:352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`) and `608847004` (`sbom.cdx.json.sha256`, digest `sha256:438349ed2a330fe02a6d86208c2c8a0bcf6e2b0cb122477d35b3b39708d76d7a`).
 
-Native and alias SBOM bytes are identical to the accepted hosted runtime artifact. Existing older refs, releases and assets were preserved during publication. Future `v1.0.1` durable work is a separate mandatory implementation cycle; Rui's policy requires a later same-version `v1.0.1` replacement/retag after durable acceptance. The current provider publication is not durable completion.
+The historical provider native and alias SBOM bytes were identical to their hosted runtime artifact. Those old tag objects and asset bytes were preserved as rollback evidence during the later same-version replacement. The provider publication was not, by itself, durable completion.
 
-A first tag-object creation attempt failed before any mutation because the Git Data API `tagger` field was submitted as a quoted JSON string. The corrected, authorised request used a JSON request body with a nested `tagger` object and then created `refs/tags/v1.0.1` from the returned tag-object SHA.
+A first historical tag-object creation attempt failed before any mutation because the Git Data API `tagger` field was submitted as a quoted JSON string. The corrected, authorised request used a JSON request body with a nested `tagger` object and then created `refs/tags/v1.0.1` from the returned tag-object SHA.
+
+## Accepted v1.0.1 useful durable vertical
+
+Accepted runtime commit: `211da0766cce098cc3525eb918e58f982d8453df` (`Make durable journal lock test portable`). Parent and production runtime checkpoint: `b87bb8d97fd86004c36ad5a734d1ce01e7f95beb` (`Add durable owned tools runtime`). The successor changes only `Tests/SwiftAITests/Durable/DurableJournalStorageTests.swift`; accepted S1c production sources remain byte-identical to `b87bb8d`.
+
+The published vertical builds on S1b durable generation/session/recovery and S1c owned-tools runtime. Local validation at the runtime checkpoint included full-main and genuine clean-clone 379-test gates, focused durable suites, static checks, warnings-as-errors, no-skip checks, source-bound SBOM/security, and exact provenance. The final portability correction additionally passed three parallel targeted runs, one serial target, Journal8, and a genuine two-clone cold target/Journal8 validation.
+
+Hosted runtime evidence:
+
+- Original push CI run `37190522552`, attempt 1, failed only because the accepted foundational lock-process test hardcoded a local Swift 6.3.2 interpreter path. It was not retried.
+- Fixture correction chronology was preserved: the first local target exposed XCTest stdout before the `LOCKED` acknowledgement; the next exposed premature storage deallocation; the next exposed checked-continuation diagnostics contaminating stderr. The final fixture holds storage strongly, writes a dedicated stderr acknowledgement, and blocks with Linux `pause()` until parent `SIGKILL`, without sleeps, retries, timeout widening, skips, assertion weakening or production changes.
+- Natural successor push CI run `37194954000`, attempt 1, event `push`, exact runtime `211da076...`: success. Jobs `111414781814` (`swift-test (ubuntu-latest)`) and `111414781939` (`static-check`) both passed with every step successful. Hosted tests: **379 tests / 0 failures**; the corrected journal lock test executed and passed.
+- Hosted SBOM artifact: ID `11300970536`; archive SHA-256 `67c223fcaeb5de886adbc8b9be1bb014e7dd84d70ea15e19cd5eba22f1205257`; source-bound SBOM SHA-256 `91a2696cbf7df84ab02b4b5e22bfc3437e8bd9ee76599bcaa02cc7491a2aea63`.
+- SBOM provenance/security: root `swift-ai@1.0.1`; full `git.revision=211da076...`; `git.dirty=false`; 2 components; 3 dependency records / 2 edges (`swift-ai -> swift-crypto -> swift-asn1`); pinned real OSV Scanner `2.5.1` with zero vulnerabilities, high/critical findings or waivers; license review passed with zero unknown/incompatible components.
+
+Same-version publication evidence:
+
+- Native annotated tag object `665865debbf4cf6a9ed3d3f9de43dbb479f85541`, tagged by `Rui Carmo <rui.carmo@gmail.com>`, targets runtime `211da076...`.
+- The first native publisher run `37195824689`, attempt 1, validated the exact runtime, tag and SBOM, then failed before asset upload because native release `target_commitish=main` could not be resolved in the workflow's detached checkout. It was not rerun. A bounded one-field release-target remediation changed release ID `402757174` to full runtime SHA.
+- New native publisher run `37196193047`, attempt 1: success. Native release ID `402757174`; public assets `609645485` (`sbom.cdx.json`) and `609645500` (`sbom.cdx.json.sha256`).
+- Upstream alias publisher run `37196599838`, attempt 1: success. Lightweight `upstream-v1.0.1 -> 211da076...`; release ID `402759260`; public assets `609655851` (`sbom.cdx.json`) and `609655848` (`sbom.cdx.json.sha256`).
+- Native and alias public SBOM bytes are identical: SHA-256 `91a2696cbf7df84ab02b4b5e22bfc3437e8bd9ee76599bcaa02cc7491a2aea63`. The public sidecar file SHA-256 is `fddb4e05f7e459a03b17da734dd961744f43f24a435b60d4aa214afc8c5e0139`, and its contents verify the SBOM.
+- Complete publication inventory remained 16 tag refs, 16 releases and 32 assets. The other 15 refs, 15 releases and 30 assets were preserved at each staged native/alias boundary. Historical provider runtime `68e4052...`, tag object `f120f0c...`, old native assets `608838456/608838457`, and old alias assets `608847003/608847004` remain rollback evidence.
+
+Scope limits remain explicit: routine hosted CI is Ubuntu/static only and does not establish macOS behavior. This useful S1b/S1c vertical does not claim completion of the full 60-source / 42-suite durable parity roadmap, all later durable features, or broader Go/Rust parity work.
+
+Release refs and public assets target runtime `211da076...`, not any later documentation-only ledger commit.
 
 ## v1.0.0 runtime evidence
 

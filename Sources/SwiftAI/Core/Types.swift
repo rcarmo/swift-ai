@@ -151,6 +151,11 @@ public struct DeferredHandle: Codable, Equatable, Sendable {
 public struct DeferredRequestOptions: Codable, Equatable, Sendable { public var window: String?; public init(window: String? = nil) { self.window = window } }
 public struct TelemetryContext: Codable, Equatable, Sendable { public var traceId: String?; public var spanId: String?; public var attributes: [String: JSONValue]?; public init(traceId: String? = nil, spanId: String? = nil, attributes: [String: JSONValue]? = nil) { self.traceId = traceId; self.spanId = spanId; self.attributes = attributes } }
 
+public struct ToolReference: Codable, Equatable, Sendable {
+    public var name: String
+    public init(name: String) { self.name = name }
+}
+
 public struct Message: Codable, Equatable, Sendable {
     public var role: Role
     public var content: [ContentBlock]
@@ -173,10 +178,12 @@ public struct Message: Codable, Equatable, Sendable {
     public var isError: Bool?
     public var details: JSONValue?
     public var addedToolNames: [String]?
+    public var toolsAdded: [Tool]?
+    public var toolsRemoved: [ToolReference]?
     public var endTurn: Bool?
     public var nestedCalls: JSONValue?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, thinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, endTurn, nestedCalls }
+    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, thinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, toolsAdded, toolsRemoved, endTurn, nestedCalls }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -203,6 +210,8 @@ public struct Message: Codable, Equatable, Sendable {
         isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
         details = try c.decodeIfPresent(JSONValue.self, forKey: .details)
         addedToolNames = try c.decodeIfPresent([String].self, forKey: .addedToolNames)
+        toolsAdded = try c.decodeIfPresent([Tool].self, forKey: .toolsAdded)
+        toolsRemoved = try c.decodeIfPresent([ToolReference].self, forKey: .toolsRemoved)
         endTurn = try c.decodeIfPresent(Bool.self, forKey: .endTurn)
         nestedCalls = try c.decodeIfPresent(JSONValue.self, forKey: .nestedCalls)
     }
@@ -230,6 +239,8 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(isError, forKey: .isError)
         try c.encodeIfPresent(details, forKey: .details)
         try c.encodeIfPresent(addedToolNames, forKey: .addedToolNames)
+        try c.encodeIfPresent(toolsAdded, forKey: .toolsAdded)
+        try c.encodeIfPresent(toolsRemoved, forKey: .toolsRemoved)
         try c.encodeIfPresent(endTurn, forKey: .endTurn)
         try c.encodeIfPresent(nestedCalls, forKey: .nestedCalls)
     }

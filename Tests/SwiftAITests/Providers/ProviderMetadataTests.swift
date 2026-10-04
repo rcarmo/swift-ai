@@ -6,6 +6,29 @@ final class ProviderMetadataTests: XCTestCase {
         try XCTUnwrap(try BuiltinModels.all().first { $0.provider == provider && $0.id == id }, "missing \(provider.rawValue)/\(id)")
     }
 
+    private func encodedMap<T: Encodable>(_ values: [T], key: (T) -> String) throws -> [String: String] {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        var out: [String: String] = [:]
+        for value in values { out[key(value)] = String(data: try encoder.encode(value), encoding: .utf8)! }
+        return out
+    }
+
+    private func normalizedTextModelData(path: String) throws -> Data {
+        let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: path)))
+        guard var records = raw as? [[String: Any]] else { throw AIError.invalidResponse("model data must be an array") }
+        for index in records.indices {
+            guard let compat = records[index].removeValue(forKey: "compat") as? [String: Any] else { continue }
+            switch records[index]["api"] as? String {
+            case "openai-completions": records[index]["completionsCompat"] = compat
+            case "openai-responses", "azure-openai-responses", "openai-codex-responses": records[index]["responsesCompat"] = compat
+            case "anthropic-messages": records[index]["anthropicCompat"] = compat
+            default: records[index]["compat"] = compat
+            }
+        }
+        return try JSONSerialization.data(withJSONObject: records, options: [.sortedKeys])
+    }
+
     func testCompatProviderDetectionAndModelRegistry() throws {
         let models = try BuiltinModels.all()
         XCTAssertFalse(models.isEmpty)
@@ -301,8 +324,9 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertNotNil(request["system"])
         XCTAssertNotNil(request["toolConfig"])
         XCTAssertEqual(request["inferenceConfig"]?.objectValue?["maxTokens"], .number(256))
-        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized"), "block_binding": .object(["prefix_mismatch_behavior": .string("drop_block")])]))
         XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["output_config"], .object(["effort": .string("xhigh")]))
+        XCTAssertEqual(request["additionalModelRequestFields"]?.objectValue?["anthropic_beta"], .array([.string("thinking-binding-controls-2026-08-01")]))
 
         var r1 = Message(role: .toolResult, content: [.text("one")]); r1.toolCallId = "t1"; r1.toolName = "lookup"
         var r2 = Message(role: .toolResult, content: [.text("two")]); r2.toolCallId = "t2"; r2.toolName = "lookup"
@@ -377,6 +401,57 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(model.completionsCompat?.supportsLongCacheRetention, false)
     }
 
+    func testV101TypedCatalogPreservesOfficialCompatFlags() throws {
+        let models = try BuiltinModels.all()
+        let completionGrammar = models.filter { $0.completionsCompat?.supportsOpenAIGrammarTools == true }
+        let responseGrammar = models.filter { $0.responsesCompat?.supportsOpenAIGrammarTools == true }
+        XCTAssertEqual(completionGrammar.count + responseGrammar.count, 111)
+        XCTAssertTrue(models.contains { $0.completionsCompat?.supportsStrictMode == false })
+        XCTAssertTrue(models.contains { $0.completionsCompat?.sendSessionAffinityHeaders == true })
+        XCTAssertTrue(models.contains { $0.responsesCompat?.supportsAdditionalTools == true })
+    }
+
+    func testV101TypedBuiltinModelsMatchRawSnapshotsAfterDecode() throws {
+        let rawOfficial = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: "scripts/models.v1.0.1.json"))) as! [[String: Any]]
+        let typed = try BuiltinModels.all()
+        XCTAssertEqual(typed.count, rawOfficial.count)
+        let typedGrammar = typed.filter { $0.completionsCompat?.supportsOpenAIGrammarTools == true || $0.responsesCompat?.supportsOpenAIGrammarTools == true }.count
+        let rawGrammar = rawOfficial.filter { (($0["compat"] as? [String: Any])?["supportsOpenAIGrammarTools"] as? Bool) == true || (($0["compat"] as? [String: Any])?["supportsOpenaiGrammarTools"] as? Bool) == true }.count
+        XCTAssertEqual(typedGrammar, 111)
+        XCTAssertEqual(typedGrammar, rawGrammar)
+        let typedCompletionMidSystem = typed.filter { $0.completionsCompat?.supportsMidConvoSystemMessages == true }.count
+        let rawCompletionMidSystem = rawOfficial.filter { ($0["api"] as? String) == "openai-completions" && (($0["compat"] as? [String: Any])?["supportsMidConvoSystemMessages"] as? Bool) == true }.count
+        XCTAssertEqual(typedCompletionMidSystem, 25)
+        XCTAssertEqual(typedCompletionMidSystem, rawCompletionMidSystem)
+        let typedCompletionToolAdditions = typed.filter { $0.completionsCompat?.supportsMidConvoToolAdditions == true }.count
+        let rawCompletionToolAdditions = rawOfficial.filter { ($0["api"] as? String) == "openai-completions" && (($0["compat"] as? [String: Any])?["supportsMidConvoToolAdditions"] as? Bool) == true }.count
+        XCTAssertEqual(typedCompletionToolAdditions, 6)
+        XCTAssertEqual(typedCompletionToolAdditions, rawCompletionToolAdditions)
+        let typedResponsesMidSystem = typed.filter { $0.responsesCompat?.supportsMidConvoSystemMessages == true }.count
+        let rawResponsesMidSystem = rawOfficial.filter { (($0["api"] as? String)?.contains("responses") == true) && (($0["compat"] as? [String: Any])?["supportsMidConvoSystemMessages"] as? Bool) == true }.count
+        XCTAssertEqual(typedResponsesMidSystem, 42)
+        XCTAssertEqual(typedResponsesMidSystem, rawResponsesMidSystem)
+        XCTAssertEqual(typed.filter { $0.responsesCompat?.supportsReasoningEffort == false }.count, 1)
+        let rawStrictFalse = rawOfficial.filter { (($0["compat"] as? [String: Any])?["supportsStrictMode"] as? Bool) == false }.count
+        let typedStrictFalse = typed.filter { $0.completionsCompat?.supportsStrictMode == false || $0.responsesCompat?.supportsStrictMode == false }.count
+        XCTAssertEqual(typedStrictFalse, rawStrictFalse)
+        let rawAffinity = rawOfficial.filter { (($0["compat"] as? [String: Any])?["sendSessionAffinityHeaders"] as? Bool) == true }.count
+        let typedAffinity = typed.filter { $0.completionsCompat?.sendSessionAffinityHeaders == true || $0.anthropicCompat?.sendSessionAffinityHeaders == true }.count
+        XCTAssertEqual(typedAffinity, rawAffinity)
+        let rawAdditionalTools = rawOfficial.filter { (($0["compat"] as? [String: Any])?["supportsAdditionalTools"] as? Bool) == true }.count
+        let typedAdditionalTools = typed.filter { $0.responsesCompat?.supportsAdditionalTools == true }.count
+        XCTAssertEqual(typedAdditionalTools, rawAdditionalTools)
+        let actualImages = try encodedMap(BuiltinImageModels.all()) { "\($0.provider.rawValue)/\($0.id)" }
+        let rawImages = try JSONDecoder().decode([ImagesModel].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/image-models.v1.0.1.json")))
+        let expectedImages = try encodedMap(rawImages) { "\($0.provider.rawValue)/\($0.id)" }
+        XCTAssertEqual(actualImages, expectedImages)
+        XCTAssertEqual(try BuiltinImageModels.all().filter { $0.inputLimits != nil }.count, 57)
+        let actualClassifiers = try encodedMap(BuiltinClassifierModels.all()) { "\($0.provider.rawValue)/\($0.id)" }
+        let rawClassifiers = try JSONDecoder().decode([ClassifierModel].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/classifier-models.v1.0.1.json")))
+        let expectedClassifiers = try encodedMap(rawClassifiers) { "\($0.provider.rawValue)/\($0.id)" }
+        XCTAssertEqual(actualClassifiers, expectedClassifiers)
+    }
+
     func testTogetherReasoningControls() throws {
         let gptOss = try model(.together, "openai/gpt-oss-120b")
         XCTAssertNil(gptOss.thinkingLevelMap?[.off]!)
@@ -384,7 +459,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(gptOss.completionsCompat?.supportsReasoningEffort, true)
         XCTAssertEqual(gptOss.completionsCompat?.thinkingFormat, "openai")
 
-        let deepSeek = try model(.together, "deepseek-ai/DeepSeek-V4-Pro")
+        let deepSeek = try model(.together, "deepseek-ai/DeepSeek-V4-Pro-0813")
         XCTAssertNil(deepSeek.thinkingLevelMap?[.minimal]!)
         XCTAssertNil(deepSeek.thinkingLevelMap?[.low]!)
         XCTAssertNil(deepSeek.thinkingLevelMap?[.medium]!)
@@ -554,8 +629,9 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
             box.record(body)
             return ["access_token": .string("federated-access"), "expires_in": .number(3600)]
         }
-        async let first = AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 1_000)
-        async let second = AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: options, nowMs: 1_000)
+        let concurrentOptions = options
+        async let first = AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: concurrentOptions, nowMs: 1_000)
+        async let second = AnthropicMessagesProvider.resolveFederationAccessToken(model: model, options: concurrentOptions, nowMs: 1_000)
         let tokens = try await [first, second]
         XCTAssertEqual(tokens, ["federated-access", "federated-access"])
         XCTAssertEqual(box.calls, 1)

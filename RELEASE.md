@@ -5,83 +5,87 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 ## Current target
 
 - Upstream package: `@earendil-works/pi-ai`
-- Current upstream release: `v1.0.0`
-- Current upstream tag commit: `a13d35a742c6ef8462812a28fbe1d8c8b7431c32`
-- Verified npm tarball SHA-256: `f39b99c29b8598f175b10840e5d2a81983e7c0ce5cae4d7df83a1007447d2c2b`
+- Current upstream release: `v1.0.1`
+- Current upstream tag commit: `a7229ddc21810d6245105978033b7df645ecc2f7`
+- Verified npm tarball SHA-256: `8a9e69b1309cf93405d87729fa123c8b11c6be7c646b16f34f8bef7b792f9138`
 - Swift parity branch: `main`
-- Current Swift v1.0.0 runtime/classifier release: completed; runtime commit `7e7e2de2495c646857369d6ac63cb64a5bced5a6`, native `v1.0.0`, and upstream alias `upstream-v1.0.0` are published and verified.
-- Accepted rollback runtime: v0.99.2 commit `379018acd61375462d02a971e5283be6b009d33e`.
+- Current Swift v1.0.1 provider candidate: local only; commit, push, hosted CI, tag and release are not yet authorised.
+- Durable native implementation remains a separate mandatory cycle. Rui's policy requires initial `v1.0.1` publication after provider acceptance and later same-version `v1.0.1` retag/release reconciliation after durable acceptance.
+- Accepted rollback runtime: v1.0.0 runtime commit `7e7e2de2495c646857369d6ac63cb64a5bced5a6`; earlier accepted v0.99.2 runtime `379018acd61375462d02a971e5283be6b009d33e`.
 
 ## Exact upstream delta
 
-Release-only audit scope: `packages/ai` diff from accepted v0.99.2 `005af57d88ee23b33778f343a9595b32e67ff788` to v1.0.0 `a13d35a742c6ef8462812a28fbe1d8c8b7431c32`.
+Release audit scope: `packages/ai` diff from accepted v1.0.0 `a13d35a742c6ef8462812a28fbe1d8c8b7431c32` to v1.0.1 `a7229ddc21810d6245105978033b7df645ecc2f7`.
 
-Exact changed-path count: **8**. Changed-path manifest hash: `b8db49581470036b68078ac093dc6b41eaa92222647b14cf44a92b870d54eab4`. Source/package diff: `+192/-14`; status classes: `8M`.
+Exact changed-path count: **19**. Changed-path manifest hash: `ac9e4b76f7bb921a251ac5f5e14af48b1fa73f6e40d4d49e41ee11d5fb902278`. Source/package diff: `+546/-153`; status classes: `18M/1A`.
 
-Changed executable upstream tests: **3**, manifest hash `fbe3c63453261a58352b5e238f5f9488f33a13016485c7e3a49cce17bfdaaca2`. Final executable upstream test corpus: **171** basename rows, manifest hash `9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc`.
+Changed upstream tests: **6**, manifest hash `fd49b5003edf22d18b5c4a4fa5b4998e5bad49136cc6d356527dd7c3d655a659`. Whole corpus manifest: **171** paths (`164` executable plus support entries), SHA-256 `9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc`.
 
-The detailed disposition matrix is in [`docs/upstream-v1.0.0-audit.md`](docs/upstream-v1.0.0-audit.md). The cumulative whole-corpus test crosswalk is in [`docs/upstream-v1.0.0-test-crosswalk.md`](docs/upstream-v1.0.0-test-crosswalk.md) and is fail-closed validated: 3 unique changed rows, dispositions `2 ported / 1 adapted / 0 pending`.
+The detailed disposition matrix is in [`docs/upstream-v1.0.1-audit.md`](docs/upstream-v1.0.1-audit.md). The whole-corpus test crosswalk is in [`docs/upstream-v1.0.1-test-crosswalk.md`](docs/upstream-v1.0.1-test-crosswalk.md) and is fail-closed validated: 6 unique changed rows, dispositions `3 ported / 3 adapted / 0 pending`.
 
 ## Exact catalog parity
 
-Signed npm tarball schema-v6 oracle:
+Verified pinned npm tarball schema-v6 oracle:
 
-- Provider-data manifest: schema `6`, provider files `42`, structure hash `235f2f320916ab6b0d7193e0bf66ec7983e9bc05abeddd7264923fb1e7eaf76e`.
-- Chat snapshot: `scripts/models.v1.0.0.json` / exact upstream comparator `scripts/upstream-models.a13d35a.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`; **1532 models / 41 providers / 10 APIs**.
-- Image snapshot: `scripts/image-models.v1.0.0.json` / exact upstream comparator `scripts/upstream-image-models.a13d35a.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`; **57 models / 1 provider / 1 API**.
-- Classifier snapshot: `scripts/classifier-models.v1.0.0.json` / exact upstream comparator `scripts/upstream-classifier-models.a13d35a.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ClassifierModelsGenerated.swift`; **15 models / 5 providers / 2 APIs**.
-- Normalized deltas vs accepted v0.99.2: chat `+5/-2/19 changed`, image `+0/-0/0 changed`, classifier `+0/-0/1 changed`.
+- Provider-data manifest: schema `6`, provider files `42`, changed provider JSON files `10`, generatedAt `2026-10-03T12:25:02.573Z`, structure hash `03d2e1aeeee6eb16959d4f727b47b9b187efaf863c688a47889fb90d200e6812`.
+- Actual typed Swift export was independently compared against official raw snapshots with zero unexplained differences across all `1615` records. Native structural adaptations are limited to implicit `type` on `1536` chat and `59` image records and default `maxTokens = 0` for `20` classifier records where the official classifier records omit that field. Costs, tiers, provider arrays, image `inputLimits` and compat fields are preserved.
+- Chat snapshot: `scripts/models.v1.0.1.json` / exact upstream comparator `scripts/upstream-models.a7229dd.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ModelsGenerated.swift`; **1536 models / 41 providers / 10 APIs**.
+- Image snapshot: `scripts/image-models.v1.0.1.json` / exact upstream comparator `scripts/upstream-image-models.a7229dd.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ImageModelsGenerated.swift`; **59 models / 1 provider / 1 API**.
+- Classifier snapshot: `scripts/classifier-models.v1.0.1.json` / exact upstream comparator `scripts/upstream-classifier-models.a7229dd.json` / embedded Swift registry `Sources/SwiftAI/Models/Generated/ClassifierModelsGenerated.swift`; **20 models / 5 providers / 2 APIs**.
+- Normalized deltas vs accepted v1.0.0: chat `+17/-13/54 changed`, image `+2/-0/0 changed`, classifier `+5/-0/0 changed`.
+- `scripts/validate-model-data.py` derives records directly from the verified tarball/provider shards, validates schema-v6 provider data and stages all generated outputs before replacing accepted outputs. It does not use pre-flattened auditor record files as authority.
 
 Expected comparator output:
 
 ```text
-ok: 1532 chat models / 41 providers / 10 APIs; 57 image models / 1 providers / 1 APIs; 15 classifier models / 5 providers / 2 APIs; text delta +5/-2/19 changed; image delta +0/-0/0 changed; classifier delta +0/-0/1 changed
+ok: 1536 chat models / 41 providers / 10 APIs; 59 image models / 1 providers / 1 APIs; 20 classifier models / 5 providers / 2 APIs; text delta +17/-13/54 changed; image delta +2/-0/0 changed; classifier delta +5/-0/0 changed
 ```
 
 ## Swift implementation, adaptations, and separate follow-up scope
 
-Implemented/adapted in the v1.0.0 local candidate:
+Implemented/adapted in the local v1.0.1 provider candidate:
 
-- Regenerated v1.0.0 chat, image, and classifier catalogs from the verified signed npm artifact; live catalog hydration remains excluded.
-- Ported OpenAI Responses grammar replay so one capability/transcript-resolved grammar map drives tool declarations, assistant replay items and tool-result outputs.
-- Preserved function-call foreign ID normalization while dropping foreign/different-model custom grammar item IDs against the expected `ctc_` prefix.
-- Ported Anthropic OAuth browser/copy-code selection through an additive Swift auth prompt adapter, exact upstream constants, JSON token POST/refresh bodies, parser/state behavior, cancellation checkpoints and request/response secret redaction.
-- Kept OAuth callback browser-page SVG branding as N/A/adapted because this Swift package has a callback decision utility but no bound page renderer; no server/renderer was introduced solely for branding.
+- Regenerated v1.0.1 chat, image and classifier catalogs from the verified pinned npm artifact; live catalog hydration remains excluded.
+- Added native schema-v6 provider-data validation and staged rendering controls for the pinned provider shards. This is a pre-replacement staging preflight, not an atomic multi-file transaction claim.
+- Ported Anthropic inline tool definitions with `inline-tools-2026-09-15`, stable initial tool list plus placeholder, full inline `tool_definition` additions/redefinitions, same-name removal suppression, cache-control placement on the outer block, env/effective OAuth name mapping, strict/eager schema preservation, and no-initial-tool fallback.
+- Swift has no `system` role. The initial tool-state adaptation is a first-message inert empty assistant metadata entry carrying `toolsAdded`; user, tool-result, non-empty assistant and later assistant metadata do not qualify as the initial tool baseline. Tests cover timestamp collisions, canonical OAuth tool-name collisions and incoming/replayed tool-name mapping.
+- Added backward-compatible full tool-delta metadata on `Message` (`toolsAdded`, `toolsRemoved`) while retaining legacy `addedToolNames`. Added compat metadata fields for provider records; preserving these fields does not add broad runtime consumption for other provider APIs.
+- Added `ImagesModel.inputLimits` so official image full-record metadata is retained. No image preprocessing/resizing feature is added in this lane.
+- Ported Bedrock adaptive thinking `block_binding` and `thinking-binding-controls-2026-08-01` only for eligible families; 4.6 and GovCloud omit binding/beta while preserving effort/budget behavior.
+- Ported Cloudflare Workers AI System One direct result-envelope parsing while retaining nested run-record behavior, usage preservation and public `SwiftAI.classify` coverage.
+- Added the retryable provider phrase `model is at capacity` while preserving nonretryable quota/billing precedence.
+- Preserved Swift ChatGPT OAuth as primitive utilities only. The package has no host browser callback listener; no listener API was invented for the upstream occupied-port behavior.
 
-Separate classifier contract follow-up, included in this local candidate but distinct from the 8-path upstream delta:
+Out of scope for this candidate:
 
-- Enforces System One object-state wire contract with a new object-safe initializer while preserving the public `JSONValue` state API.
-- Preserves `bool -> noul` wire mapping and public bool probability output.
-- Requires bool criteria to include both `true` and `false` for System One wire requests.
-- Requires finite choice probabilities/confidence and finite score/confidence.
-- Parses usage before answer semantics and preserves valid billed usage on structurally valid JSON with semantic answer errors.
-- Treats malformed usage as optional and ignored; fractional/out-of-range usage and total-token overflow do not trap.
-- Native Foundation/Swift `Double` cannot represent whole-body JSON numeric overflow such as `1e400`; those syntactically valid JavaScript-number bodies fail Swift whole-JSON decode and intentionally return stable error/no hook/no usage as a documented native adaptation rather than partial billing recovery.
-- Implements deterministic production classify transport for TypeSafe and Cloudflare envelopes through `SwiftAI.classify`, existing retry/cancel/header/env/hook patterns, option-scoped request transport injection, case-insensitive header nil suppression, timestamping, and absolute HTTP(S) URL validation.
-- Llama classifier provider remains outside the current two-API Swift surface and is N/A for this lane.
-
-Durable execution support requested after this lane is intentionally not part of this candidate and must remain a separate future feature.
+- Native durable implementation. The accepted durable readiness report remains frozen at `/workspace/tmp/swift-ai-durable-v101-plan.md` SHA-256 `5d3a5616aee947d36268c066bf11b19aadcef7b217dd7752fcfa347f44e99e93`.
+- Dependency, workflow, Package.swift, README, AGENTS, Makefile or live-credential changes.
 
 ## Tests and gates
 
-Local validation for v1.0.0 parity work uses Swift `6.3.2`; heavy Swift gates must run under nice `10` with `-j 2`.
+Local validation for v1.0.1 provider work uses Swift `6.3.2`; heavy Swift gates run under nice `10` with `-j 2` where the command supports it.
+
+Focused local gates passed for the current local candidate:
+
+- Focused provider/catalog filter: Anthropic inline tools, effective OAuth serialization, full tool-delta Codable shape, typed catalog decode controls, Bedrock binding, Cloudflare direct envelope and capacity retry; `10` selected tests / `0` failures (`.artifacts/v1.0.1-validation/focused-prefreeze-controls.log`).
+- Native hydration validator: valid tarball `--validate-only` passed; missing-file, source-hash, manifest-schema, bogus-modality, missing-cost, image-output, missing-chat-cap, duplicate, late-classifier and render/format post-staging faults rejected with accepted outputs unchanged.
+- `python3 scripts/audit-parity.py`: passed exact full-record text/image/classifier comparators.
+- `python3 scripts/audit-parity.py --self-test`: passed deliberate text/image/classifier metadata and crosswalk corruption checks.
+- `python3 scripts/static-check.py`: passed.
 
 Final local gates passed for the current local candidate:
 
-- Focused auditor/runtime filter covering Anthropic OAuth, Responses grammar replay, and System One classifier: `14` auditor-filter tests / `0` failures independently; local broader focused filter: `15` tests / `0` failures (`.artifacts/v1.0.0-validation/focused-runtime-classifier-final.log`).
-- `nice -n 10 swift build -j 2 -Xswiftc -warnings-as-errors`: passed using `/home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift` (`6.3.2`) with no warnings (`final-swift-build-warnings-as-errors.log`).
-- `nice -n 10 swift test -j 2`: `299` tests, `0` failures (`final-swift-test-full.log`).
-- Deterministic repeats before final doc-only ledger updates: `nice -n 10 swift test -j 2` ×2 passed, `295` tests / `0` failures each (`swift-test-deterministic-1.log`, `swift-test-deterministic-2.log`).
-- `nice -n 10 make check MAKEFLAGS=-j2`: passed static checks, SBOM generation/check/scan, warnings-as-errors build, and full tests (`final-make-check.log`).
-- `nice -n 10 make sbom-check`: passed; local dirty-tree SBOM SHA-256 `e8f92d7c04ead6f3e8601f7cb8aaf0c07d716eb872932ee0e53126e977233736`; OSV and license checks passed with `2` components (`corrections-make-sbom-check.log`).
-- `python3 scripts/audit-parity.py`: passed exact full-record text/image/classifier comparators (`final-audit-parity.log`).
-- `python3 scripts/audit-parity.py --self-test`: passed deliberate text/image/classifier metadata and crosswalk corruption checks (`final-audit-parity-self-test.log`).
-- `python3 scripts/static-check.py`: passed (`final-static-check.log`).
-- `grep -R "XCTSkip" -n Tests || true`: no matches (`xctskip-scan.log`).
-- `git diff --check`: passed (`final-git-diff-check.log`).
-- Clean source snapshot validation passed audit, warnings-as-errors build, and full tests (`clean-source-snapshot.log`).
+- `nice -n 10 swift build -j 2 -Xswiftc -warnings-as-errors`: passed (`.artifacts/v1.0.1-validation/swift-build-warnings-as-errors-final-metadata.log`).
+- `nice -n 10 swift test -j 2`: passed, `305` tests / `0` failures (`.artifacts/v1.0.1-validation/swift-test-full-final-metadata.log`).
+- Deterministic repeats: `nice -n 10 swift test -j 2` ×2 passed, `305` tests / `0` failures each (`swift-test-deterministic-final-1.log`, `swift-test-deterministic-final-2.log`).
+- `nice -n 10 make check MAKEFLAGS=-j2`: passed static checks, SBOM generation/check/scan, warnings-as-errors build and full tests (`make-check-final2.log`).
+- `nice -n 10 make sbom-check`: passed. Dirty-local SBOM SHA-256 was `1016ff18ec02ec0492f86e30df19e9fcbbdce98019801187af0cea2ce805ac6e`; this is local dirty-tree evidence, not an accepted runtime SBOM claim (`make-sbom-check-final2.log`).
+- `python3 scripts/audit-parity.py`, `python3 scripts/audit-parity.py --self-test` and `python3 scripts/static-check.py`: passed after the final metadata fixes.
+- `grep -R "XCTSkip" -n Tests || true`: no matches.
+- `git diff --check`: passed.
+- Clean source snapshot validation passed audit, warnings-as-errors build and full tests (`clean-source-snapshot-final.log`).
 
-Hosted CI/SHA-specific SBOM evidence is pending. No v1.0.0 commit/push/tag/release has been made.
+No v1.0.1 commit/push/tag/release has been made.
 
 ## SBOM/security evidence model
 

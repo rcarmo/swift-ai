@@ -70,7 +70,7 @@ def main() -> int:
         failure = "failed to decode embedded model registry"
     dst.write_text(f'''import Foundation
 
-// Generated from @earendil-works/pi-ai/go-ai v{version} model registry.
+// Generated from verified pinned @earendil-works/pi-ai v{version} model registry data.
 // Source JSON: scripts/{src.name}
 
 public enum {enum_name} {{

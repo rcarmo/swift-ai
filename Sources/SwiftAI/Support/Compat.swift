@@ -36,7 +36,75 @@ public struct OpenAICompletionsCompat: Codable, Equatable, Sendable {
     public var supportsEagerToolInputStreaming: Bool?
     public var deferredToolsMode: String?
     public var vllmPriority: Int?
+    public var supportsMidConvoSystemMessages: Bool?
+    public var supportsMidConvoToolAdditions: Bool?
     public init() {}
+
+    enum CodingKeys: String, CodingKey { case supportsStore, supportsDeveloperRole, supportsReasoningEffort, supportsUsageInStreaming, maxTokensField, requiresToolResultName, requiresAssistantAfterToolResult, requiresThinkingAsText, requiresReasoningContentOnAssistantMessages, thinkingFormat, chatTemplateKwargs, chatTemplateArgs, openRouterRouting, vercelGatewayRouting, zaiToolStream, supportsStrictMode, supportsOpenAIGrammarTools, supportsOpenaiGrammarTools, supportsThinkingTokenBudget, cacheControlFormat, sendSessionAffinityHeaders, supportsLongCacheRetention, allowEmptySignature, sendSessionIdHeader, supportsEagerToolInputStreaming, deferredToolsMode, vllmPriority, supportsMidConvoSystemMessages, supportsMidConvoToolAdditions }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        supportsStore = try c.decodeIfPresent(Bool.self, forKey: .supportsStore)
+        supportsDeveloperRole = try c.decodeIfPresent(Bool.self, forKey: .supportsDeveloperRole)
+        supportsReasoningEffort = try c.decodeIfPresent(Bool.self, forKey: .supportsReasoningEffort)
+        supportsUsageInStreaming = try c.decodeIfPresent(Bool.self, forKey: .supportsUsageInStreaming)
+        maxTokensField = try c.decodeIfPresent(String.self, forKey: .maxTokensField)
+        requiresToolResultName = try c.decodeIfPresent(Bool.self, forKey: .requiresToolResultName)
+        requiresAssistantAfterToolResult = try c.decodeIfPresent(Bool.self, forKey: .requiresAssistantAfterToolResult)
+        requiresThinkingAsText = try c.decodeIfPresent(Bool.self, forKey: .requiresThinkingAsText)
+        requiresReasoningContentOnAssistantMessages = try c.decodeIfPresent(Bool.self, forKey: .requiresReasoningContentOnAssistantMessages)
+        thinkingFormat = try c.decodeIfPresent(String.self, forKey: .thinkingFormat)
+        chatTemplateKwargs = try c.decodeIfPresent([String: ChatTemplateKwargValue].self, forKey: .chatTemplateKwargs)
+        chatTemplateArgs = try c.decodeIfPresent([String: ChatTemplateKwargValue].self, forKey: .chatTemplateArgs)
+        openRouterRouting = try c.decodeIfPresent([String: JSONValue].self, forKey: .openRouterRouting)
+        vercelGatewayRouting = try c.decodeIfPresent([String: JSONValue].self, forKey: .vercelGatewayRouting)
+        zaiToolStream = try c.decodeIfPresent(Bool.self, forKey: .zaiToolStream)
+        supportsStrictMode = try c.decodeIfPresent(Bool.self, forKey: .supportsStrictMode)
+        supportsOpenAIGrammarTools = try c.decodeIfPresent(Bool.self, forKey: .supportsOpenAIGrammarTools) ?? c.decodeIfPresent(Bool.self, forKey: .supportsOpenaiGrammarTools)
+        supportsThinkingTokenBudget = try c.decodeIfPresent(Bool.self, forKey: .supportsThinkingTokenBudget)
+        cacheControlFormat = try c.decodeIfPresent(String.self, forKey: .cacheControlFormat)
+        sendSessionAffinityHeaders = try c.decodeIfPresent(Bool.self, forKey: .sendSessionAffinityHeaders)
+        supportsLongCacheRetention = try c.decodeIfPresent(Bool.self, forKey: .supportsLongCacheRetention)
+        allowEmptySignature = try c.decodeIfPresent(Bool.self, forKey: .allowEmptySignature)
+        sendSessionIdHeader = try c.decodeIfPresent(Bool.self, forKey: .sendSessionIdHeader)
+        supportsEagerToolInputStreaming = try c.decodeIfPresent(Bool.self, forKey: .supportsEagerToolInputStreaming)
+        deferredToolsMode = try c.decodeIfPresent(String.self, forKey: .deferredToolsMode)
+        vllmPriority = try c.decodeIfPresent(Int.self, forKey: .vllmPriority)
+        supportsMidConvoSystemMessages = try c.decodeIfPresent(Bool.self, forKey: .supportsMidConvoSystemMessages)
+        supportsMidConvoToolAdditions = try c.decodeIfPresent(Bool.self, forKey: .supportsMidConvoToolAdditions)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(supportsStore, forKey: .supportsStore)
+        try c.encodeIfPresent(supportsDeveloperRole, forKey: .supportsDeveloperRole)
+        try c.encodeIfPresent(supportsReasoningEffort, forKey: .supportsReasoningEffort)
+        try c.encodeIfPresent(supportsUsageInStreaming, forKey: .supportsUsageInStreaming)
+        try c.encodeIfPresent(maxTokensField, forKey: .maxTokensField)
+        try c.encodeIfPresent(requiresToolResultName, forKey: .requiresToolResultName)
+        try c.encodeIfPresent(requiresAssistantAfterToolResult, forKey: .requiresAssistantAfterToolResult)
+        try c.encodeIfPresent(requiresThinkingAsText, forKey: .requiresThinkingAsText)
+        try c.encodeIfPresent(requiresReasoningContentOnAssistantMessages, forKey: .requiresReasoningContentOnAssistantMessages)
+        try c.encodeIfPresent(thinkingFormat, forKey: .thinkingFormat)
+        try c.encodeIfPresent(chatTemplateKwargs, forKey: .chatTemplateKwargs)
+        try c.encodeIfPresent(chatTemplateArgs, forKey: .chatTemplateArgs)
+        try c.encodeIfPresent(openRouterRouting, forKey: .openRouterRouting)
+        try c.encodeIfPresent(vercelGatewayRouting, forKey: .vercelGatewayRouting)
+        try c.encodeIfPresent(zaiToolStream, forKey: .zaiToolStream)
+        try c.encodeIfPresent(supportsStrictMode, forKey: .supportsStrictMode)
+        try c.encodeIfPresent(supportsOpenAIGrammarTools, forKey: .supportsOpenAIGrammarTools)
+        try c.encodeIfPresent(supportsThinkingTokenBudget, forKey: .supportsThinkingTokenBudget)
+        try c.encodeIfPresent(cacheControlFormat, forKey: .cacheControlFormat)
+        try c.encodeIfPresent(sendSessionAffinityHeaders, forKey: .sendSessionAffinityHeaders)
+        try c.encodeIfPresent(supportsLongCacheRetention, forKey: .supportsLongCacheRetention)
+        try c.encodeIfPresent(allowEmptySignature, forKey: .allowEmptySignature)
+        try c.encodeIfPresent(sendSessionIdHeader, forKey: .sendSessionIdHeader)
+        try c.encodeIfPresent(supportsEagerToolInputStreaming, forKey: .supportsEagerToolInputStreaming)
+        try c.encodeIfPresent(deferredToolsMode, forKey: .deferredToolsMode)
+        try c.encodeIfPresent(vllmPriority, forKey: .vllmPriority)
+        try c.encodeIfPresent(supportsMidConvoSystemMessages, forKey: .supportsMidConvoSystemMessages)
+        try c.encodeIfPresent(supportsMidConvoToolAdditions, forKey: .supportsMidConvoToolAdditions)
+    }
 }
 
 public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
@@ -50,7 +118,43 @@ public struct OpenAIResponsesCompat: Codable, Equatable, Sendable {
     public var supportsExplicitPromptCacheMode: Bool?
     public var sessionAffinityFormat: String?
     public var supportsMaxOutputTokens: Bool?
-    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil, supportsAdditionalTools: Bool? = nil, supportsExplicitPromptCacheMode: Bool? = nil, sessionAffinityFormat: String? = nil, supportsMaxOutputTokens: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools; self.supportsAdditionalTools = supportsAdditionalTools; self.supportsExplicitPromptCacheMode = supportsExplicitPromptCacheMode; self.sessionAffinityFormat = sessionAffinityFormat; self.supportsMaxOutputTokens = supportsMaxOutputTokens }
+    public var supportsReasoningEffort: Bool?
+    public var supportsMidConvoSystemMessages: Bool?
+    public init(promptCacheKey: Bool? = nil, sendSessionIdHeader: Bool? = nil, supportsLongCacheRetention: Bool? = nil, supportsToolSearch: Bool? = nil, supportsStrictMode: Bool? = nil, supportsOpenAIGrammarTools: Bool? = nil, supportsAdditionalTools: Bool? = nil, supportsExplicitPromptCacheMode: Bool? = nil, sessionAffinityFormat: String? = nil, supportsMaxOutputTokens: Bool? = nil, supportsReasoningEffort: Bool? = nil, supportsMidConvoSystemMessages: Bool? = nil) { self.promptCacheKey = promptCacheKey; self.sendSessionIdHeader = sendSessionIdHeader; self.supportsLongCacheRetention = supportsLongCacheRetention; self.supportsToolSearch = supportsToolSearch; self.supportsStrictMode = supportsStrictMode; self.supportsOpenAIGrammarTools = supportsOpenAIGrammarTools; self.supportsAdditionalTools = supportsAdditionalTools; self.supportsExplicitPromptCacheMode = supportsExplicitPromptCacheMode; self.sessionAffinityFormat = sessionAffinityFormat; self.supportsMaxOutputTokens = supportsMaxOutputTokens; self.supportsReasoningEffort = supportsReasoningEffort; self.supportsMidConvoSystemMessages = supportsMidConvoSystemMessages }
+
+    enum CodingKeys: String, CodingKey { case promptCacheKey, sendSessionIdHeader, supportsLongCacheRetention, supportsToolSearch, supportsStrictMode, supportsOpenAIGrammarTools, supportsOpenaiGrammarTools, supportsAdditionalTools, supportsExplicitPromptCacheMode, sessionAffinityFormat, supportsMaxOutputTokens, supportsReasoningEffort, supportsMidConvoSystemMessages }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        promptCacheKey = try c.decodeIfPresent(Bool.self, forKey: .promptCacheKey)
+        sendSessionIdHeader = try c.decodeIfPresent(Bool.self, forKey: .sendSessionIdHeader)
+        supportsLongCacheRetention = try c.decodeIfPresent(Bool.self, forKey: .supportsLongCacheRetention)
+        supportsToolSearch = try c.decodeIfPresent(Bool.self, forKey: .supportsToolSearch)
+        supportsStrictMode = try c.decodeIfPresent(Bool.self, forKey: .supportsStrictMode)
+        supportsOpenAIGrammarTools = try c.decodeIfPresent(Bool.self, forKey: .supportsOpenAIGrammarTools) ?? c.decodeIfPresent(Bool.self, forKey: .supportsOpenaiGrammarTools)
+        supportsAdditionalTools = try c.decodeIfPresent(Bool.self, forKey: .supportsAdditionalTools)
+        supportsExplicitPromptCacheMode = try c.decodeIfPresent(Bool.self, forKey: .supportsExplicitPromptCacheMode)
+        sessionAffinityFormat = try c.decodeIfPresent(String.self, forKey: .sessionAffinityFormat)
+        supportsMaxOutputTokens = try c.decodeIfPresent(Bool.self, forKey: .supportsMaxOutputTokens)
+        supportsReasoningEffort = try c.decodeIfPresent(Bool.self, forKey: .supportsReasoningEffort)
+        supportsMidConvoSystemMessages = try c.decodeIfPresent(Bool.self, forKey: .supportsMidConvoSystemMessages)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(promptCacheKey, forKey: .promptCacheKey)
+        try c.encodeIfPresent(sendSessionIdHeader, forKey: .sendSessionIdHeader)
+        try c.encodeIfPresent(supportsLongCacheRetention, forKey: .supportsLongCacheRetention)
+        try c.encodeIfPresent(supportsToolSearch, forKey: .supportsToolSearch)
+        try c.encodeIfPresent(supportsStrictMode, forKey: .supportsStrictMode)
+        try c.encodeIfPresent(supportsOpenAIGrammarTools, forKey: .supportsOpenAIGrammarTools)
+        try c.encodeIfPresent(supportsAdditionalTools, forKey: .supportsAdditionalTools)
+        try c.encodeIfPresent(supportsExplicitPromptCacheMode, forKey: .supportsExplicitPromptCacheMode)
+        try c.encodeIfPresent(sessionAffinityFormat, forKey: .sessionAffinityFormat)
+        try c.encodeIfPresent(supportsMaxOutputTokens, forKey: .supportsMaxOutputTokens)
+        try c.encodeIfPresent(supportsReasoningEffort, forKey: .supportsReasoningEffort)
+        try c.encodeIfPresent(supportsMidConvoSystemMessages, forKey: .supportsMidConvoSystemMessages)
+    }
 }
 public struct AnthropicFallbackModel: Codable, Equatable, Sendable { public var provider: String?; public var model: String; public var cost: ModelCost?; public init(provider: String? = nil, model: String, cost: ModelCost? = nil) { self.provider = provider; self.model = model; self.cost = cost } }
 
@@ -66,7 +170,9 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
     public var supportsStrictTools: Bool?
     public var allowedFallbackModels: [AnthropicFallbackModel]?
     public var supportsMidConvoEffort: Bool?
-    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil, allowedFallbackModels: [AnthropicFallbackModel]? = nil, supportsMidConvoEffort: Bool? = nil) {
+    public var supportsMidConvoSystemMessages: Bool?
+    public var supportsMidConvoToolChanges: Bool?
+    public init(supportsEagerToolInputStreaming: Bool? = nil, supportsLongCacheRetention: Bool? = nil, sendSessionAffinityHeaders: Bool? = nil, supportsCacheControlOnTools: Bool? = nil, allowEmptySignature: Bool? = nil, supportsTemperature: Bool? = nil, forceAdaptiveThinking: Bool? = nil, supportsToolReferences: Bool? = nil, supportsStrictTools: Bool? = nil, allowedFallbackModels: [AnthropicFallbackModel]? = nil, supportsMidConvoEffort: Bool? = nil, supportsMidConvoSystemMessages: Bool? = nil, supportsMidConvoToolChanges: Bool? = nil) {
         self.supportsEagerToolInputStreaming = supportsEagerToolInputStreaming
         self.supportsLongCacheRetention = supportsLongCacheRetention
         self.sendSessionAffinityHeaders = sendSessionAffinityHeaders
@@ -78,6 +184,8 @@ public struct AnthropicMessagesCompat: Codable, Equatable, Sendable {
         self.supportsStrictTools = supportsStrictTools
         self.allowedFallbackModels = allowedFallbackModels
         self.supportsMidConvoEffort = supportsMidConvoEffort
+        self.supportsMidConvoSystemMessages = supportsMidConvoSystemMessages
+        self.supportsMidConvoToolChanges = supportsMidConvoToolChanges
     }
 }
 

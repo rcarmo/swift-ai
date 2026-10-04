@@ -9,6 +9,7 @@ public enum AnthropicMessagesProvider {
     private static let apiVersion = "2023-06-01"
     private static let interleavedThinkingBeta = "interleaved-thinking-2025-05-14"
     private static let fineGrainedToolStreamingBeta = "fine-grained-tool-streaming-2025-05-14"
+    private static let inlineToolsBeta = "inline-tools-2026-09-15"
     public static let claudeCodeVersion = "2.1.280"
 
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
@@ -22,22 +23,24 @@ public enum AnthropicMessagesProvider {
     }
 
     public static func buildRequestBody(model: Model, context: AIContext, options: StreamOptions?) -> [String: JSONValue] {
-        let isOAuth = isOAuthToken(options?.apiKey ?? "")
-        let plan = deferredToolPlan(model: model, context: context, isOAuthToken: isOAuth)
+        let effectiveKey = effectiveAPIKeyForSerialization(model: model, options: options)
+        let isOAuth = isOAuthToken(effectiveKey)
+        let cc = cacheControl(model: model, options: options)
+        let nativeToolChanges = shouldUseInlineToolChanges(model: model, context: context)
+        let plan = nativeToolChanges ? inlineToolPlan(model: model, context: context, isOAuthToken: isOAuth) : deferredToolPlan(model: model, context: context, isOAuthToken: isOAuth)
         var body: [String: JSONValue] = [
             "model": .string(model.id),
             "max_tokens": .number(Double(AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) ?? AIUtilities.minMaxTokens)),
             "stream": .bool(true),
-            "messages": .array(applyCacheControl(to: convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model, isOAuthToken: isOAuth, deferredMarkers: plan.markers), cacheControl: cacheControl(model: model, options: options)))
+            "messages": .array(convertMessages(AIUtilities.transformMessages(context.messages, for: model), model: model, isOAuthToken: isOAuth, deferredMarkers: nativeToolChanges ? [:] : plan.markers, inlineDefinitions: nativeToolChanges ? plan.inlineDefinitions : [:], inlineRemovals: nativeToolChanges ? plan.inlineRemovals : [:], cacheControl: cc))
         ]
-        let cc = cacheControl(model: model, options: options)
         if let system = context.systemPrompt, !system.isEmpty {
             var sys: [String: JSONValue] = ["type": .string("text"), "text": .string(AIUtilities.sanitizeSurrogates(system))]
             if let cc { sys["cache_control"] = cc }
             body["system"] = .array([.object(sys)])
         }
         if let temperature = options?.temperature, model.anthropicCompat?.supportsTemperature != false { body["temperature"] = .number(temperature) }
-        if !plan.tools.isEmpty { body["tools"] = .array(plan.tools.enumerated().map { idx, entry in toolJSON(entry.tool, model: model, isOAuthToken: isOAuth, deferred: entry.deferred, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == plan.tools.count - 1) ? cc : nil) }) }
+        if !plan.tools.isEmpty { body["tools"] = .array(plan.tools.enumerated().map { idx, entry in toolJSON(entry.tool, model: model, isOAuthToken: isOAuth, deferred: entry.deferred, cacheControl: (model.anthropicCompat?.supportsCacheControlOnTools != false && idx == plan.cacheControlIndex) ? cc : nil) }) }
         if let fallbacks = model.anthropicCompat?.allowedFallbackModels, !fallbacks.isEmpty { body["fallbacks"] = .array(fallbacks.map { .object(["model": .string($0.model)]) }) }
         if model.reasoning {
             if let reasoning = options?.reasoning {
@@ -346,11 +349,23 @@ public enum AnthropicMessagesProvider {
         return out
     }
     public static func normalizeBaseURL(_ base: String) -> String { let b = base.isEmpty ? "https://api.anthropic.com/v1" : base.trimmingCharacters(in: CharacterSet(charactersIn: "/")); return b.hasSuffix("/v1") ? b : b + "/v1" }
-    private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; if model.anthropicCompat?.allowedFallbackModels?.isEmpty == false { out.append("server-side-fallback-2026-07-01") }; if model.anthropicCompat?.supportsMidConvoEffort == true { out.append("mid-conversation-output-config-2026-07-01"); out.append("thinking-binding-controls-2026-08-01") }; return Array(Set(out)).sorted() }
+    private static func betaHeaders(model: Model, context: AIContext) -> [String] { var out = [String](); if model.anthropicCompat?.forceAdaptiveThinking != true { out.append(interleavedThinkingBeta) }; if model.anthropicCompat?.supportsEagerToolInputStreaming == false, !(context.tools ?? []).isEmpty { out.append(fineGrainedToolStreamingBeta) }; if model.anthropicCompat?.allowedFallbackModels?.isEmpty == false { out.append("server-side-fallback-2026-07-01") }; if model.anthropicCompat?.supportsMidConvoEffort == true { out.append("mid-conversation-output-config-2026-07-01"); out.append("thinking-binding-controls-2026-08-01") }; if shouldUseInlineToolChanges(model: model, context: context) { out.append(inlineToolsBeta) }; return Array(Set(out)).sorted() }
     private static func thinkingBudget(_ level: ThinkingLevel, options: StreamOptions?) -> Int { switch level { case .minimal: return options?.thinkingBudgets?.minimal ?? 1024; case .low: return options?.thinkingBudgets?.low ?? 2048; case .medium: return options?.thinkingBudgets?.medium ?? 4096; case .high: return options?.thinkingBudgets?.high ?? 8192; case .xhigh, .max: return options?.thinkingBudgets?.high ?? 16384 } }
     private static func stopReason(_ raw: String?) -> StopReason { switch raw { case "end_turn", "stop_sequence": return .stop; case "max_tokens": return .length; case "tool_use": return .toolUse; case "refusal", "sensitive": return .error; case nil: return .pending; default: return .error } }
-    private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false, deferredMarkers: [Int64: [String]] = [:]) -> [JSONValue] {
-        messages.map { message in
+    private static func convertMessages(_ messages: [Message], model: Model, isOAuthToken: Bool = false, deferredMarkers: [Int64: [String]] = [:], inlineDefinitions: [Int: [Tool]] = [:], inlineRemovals: [Int: [ToolReference]] = [:], cacheControl: JSONValue? = nil) -> [JSONValue] {
+        var out: [JSONValue] = []
+        var pendingSystemMessages: [JSONValue] = []
+        func flushSystemMessages() {
+            out.append(contentsOf: pendingSystemMessages)
+            pendingSystemMessages.removeAll()
+        }
+        for (messageIndex, message) in messages.enumerated() {
+            let hasToolDelta = !((message.toolsAdded ?? []).isEmpty) || !((message.toolsRemoved ?? []).isEmpty) || !((message.addedToolNames ?? []).isEmpty)
+            if let systemMessage = inlineSystemMessage(for: messageIndex, model: model, isOAuthToken: isOAuthToken, inlineDefinitions: inlineDefinitions, inlineRemovals: inlineRemovals) {
+                pendingSystemMessages.append(systemMessage)
+            }
+            if message.content.isEmpty && hasToolDelta { continue }
+            if message.role == .assistant { flushSystemMessages() }
             let role = message.role == .assistant ? "assistant" : "user"
             let content: [JSONValue]
             if message.role == .toolResult {
@@ -365,8 +380,28 @@ public enum AnthropicMessagesProvider {
             } else {
                 content = message.content.compactMap { contentBlock($0, message: message, model: model, isOAuthToken: isOAuthToken) }
             }
-            return .object(["role": .string(role), "content": .array(content)])
+            out.append(.object(["role": .string(role), "content": .array(content)]))
         }
+        flushSystemMessages()
+        return applyCacheControl(to: out, cacheControl: cacheControl)
+    }
+
+    private static func inlineSystemMessage(for messageIndex: Int, model: Model, isOAuthToken: Bool, inlineDefinitions: [Int: [Tool]], inlineRemovals: [Int: [ToolReference]]) -> JSONValue? {
+        let added = inlineDefinitions[messageIndex] ?? []
+        let removed = inlineRemovals[messageIndex] ?? []
+        guard !added.isEmpty || !removed.isEmpty else { return nil }
+        let redefined = Set(added.map { $0.name.lowercased() })
+        var blocks: [JSONValue] = []
+        for ref in removed where !redefined.contains(ref.name.lowercased()) {
+            let name = isOAuthToken ? toClaudeCodeName(ref.name) : ref.name
+            blocks.append(.object(["type": .string("tool_removal"), "tool": .object(["type": .string("tool_reference"), "name": .string(name)])]))
+        }
+        for tool in added {
+            guard case .object(let definition) = toolJSON(tool, model: model, isOAuthToken: isOAuthToken) else { continue }
+            blocks.append(.object(["type": .string("tool_addition"), "tool": .object(["type": .string("tool_definition"), "definition": .object(definition)])]))
+        }
+        guard !blocks.isEmpty else { return nil }
+        return .object(["role": .string("system"), "content": .array(blocks)])
     }
 
     private static func contentBlock(_ block: ContentBlock, message: Message, model: Model, isOAuthToken: Bool = false) -> JSONValue? {
@@ -401,7 +436,7 @@ public enum AnthropicMessagesProvider {
     private static func applyCacheControl(to messages: [JSONValue], cacheControl: JSONValue?) -> [JSONValue] {
         guard let cacheControl else { return messages }
         var messages = messages
-        guard let idx = messages.lastIndex(where: { if case .object(let obj) = $0 { return obj["role"] == .string("user") }; return false }), case .object(var msg) = messages[idx], case .array(var content)? = msg["content"], !content.isEmpty, case .object(var lastBlock) = content[content.count - 1] else { return messages }
+        guard let idx = messages.lastIndex(where: { if case .object(let obj) = $0 { return obj["role"] == .string("user") || obj["role"] == .string("system") }; return false }), case .object(var msg) = messages[idx], case .array(var content)? = msg["content"], !content.isEmpty, case .object(var lastBlock) = content[content.count - 1] else { return messages }
         lastBlock["cache_control"] = cacheControl
         content[content.count - 1] = .object(lastBlock)
         msg["content"] = .array(content)
@@ -437,6 +472,9 @@ public enum AnthropicMessagesProvider {
     }
 
     private static func toolJSON(_ tool: Tool, model: Model, isOAuthToken: Bool = false, deferred: Bool = false, cacheControl: JSONValue? = nil) -> JSONValue {
+        if tool.name == "__pi_deferred_placeholder__" {
+            return .object(["name": .string(tool.name), "description": .string(tool.description), "input_schema": tool.parameters, "defer_loading": .bool(true)])
+        }
         var schema = tool.parameters
         var strict = false
         if tool.constrainedSampling?.type == "json_schema", let strictSchema = try? makeAnthropicStrictJSONSchema(tool.parameters) {
@@ -450,7 +488,7 @@ public enum AnthropicMessagesProvider {
         if let cacheControl { obj["cache_control"] = cacheControl }
         return .object(obj)
     }
-    private static func deferredToolPlan(model: Model, context: AIContext, isOAuthToken: Bool) -> (tools: [(tool: Tool, deferred: Bool)], markers: [Int64: [String]]) {
+    private static func deferredToolPlan(model: Model, context: AIContext, isOAuthToken: Bool) -> (tools: [(tool: Tool, deferred: Bool)], markers: [Int64: [String]], inlineDefinitions: [Int: [Tool]], inlineRemovals: [Int: [ToolReference]], cacheControlIndex: Int) {
         let rawTools = context.tools ?? []
         var toolsByKey: [String: Tool] = [:]
         var order: [String] = []
@@ -460,7 +498,7 @@ public enum AnthropicMessagesProvider {
             toolsByKey[key] = tool
         }
         let tools = order.compactMap { toolsByKey[$0] }
-        guard supportsToolReferences(model), !tools.isEmpty else { return (tools.map { ($0, false) }, [:]) }
+        guard supportsToolReferences(model), !tools.isEmpty else { return (tools.map { ($0, false) }, [:], [:], [:], max(0, tools.count - 1)) }
         let byName = toolsByKey
         var used = Set<String>()
         var deferred = Set<String>()
@@ -479,15 +517,87 @@ public enum AnthropicMessagesProvider {
         }
         if deferred.count == tools.count { deferred.remove(deferred.sorted().first ?? "") }
         if !markers.isEmpty { markers = markers.mapValues { names in names.filter { deferred.contains($0.lowercased()) } }.filter { !$0.value.isEmpty } }
-        return (tools.map { tool in (tool, deferred.contains((isOAuthToken ? toClaudeCodeName(tool.name) : tool.name).lowercased())) }, markers)
+        return (tools.map { tool in (tool, deferred.contains((isOAuthToken ? toClaudeCodeName(tool.name) : tool.name).lowercased())) }, markers, [:], [:], max(0, tools.count - 1))
     }
+
+    private static func inlineToolPlan(model: Model, context: AIContext, isOAuthToken: Bool) -> (tools: [(tool: Tool, deferred: Bool)], markers: [Int64: [String]], inlineDefinitions: [Int: [Tool]], inlineRemovals: [Int: [ToolReference]], cacheControlIndex: Int) {
+        let initialInfo = initialTools(context: context)
+        let initial = dedupeTools(initialInfo.tools, isOAuthToken: isOAuthToken)
+        let fallbackTools = dedupeTools(context.tools ?? [], isOAuthToken: isOAuthToken)
+        guard !initial.isEmpty else { return (fallbackTools.map { ($0, false) }, [:], [:], [:], max(0, fallbackTools.count - 1)) }
+        let initialKeys = Set(initial.map { canonicalToolKey($0.name, isOAuthToken: isOAuthToken) })
+        var currentByName: [String: Tool] = [:]
+        for tool in context.tools ?? [] { currentByName[canonicalToolKey(tool.name, isOAuthToken: isOAuthToken)] = tool }
+        var inlineDefinitions: [Int: [Tool]] = [:]
+        var inlineRemovals: [Int: [ToolReference]] = [:]
+        for (messageIndex, message) in context.messages.enumerated() {
+            if initialInfo.index == messageIndex { continue }
+            let removed = message.toolsRemoved ?? []
+            if !removed.isEmpty { inlineRemovals[messageIndex, default: []].append(contentsOf: removed) }
+            var added = message.toolsAdded ?? []
+            if added.isEmpty {
+                added = (message.addedToolNames ?? []).compactMap { currentByName[canonicalToolKey($0, isOAuthToken: isOAuthToken)] }.filter { !initialKeys.contains(canonicalToolKey($0.name, isOAuthToken: isOAuthToken)) }
+            }
+            if !added.isEmpty { inlineDefinitions[messageIndex, default: []].append(contentsOf: dedupeTools(added, isOAuthToken: isOAuthToken)) }
+            for ref in removed { currentByName.removeValue(forKey: canonicalToolKey(ref.name, isOAuthToken: isOAuthToken)) }
+            for tool in added { currentByName[canonicalToolKey(tool.name, isOAuthToken: isOAuthToken)] = tool }
+        }
+        var tools = initial.map { ($0, false) }
+        tools.append((deferredPlaceholderTool(), true))
+        return (tools, [:], inlineDefinitions, inlineRemovals, max(0, initial.count - 1))
+    }
+
+    private static func initialTools(context: AIContext) -> (tools: [Tool], index: Int?) {
+        let indexed = Array(context.messages.enumerated())
+        if let first = indexed.first, first.element.role == .assistant, first.element.content.isEmpty, let tools = first.element.toolsAdded, !tools.isEmpty { return (tools, first.offset) }
+        let hasTranscriptToolDeltas = indexed.contains { !($0.element.toolsAdded ?? []).isEmpty || !($0.element.toolsRemoved ?? []).isEmpty || !($0.element.addedToolNames ?? []).isEmpty }
+        if !hasTranscriptToolDeltas, let tools = context.tools, !tools.isEmpty { return (tools, nil) }
+        return ([], nil)
+    }
+
+    private static func deferredPlaceholderTool() -> Tool {
+        Tool(name: "__pi_deferred_placeholder__", description: "Reserved placeholder. Never available. Never call this.", parameters: .object(["type": .string("object"), "properties": .object([:]), "required": .array([])]))
+    }
+
+    private static func canonicalToolKey(_ name: String, isOAuthToken: Bool) -> String {
+        (isOAuthToken ? toClaudeCodeName(name) : name).lowercased()
+    }
+
+    private static func dedupeTools(_ tools: [Tool], isOAuthToken: Bool) -> [Tool] {
+        var byKey: [String: Tool] = [:]
+        var order: [String] = []
+        for tool in tools {
+            let key = canonicalToolKey(tool.name, isOAuthToken: isOAuthToken)
+            if byKey[key] == nil { order.append(key) }
+            byKey[key] = tool
+        }
+        return order.compactMap { byKey[$0] }
+    }
+
+    private static func shouldUseInlineToolChanges(model: Model, context: AIContext) -> Bool {
+        guard supportsNativeInlineToolChanges(model), !initialTools(context: context).tools.isEmpty else { return false }
+        return true
+    }
+
+    private static func supportsNativeInlineToolChanges(_ model: Model) -> Bool {
+        guard let compat = model.anthropicCompat else { return false }
+        return compat.supportsMidConvoSystemMessages == true && compat.supportsMidConvoToolChanges == true
+    }
+
     private static func supportsToolReferences(_ model: Model) -> Bool { if let forced = model.anthropicCompat?.supportsToolReferences { return forced }; let id = (model.id + " " + model.name).lowercased(); return id.contains("opus-4-6") || id.contains("opus-4-7") || id.contains("opus-4-8") }
     private static func normalizeAnthropicToolCallID(_ id: String) -> String { String(id.map { ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") ? $0 : "_" }.prefix(64)) }
+    private static func effectiveAPIKeyForSerialization(model: Model, options: StreamOptions?) -> String {
+        ProviderEnvironment.resolveAPIKey(model: model, options: options) ?? ""
+    }
     private static func isOAuthToken(_ apiKey: String) -> Bool { apiKey.contains("sk-ant-oat") }
     private static let claudeCodeToolNames = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "KillShell", "NotebookEdit", "Skill", "Task", "TaskOutput", "TodoWrite", "WebFetch", "WebSearch"]
     private static func toClaudeCodeName(_ name: String) -> String { claudeCodeToolNames.first { $0.lowercased() == name.lowercased() } ?? name }
     private static func fromClaudeCodeName(_ name: String, toolsByClaudeCodeName: [String: String]) -> String { toolsByClaudeCodeName[name.lowercased()] ?? name }
-    fileprivate static func claudeCodeToolNameMap(_ tools: [Tool]) -> [String: String] { Dictionary(uniqueKeysWithValues: tools.map { (toClaudeCodeName($0.name).lowercased(), $0.name) }) }
+    fileprivate static func claudeCodeToolNameMap(_ tools: [Tool]) -> [String: String] {
+        var out: [String: String] = [:]
+        for tool in tools { out[toClaudeCodeName(tool.name).lowercased()] = tool.name }
+        return out
+    }
 }
 
 private struct AnthropicStreamState { var model: Model; var partial: Message; var started = false; var sawMessageStart = false; var sawMessageStop = false; var toolJSON: [Int: String] = [:]; var inputTransformations: [JSONValue] = []; var terminalErrorMessage: String?; var toolsByClaudeCodeName: [String: String]; var costModel: Model { if let responseModel = partial.responseModel, responseModel != model.id, let fallback = model.anthropicCompat?.allowedFallbackModels?.first(where: { $0.model == responseModel }), let cost = fallback.cost { var copy = model; copy.id = responseModel; copy.cost = cost; return copy }; return model }; init(model: Model, tools: [Tool] = [], providerThinkingLevel: String? = nil) { self.model = model; self.toolsByClaudeCodeName = AnthropicMessagesProvider.claudeCodeToolNameMap(tools); var msg = Message(role: .assistant, content: []); msg.api = model.api; msg.provider = model.provider; msg.model = model.id; msg.providerThinkingLevel = providerThinkingLevel; msg.usage = Usage(); partial = msg } }

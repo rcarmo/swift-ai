@@ -48,7 +48,7 @@ final class ClassifierProviderTests: XCTestCase {
     }
 
     func testCloudflareSystemOnePayloadEnvelopeAndErrors() throws {
-        let model = ClassifierModel(id: "@cf/typesafe/jev", name: "Jev", api: .cloudflareWorkersAISystemOne, provider: .cloudflareWorkersAI, baseUrl: "https://api.cloudflare.com/client/v4/accounts/acct/ai")
+        let model = ClassifierModel(id: "@cf/typesafe/jev", name: "Jev", api: .cloudflareWorkersAISystemOne, provider: .cloudflareWorkersAI, baseUrl: "https://api.cloudflare.com/client/v4/accounts/acct/ai", cost: ModelCost(input: 0.24, output: 0))
         let payload = try SystemOneClassifierProvider.payload(model: model, context: context(), transport: .cloudflareWorkersAI)
         XCTAssertEqual(payload["model"], .string("@cf/typesafe/jev"))
         guard case .object(let input)? = payload["input"], case .object(let questions)? = input["questions"], case .object(let safe)? = questions["safe"] else { return XCTFail("missing Cloudflare input") }
@@ -64,6 +64,29 @@ final class ClassifierProviderTests: XCTestCase {
         ])
         let result = try SystemOneClassifierProvider.parseResult(body, model: model, context: context(), transport: .cloudflareWorkersAI)
         XCTAssertEqual(result.answers["safe"]?.probability, 0.5)
+
+        let direct: JSONValue = .object([
+            "success": .bool(true),
+            "result": .object([
+                "model": .string("clef"),
+                "usage": .object(["input_tokens": .number(222), "output_tokens": .number(0)]),
+                "answers": .object([
+                    "safe": .object(["type": .string("noul"), "noul": .number(0.9912)]),
+                    "tone": .object(["type": .string("choice"), "choice": .string("friendly"), "probabilities": .object(["friendly": .number(0.8368), "hostile": .number(0.1632)]), "confidence": .number(0.4538)]),
+                    "quality": .object(["type": .string("score"), "score": .number(2), "confidence": .number(1)])
+                ])
+            ])
+        ])
+        let directResult = try SystemOneClassifierProvider.parseResult(direct, model: model, context: context(), transport: .cloudflareWorkersAI)
+        XCTAssertEqual(directResult.answers["safe"]?.probability, 0.9912)
+        XCTAssertEqual(directResult.answers["tone"]?.choice, "friendly")
+        XCTAssertEqual(directResult.usage?.input, 222)
+        XCTAssertEqual(directResult.usage?.output, 0)
+        XCTAssertEqual(directResult.usage?.totalTokens, 222)
+        XCTAssertEqual(directResult.usage?.cost.input, 222 * 0.24 / 1_000_000)
+
+        let nullResult: JSONValue = .object(["success": .bool(true), "result": .null])
+        XCTAssertThrowsError(try SystemOneClassifierProvider.parseResult(nullResult, model: model, context: context(), transport: .cloudflareWorkersAI))
 
         let errorBody: JSONValue = .object(["success": .bool(false), "errors": .array([.object(["message": .string("bad account")])])])
         XCTAssertThrowsError(try SystemOneClassifierProvider.parseResult(errorBody, model: model, context: context(), transport: .cloudflareWorkersAI)) { error in

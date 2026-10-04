@@ -10,8 +10,28 @@ final class SwiftAITests: XCTestCase {
         let text = String(data: data, encoding: .utf8)!
         XCTAssertTrue(text.contains("\"role\":\"user\""))
         XCTAssertTrue(text.contains("\"type\":\"text\""))
+        XCTAssertFalse(text.contains("toolsAdded"))
+        XCTAssertFalse(text.contains("toolsRemoved"))
         let decoded = try JSONDecoder().decode(Message.self, from: data)
         XCTAssertEqual(decoded.content.first?.text, "hello")
+        XCTAssertNil(decoded.toolsAdded)
+        XCTAssertNil(decoded.toolsRemoved)
+    }
+
+    func testMessageFullToolDeltaCodableShape() throws {
+        var message = Message(role: .toolResult, content: [.text("done")], timestamp: 7)
+        message.addedToolNames = ["legacy"]
+        message.toolsAdded = [Tool(name: "late", description: "Late", parameters: .object(["type": .string("object")]))]
+        message.toolsRemoved = [ToolReference(name: "old")]
+        let data = try JSONEncoder().encode(message)
+        let text = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(text.contains("toolsAdded"))
+        XCTAssertTrue(text.contains("toolsRemoved"))
+        XCTAssertTrue(text.contains("addedToolNames"))
+        let decoded = try JSONDecoder().decode(Message.self, from: data)
+        XCTAssertEqual(decoded.addedToolNames, ["legacy"])
+        XCTAssertEqual(decoded.toolsAdded?.first?.name, "late")
+        XCTAssertEqual(decoded.toolsRemoved, [ToolReference(name: "old")])
     }
 
     func testSSEParser() {
@@ -48,6 +68,21 @@ final class SwiftAITests: XCTestCase {
         let anthropic = try JSONDecoder().decode(Model.self, from: anthropicJSON)
         XCTAssertEqual(anthropic.anthropicCompat?.sendSessionAffinityHeaders, true)
         XCTAssertEqual(anthropic.anthropicCompat?.supportsCacheControlOnTools, false)
+
+        let openaiSpellingJSON = """
+        {"id":"o","name":"O","api":"openai-completions","provider":"openai","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1,"completionsCompat":{"supportsOpenaiGrammarTools":true,"supportsStrictMode":false,"sendSessionAffinityHeaders":true}}
+        """.data(using: .utf8)!
+        let openai = try JSONDecoder().decode(Model.self, from: openaiSpellingJSON)
+        XCTAssertEqual(openai.completionsCompat?.supportsOpenAIGrammarTools, true)
+        XCTAssertEqual(openai.completionsCompat?.supportsStrictMode, false)
+        XCTAssertEqual(openai.completionsCompat?.sendSessionAffinityHeaders, true)
+        let responsesSpellingJSON = """
+        {"id":"r","name":"R","api":"openai-responses","provider":"openai","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":1,"maxTokens":1,"responsesCompat":{"supportsOpenaiGrammarTools":true,"supportsStrictMode":true,"supportsAdditionalTools":true}}
+        """.data(using: .utf8)!
+        let responses = try JSONDecoder().decode(Model.self, from: responsesSpellingJSON)
+        XCTAssertEqual(responses.responsesCompat?.supportsOpenAIGrammarTools, true)
+        XCTAssertEqual(responses.responsesCompat?.supportsStrictMode, true)
+        XCTAssertEqual(responses.responsesCompat?.supportsAdditionalTools, true)
     }
 
     func testModelThinkingLevelMapCodableShape() throws {
@@ -123,20 +158,20 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "1.0.0")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1532)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 57)
-        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 15)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "1.0.1")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1536)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 59)
+        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 20)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "1.0.0")
-        XCTAssertEqual(BuiltinModels.modelCount, 1532)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "1.0.1")
+        XCTAssertEqual(BuiltinModels.modelCount, 1536)
         XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1532)
+        XCTAssertEqual(models.count, 1536)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -294,11 +329,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "1.0.0")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 57)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "1.0.1")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 59)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 57)
+        XCTAssertEqual(models.count, 59)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -495,7 +530,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1532)
+        XCTAssertEqual(models.count, 1536)
         XCTAssertEqual(Set(models.map(\.provider)).count, 41)
         XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -513,7 +548,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
 
         let images = try BuiltinImageModels.all()
-        XCTAssertEqual(images.count, 57)
+        XCTAssertEqual(images.count, 59)
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "inclusionai/ming-image-0.1-design" })
@@ -1780,6 +1815,8 @@ final class SwiftAITests: XCTestCase {
         XCTAssertTrue(ProviderRetry.isRetryable(ProviderRetryError(status: 409, message: "lock")))
         XCTAssertFalse(ProviderRetry.isRetryable(ProviderRetryError(status: 400, headers: ["x-should-retry": "false"], message: "bad")))
         XCTAssertTrue(ProviderRetry.isRetryable(ProviderRetryError(status: 400, headers: ["x-should-retry": "true"], message: "forced")))
+        XCTAssertTrue(AssistantErrorRetryClassifier.isRetryableAssistantError({ var msg = Message(role: .assistant, content: []); msg.stopReason = .error; msg.errorMessage = "provider said model is at capacity"; return msg }()))
+        XCTAssertFalse(AssistantErrorRetryClassifier.isRetryableAssistantError({ var msg = Message(role: .assistant, content: []); msg.stopReason = .error; msg.errorMessage = "model is at capacity but billing quota exceeded"; return msg }()))
         XCTAssertEqual(try ProviderRetry.retryDelayMilliseconds(ProviderRetryError(status: 429, headers: ["retry-after-ms": "250"], message: "slow"), retryIndex: 0), 250)
         XCTAssertThrowsError(try ProviderRetry.retryDelayMilliseconds(ProviderRetryError(status: 429, headers: ["retry-after": "120"], message: "slow"), retryIndex: 0, maxRetryDelayMs: 1_000))
         final class Box: @unchecked Sendable { var attempts = 0; var sleeps: [UInt64] = [] }
@@ -2681,6 +2718,133 @@ final class SwiftAITests: XCTestCase {
         XCTAssertFalse(unsupportedInput.contains { if case .object(let obj) = $0 { return obj["type"] == .string("tool_search_output") }; return false })
     }
 
+    func testAnthropicInlineToolsFirstRequestAndToolDeltaPayloads() throws {
+        func tool(_ name: String, description: String? = nil) -> Tool { Tool(name: name, description: description ?? "The \(name) tool", parameters: .object(["type": .string("object"), "properties": .object([:])])) }
+        var initial = Message(role: .assistant, content: [], timestamp: 1)
+        initial.toolsAdded = [tool("base_tool"), tool("read", description: "lowercase read"), tool("Read", description: "canonical Read")]
+        var result = Message(role: .toolResult, content: [.text("done")], timestamp: 2)
+        result.toolCallId = "call_1"
+        result.toolName = "base_tool"
+        result.toolsRemoved = [ToolReference(name: "old_tool"), ToolReference(name: "base_tool")]
+        result.toolsAdded = [tool("late_tool"), tool("base_tool", description: "Replacement base")]
+        let context = AIContext(messages: [initial, result, Message(role: .user, content: [.text("next")], timestamp: 3)], tools: [tool("base_tool"), tool("late_tool"), tool("read"), tool("Read")])
+        let compat = AnthropicMessagesCompat(supportsMidConvoSystemMessages: true, supportsMidConvoToolChanges: true)
+        let model = Model(id: "claude-opus-5", name: "Claude Opus 5", api: .anthropicMessages, provider: .anthropic, input: ["text"], anthropicCompat: compat)
+        var options = StreamOptions(); options.env = ["ANTHROPIC_OAUTH_TOKEN": "sk-ant-oat01-env"]
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: context, options: options)
+        guard case .array(let tools)? = body["tools"] else { return XCTFail("missing tools") }
+        XCTAssertEqual(tools.compactMap { if case .object(let object) = $0 { return object["name"]?.stringValue }; return nil }, ["base_tool", "Read", "__pi_deferred_placeholder__"])
+        guard case .object(let baseTool) = tools[0], case .object(let lastInitialTool) = tools[1] else { return XCTFail("missing initial tools") }
+        XCTAssertNil(baseTool["cache_control"])
+        XCTAssertEqual(lastInitialTool["cache_control"], .object(["type": .string("ephemeral")]))
+        guard case .object(let placeholder) = tools[2] else { return XCTFail("missing placeholder") }
+        XCTAssertEqual(placeholder["defer_loading"], .bool(true))
+        XCTAssertNil(placeholder["cache_control"])
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: context, apiKey: "sk-ant-oat01-env", options: options)
+        XCTAssertEqual(headers["Authorization"], "Bearer sk-ant-oat01-env")
+        XCTAssertNil(headers["X-Api-Key"])
+        XCTAssertTrue(headers["Anthropic-Beta"]?.contains("inline-tools-2026-09-15") == true)
+        XCTAssertFalse(headers["Anthropic-Beta"]?.contains("mid-conversation-tool-changes-2026-07-01") == true)
+        guard case .array(let messages)? = body["messages"] else { return XCTFail("missing messages") }
+        guard let system = messages.first(where: { if case .object(let object) = $0 { return object["role"] == .string("system") }; return false }), case .object(let systemObject) = system, case .array(let content)? = systemObject["content"] else { return XCTFail("missing inline system message") }
+        XCTAssertTrue(content.contains { block in
+            guard case .object(let object) = block, object["type"] == .string("tool_removal"), case .object(let toolObject)? = object["tool"] else { return false }
+            return toolObject["type"] == .string("tool_reference") && toolObject["name"] == .string("old_tool")
+        })
+        XCTAssertFalse(content.contains { block in
+            guard case .object(let object) = block, object["type"] == .string("tool_removal"), case .object(let toolObject)? = object["tool"] else { return false }
+            return toolObject["name"] == .string("base_tool")
+        })
+        let definitions = content.compactMap { block -> [String: JSONValue]? in
+            guard case .object(let object) = block, object["type"] == .string("tool_addition"), case .object(let toolObject)? = object["tool"], toolObject["type"] == .string("tool_definition"), case .object(let definition)? = toolObject["definition"] else { return nil }
+            return definition
+        }
+        XCTAssertEqual(definitions.compactMap { $0["name"]?.stringValue }, ["late_tool", "base_tool"])
+        XCTAssertFalse(definitions.contains { $0["name"] == .string("Read") })
+        XCTAssertTrue(definitions.allSatisfy { $0["cache_control"] == nil })
+        guard case .object(let lastBlock) = content.last else { return XCTFail("missing last inline block") }
+        XCTAssertEqual(lastBlock["cache_control"], .object(["type": .string("ephemeral")]))
+
+        var replay = Message(role: .assistant, content: [.toolCall(id: "call replay", name: "read", arguments: [:])], timestamp: 4)
+        replay.api = .anthropicMessages; replay.provider = .anthropic; replay.model = model.id
+        let replayBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [initial, replay]), options: options)
+        guard case .array(let replayMessages)? = replayBody["messages"], case .object(let replayMsg)? = replayMessages.first(where: { if case .object(let object) = $0 { return object["role"] == .string("assistant") }; return false }), case .array(let replayContent)? = replayMsg["content"], case .object(let toolUse)? = replayContent.first else { return XCTFail("missing replayed tool call") }
+        XCTAssertEqual(toolUse["name"], .string("Read"))
+
+        let incoming = """
+        event: message_start
+        data: {"message":{"id":"m","usage":{"input_tokens":1,"output_tokens":0}}}
+
+        event: content_block_start
+        data: {"index":0,"content_block":{"type":"tool_use","id":"call_1","name":"Read"}}
+
+        event: content_block_delta
+        data: {"index":0,"delta":{"type":"input_json_delta","partial_json":"{}"}}
+
+        event: content_block_stop
+        data: {"index":0}
+
+        event: message_delta
+        data: {"delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":1}}
+
+        event: message_stop
+        data: {}
+
+        """
+        let incomingEvents = AnthropicMessagesProvider.processSSEText(incoming, model: model, tools: [tool("read"), tool("Read", description: "canonical Read")])
+        guard case .done(_, let incomingMessage)? = incomingEvents.last else { return XCTFail("missing incoming done") }
+        XCTAssertEqual(incomingMessage.content.first?.name, "Read")
+    }
+
+    func testAnthropicInlineToolsInitialMetadataValidationAndTimestampCollisions() throws {
+        func tool(_ name: String) -> Tool { Tool(name: name, description: "The \(name) tool", parameters: .object(["type": .string("object")])) }
+        let compat = AnthropicMessagesCompat(supportsMidConvoSystemMessages: true, supportsMidConvoToolChanges: true)
+        let model = Model(id: "claude-opus-5", name: "Claude Opus 5", api: .anthropicMessages, provider: .anthropic, input: ["text"], anthropicCompat: compat)
+        var invalidUser = Message(role: .user, content: [.text("hi")], timestamp: 1)
+        invalidUser.toolsAdded = [tool("base_tool")]
+        var late = Message(role: .toolResult, content: [.text("done")], timestamp: 2)
+        late.toolCallId = "call_1"; late.toolName = "base_tool"; late.toolsAdded = [tool("late_tool")]
+        let invalidUserBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [invalidUser, late], tools: [tool("base_tool"), tool("late_tool")]), options: nil)
+        XCTAssertFalse(AnthropicMessagesProvider.buildRequestHeaders(model: model, context: AIContext(messages: [invalidUser, late], tools: [tool("base_tool"), tool("late_tool")]), apiKey: "key", options: nil)["Anthropic-Beta"]?.contains("inline-tools-2026-09-15") == true)
+        guard case .array(let invalidUserTools)? = invalidUserBody["tools"] else { return XCTFail("missing invalid-user fallback tools") }
+        XCTAssertEqual(invalidUserTools.compactMap { if case .object(let object) = $0 { return object["name"]?.stringValue }; return nil }, ["base_tool", "late_tool"])
+
+        var invalidToolResult = Message(role: .toolResult, content: [.text("done")], timestamp: 1)
+        invalidToolResult.toolsAdded = [tool("base_tool")]
+        let invalidToolBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [invalidToolResult], tools: [tool("base_tool")]), options: nil)
+        guard case .array(let invalidToolTools)? = invalidToolBody["tools"] else { return XCTFail("missing invalid-tool fallback tools") }
+        XCTAssertEqual(invalidToolTools.compactMap { if case .object(let object) = $0 { return object["name"]?.stringValue }; return nil }, ["base_tool"])
+
+        var initial = Message(role: .assistant, content: [], timestamp: 7)
+        initial.toolsAdded = [tool("base_tool")]
+        var sameTimestampLate = Message(role: .toolResult, content: [.text("done")], timestamp: 7)
+        sameTimestampLate.toolCallId = "call_1"; sameTimestampLate.toolName = "base_tool"; sameTimestampLate.toolsAdded = [tool("late_tool")]
+        let sameTimestampBody = AnthropicMessagesProvider.buildRequestBody(model: model, context: AIContext(messages: [initial, sameTimestampLate]), options: nil)
+        guard case .array(let sameTimestampMessages)? = sameTimestampBody["messages"], let system = sameTimestampMessages.first(where: { if case .object(let object) = $0 { return object["role"] == .string("system") }; return false }), case .object(let systemObject) = system, case .array(let blocks)? = systemObject["content"] else { return XCTFail("missing same-timestamp inline system") }
+        XCTAssertTrue(blocks.contains { block in
+            guard case .object(let object) = block, object["type"] == .string("tool_addition"), case .object(let toolObject)? = object["tool"], case .object(let definition)? = toolObject["definition"] else { return false }
+            return definition["name"] == .string("late_tool")
+        })
+    }
+
+    func testAnthropicInlineToolsFallbackWithoutInitialTools() throws {
+        func tool(_ name: String) -> Tool { Tool(name: name, description: "The \(name) tool", parameters: .object(["type": .string("object")])) }
+        var result = Message(role: .toolResult, content: [.text("done")], timestamp: 2)
+        result.toolCallId = "call_1"
+        result.toolName = "base_tool"
+        result.toolsAdded = [tool("late_tool")]
+        let context = AIContext(messages: [Message.user("hello"), result, Message(role: .user, content: [.text("next")], timestamp: 3)], tools: [tool("base_tool"), tool("late_tool")])
+        let compat = AnthropicMessagesCompat(supportsMidConvoSystemMessages: true, supportsMidConvoToolChanges: true)
+        let model = Model(id: "claude-opus-5", name: "Claude Opus 5", api: .anthropicMessages, provider: .anthropic, input: ["text"], anthropicCompat: compat)
+        let body = AnthropicMessagesProvider.buildRequestBody(model: model, context: context, options: nil)
+        guard case .array(let tools)? = body["tools"] else { return XCTFail("missing tools") }
+        XCTAssertEqual(tools.compactMap { if case .object(let object) = $0 { return object["name"]?.stringValue }; return nil }, ["base_tool", "late_tool"])
+        let headers = AnthropicMessagesProvider.buildRequestHeaders(model: model, context: context, apiKey: "api-key", options: nil)
+        XCTAssertFalse(headers["Anthropic-Beta"]?.contains("inline-tools-2026-09-15") == true)
+        guard case .array(let messages)? = body["messages"] else { return XCTFail("missing messages") }
+        XCTAssertFalse(messages.contains { if case .object(let object) = $0 { return object["role"] == .string("system") }; return false })
+    }
+
     func testPiMessagesRequestAndSSEConversion() throws {
         let model = Model(id: "radius-model", name: "Radius", api: .piMessages, provider: .radius, baseUrl: "https://radius.example")
         var options = StreamOptions(); options.temperature = 0.25; options.maxTokens = 123; options.reasoning = .high; options.sessionId = "session"; options.toolChoice = .string("auto"); options.env = ["PI_CACHE_RETENTION": "long"]
@@ -3440,19 +3604,39 @@ final class SwiftAITests: XCTestCase {
         }
         let opus48 = Model(id: "global.anthropic.claude-opus-4-8-v1", name: "Claude Opus 4.8", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
         var payload = fields(opus48)
-        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized"), "block_binding": .object(["prefix_mismatch_behavior": .string("drop_block")])]))
         XCTAssertEqual(payload["output_config"], .object(["effort": .string("high")]))
-        XCTAssertNil(payload["anthropic_beta"])
+        XCTAssertEqual(payload["anthropic_beta"], .array([.string("thinking-binding-controls-2026-08-01")]))
         payload = fields(opus48, reasoning: .xhigh)
         XCTAssertEqual(payload["output_config"], .object(["effort": .string("xhigh")]))
+        let opus46 = Model(id: "global.anthropic.claude-opus-4-6-v1", name: "Claude Opus 4.6", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        payload = fields(opus46)
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
+        XCTAssertNil(payload["anthropic_beta"])
         payload = fields(opus48, region: "us-gov-west-1")
         XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive")]))
+        XCTAssertNil(payload["anthropic_beta"])
         let fable = Model(id: "global.anthropic.claude-fable-5", name: "Claude Fable 5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
         XCTAssertEqual(fields(fable, reasoning: .xhigh)["output_config"], .object(["effort": .string("xhigh")]))
         let sonnet45 = Model(id: "us-gov.anthropic.claude-sonnet-4-5-20250929-v1:0", name: "Claude Sonnet 4.5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
-        payload = fields(sonnet45)
+        payload = fields(sonnet45, region: "us-gov-west-1")
         XCTAssertEqual(payload["thinking"], .object(["type": .string("enabled"), "budget_tokens": .number(16384)]))
         XCTAssertEqual(payload["anthropic_beta"], .array([.string("interleaved-thinking-2025-05-14")]))
+        var envOptions = StreamOptions(); envOptions.reasoning = .high; envOptions.env = ["AWS_REGION": "us-gov-west-1"]
+        payload = BedrockProvider.additionalModelRequestFields(model: opus48, options: envOptions) ?? [:]
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive")]))
+        envOptions.env = ["AWS_DEFAULT_REGION": "us-gov-east-1"]
+        payload = BedrockProvider.additionalModelRequestFields(model: opus48, options: envOptions) ?? [:]
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive")]))
+        envOptions.region = "us-east-1"
+        payload = BedrockProvider.additionalModelRequestFields(model: opus48, options: envOptions) ?? [:]
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized"), "block_binding": .object(["prefix_mismatch_behavior": .string("drop_block")])]))
+        let govEndpoint = Model(id: "global.anthropic.claude-opus-4-8-v1", name: "Claude Opus 4.8", api: .bedrockConverseStream, provider: .amazonBedrock, baseUrl: "https://bedrock-runtime.us-gov-west-1.amazonaws.com", reasoning: true)
+        payload = fields(govEndpoint)
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive")]))
+        let govArn = Model(id: "arn:aws-us-gov:bedrock:us-gov-west-1:123456789012:application-inference-profile/my-profile", name: "Claude Opus 4.8", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
+        payload = fields(govArn)
+        XCTAssertEqual(payload["thinking"], .object(["type": .string("adaptive")]))
         let arnProfile = Model(id: "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/my-profile", name: "Claude Opus 4.6", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)
         XCTAssertEqual(fields(arnProfile)["thinking"], .object(["type": .string("adaptive"), "display": .string("summarized")]))
     }

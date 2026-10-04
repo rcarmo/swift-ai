@@ -188,9 +188,14 @@ public enum BedrockProvider {
     public static func additionalModelRequestFields(model: Model, options: StreamOptions?) -> [String: JSONValue]? {
         guard let reasoning = options?.reasoning, model.reasoning, isAnthropicClaude(model) else { return nil }
         if supportsAdaptiveThinking(model) {
+            let govCloud = isGovCloudTarget(model: model, options: options)
+            let useBlockBinding = !govCloud && supportsThinkingBlockBinding(model)
             var thinking: [String: JSONValue] = ["type": .string("adaptive")]
-            if !isGovCloudTarget(model: model, options: options) { thinking["display"] = .string("summarized") }
-            return ["thinking": .object(thinking), "output_config": .object(["effort": .string(mapBedrockEffort(model: model, reasoning: reasoning))])]
+            if !govCloud { thinking["display"] = .string("summarized") }
+            if useBlockBinding { thinking["block_binding"] = .object(["prefix_mismatch_behavior": .string("drop_block")]) }
+            var fields: [String: JSONValue] = ["thinking": .object(thinking), "output_config": .object(["effort": .string(mapBedrockEffort(model: model, reasoning: reasoning))])]
+            if useBlockBinding { fields["anthropic_beta"] = .array([.string("thinking-binding-controls-2026-08-01")]) }
+            return fields
         }
         let budgets = options?.thinkingBudgets
         let defaults = AIUtilities.defaultThinkingBudgets()
@@ -227,6 +232,10 @@ public enum BedrockProvider {
         modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus-5") || $0.contains("sonnet-5") || $0.contains("fable-5") }
     }
 
+    private static func supportsThinkingBlockBinding(_ model: Model) -> Bool {
+        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus-5") || $0.contains("sonnet-5") || $0.contains("fable-5") }
+    }
+
     private static func mapBedrockEffort(model: Model, reasoning: ThinkingLevel) -> String {
         if reasoning == .xhigh, supportsNativeXHighEffort(model) { return "xhigh" }
         if let level = ModelThinkingLevel(rawValue: reasoning.rawValue), let mapped = model.thinkingLevelMap?[level], let mapped { return mapped }
@@ -234,9 +243,7 @@ public enum BedrockProvider {
     }
 
     private static func isGovCloudTarget(model: Model, options: StreamOptions?) -> Bool {
-        if let region = options?.region, region.lowercased().hasPrefix("us-gov-") { return true }
-        let id = model.id.lowercased()
-        return id.hasPrefix("us-gov.") || id.hasPrefix("arn:aws-us-gov:")
+        configuredRegion(model: model, options: options).lowercased().hasPrefix("us-gov-")
     }
 
     private static func modelMatchCandidates(_ model: Model) -> [String] {

@@ -76,8 +76,10 @@ enum SystemOneClassifierProvider {
             return object
         case .cloudflareWorkersAI:
             if object["success"] == .bool(false) { throw AIError.provider(cloudflareErrorMessage(object["errors"])) }
-            guard case .object(let run)? = object["result"], run["state"] == .string("Completed"), case .object(let result)? = run["result"] else { throw AIError.invalidResponse("Cloudflare Workers AI returned an unexpected response") }
-            return result
+            guard case .object(let result)? = object["result"] else { throw AIError.invalidResponse("Cloudflare Workers AI returned an unexpected response") }
+            if result["answers"] != nil { return result }
+            guard result["state"] == .string("Completed"), case .object(let nested)? = result["result"] else { throw AIError.invalidResponse("Cloudflare Workers AI returned an unexpected response") }
+            return nested
         }
     }
 

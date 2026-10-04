@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static parity audit for the SwiftPM registry/runtime surface.
 
-Checks that generated registries match the signed @earendil-works/pi-ai v1.0.0
+Checks that generated registries match the verified pinned @earendil-works/pi-ai v1.0.1
 npm tarball's baked schema-v6 exports and provider-data manifest. This gate is
 toolchain-light and deliberately avoids live catalog hydration.
 """
@@ -16,16 +16,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v1.0.0.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.a13d35a.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v0.99.2.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.0.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.a13d35a.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v0.99.2.json"
-CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.0.json"
-UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.a13d35a.json"
-PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v0.99.2.json"
-PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v1.0.0.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v1.0.1.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.a7229dd.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v1.0.0.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.1.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.a7229dd.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.0.json"
+CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.1.json"
+UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.a7229dd.json"
+PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.0.json"
+PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v1.0.1.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -36,40 +36,40 @@ IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" /
 CLASSIFIER_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ClassifierModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1532
+EXPECTED_TEXT_MODELS = 1536
 EXPECTED_TEXT_PROVIDERS = 41
 EXPECTED_TEXT_APIS = 10
-EXPECTED_IMAGE_MODELS = 57
+EXPECTED_IMAGE_MODELS = 59
 EXPECTED_IMAGE_PROVIDERS = 1
 EXPECTED_IMAGE_APIS = 1
-EXPECTED_CLASSIFIER_MODELS = 15
+EXPECTED_CLASSIFIER_MODELS = 20
 EXPECTED_CLASSIFIER_PROVIDERS = 5
 EXPECTED_CLASSIFIER_APIS = 2
-EXPECTED_TOTAL_MODELS = 1604
+EXPECTED_TOTAL_MODELS = 1615
 EXPECTED_PROVIDER_FILES = 42
 EXPECTED_SCHEMA_VERSION = 6
-EXPECTED_STRUCTURE_HASH = "235f2f320916ab6b0d7193e0bf66ec7983e9bc05abeddd7264923fb1e7eaf76e"
-EXPECTED_TEXT_ADDED = 5
-EXPECTED_TEXT_REMOVED = 2
-EXPECTED_TEXT_CHANGED = 19
-EXPECTED_IMAGE_ADDED = 0
+EXPECTED_STRUCTURE_HASH = "03d2e1aeeee6eb16959d4f727b47b9b187efaf863c688a47889fb90d200e6812"
+EXPECTED_TEXT_ADDED = 17
+EXPECTED_TEXT_REMOVED = 13
+EXPECTED_TEXT_CHANGED = 54
+EXPECTED_IMAGE_ADDED = 2
 EXPECTED_IMAGE_REMOVED = 0
 EXPECTED_IMAGE_CHANGED = 0
-EXPECTED_CLASSIFIER_ADDED = 0
+EXPECTED_CLASSIFIER_ADDED = 5
 EXPECTED_CLASSIFIER_REMOVED = 0
-EXPECTED_CLASSIFIER_CHANGED = 1
-CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v1.0.0-changed-paths.txt"
-CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v1.0.0-changed-tests.txt"
-TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v1.0.0-test-corpus-basename.txt"
-UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v1.0.0-audit.md"
-UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v1.0.0-test-crosswalk.md"
-EXPECTED_CHANGED_PATHS = 8
-EXPECTED_CHANGED_PATHS_HASH = "b8db49581470036b68078ac093dc6b41eaa92222647b14cf44a92b870d54eab4"
-EXPECTED_CHANGED_TESTS = 3
-EXPECTED_CHANGED_TESTS_HASH = "fbe3c63453261a58352b5e238f5f9488f33a13016485c7e3a49cce17bfdaaca2"
+EXPECTED_CLASSIFIER_CHANGED = 0
+CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v1.0.1-changed-paths.txt"
+CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v1.0.1-changed-tests.txt"
+TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v1.0.1-test-corpus-basename.txt"
+UPSTREAM_AUDIT_DOC = ROOT / "docs" / "upstream-v1.0.1-audit.md"
+UPSTREAM_CROSSWALK_DOC = ROOT / "docs" / "upstream-v1.0.1-test-crosswalk.md"
+EXPECTED_CHANGED_PATHS = 19
+EXPECTED_CHANGED_PATHS_HASH = "ac9e4b76f7bb921a251ac5f5e14af48b1fa73f6e40d4d49e41ee11d5fb902278"
+EXPECTED_CHANGED_TESTS = 6
+EXPECTED_CHANGED_TESTS_HASH = "fd49b5003edf22d18b5c4a4fa5b4998e5bad49136cc6d356527dd7c3d655a659"
 EXPECTED_TEST_CORPUS = 171
 EXPECTED_TEST_CORPUS_HASH = "9d24da3ede393a95a7131b1c9ac494f57d8165161d6eb581109c86809131abfc"
-EXPECTED_CHANGED_TEST_DISPOSITIONS = {"ported": 2, "adapted": 1}
+EXPECTED_CHANGED_TEST_DISPOSITIONS = {"ported": 3, "adapted": 3}
 REQUIRED_SOURCES = [
     "Sources/SwiftAI/Core/Classifiers.swift",
     "Sources/SwiftAI/Providers/SystemOneClassifierProvider.swift",
@@ -222,7 +222,7 @@ def clean_markdown_code(value: str) -> str:
     return value
 
 
-def validate_changed_test_crosswalk(failures: list[str], crosswalk_text: str | None = None, changed_manifest_text: str | None = None, label: str = "v1.0.0 crosswalk") -> None:
+def validate_changed_test_crosswalk(failures: list[str], crosswalk_text: str | None = None, changed_manifest_text: str | None = None, label: str = "v1.0.1 crosswalk") -> None:
     crosswalk_text = UPSTREAM_CROSSWALK_DOC.read_text() if crosswalk_text is None else crosswalk_text
     changed_manifest_text = CHANGED_TESTS_MANIFEST.read_text() if changed_manifest_text is None else changed_manifest_text
     expected_paths = [line.strip() for line in changed_manifest_text.splitlines() if line.strip()]
@@ -342,29 +342,29 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
     if len(manifest.get("files", {})) != EXPECTED_PROVIDER_FILES:
         failures.append(f"provider-data file count: got {len(manifest.get('files', {}))}, want {EXPECTED_PROVIDER_FILES}")
 
-    require_full_record_equal(failures, text, upstream_text, "current text snapshot vs signed-tarball upstream snapshot")
+    require_full_record_equal(failures, text, upstream_text, "current text snapshot vs verified-pinned upstream snapshot")
     require_full_record_equal(failures, embedded_text, normalize_records(text), "embedded text registry vs normalized current snapshot")
-    require_full_record_equal(failures, images, upstream_images, "current image snapshot vs signed-tarball upstream snapshot")
+    require_full_record_equal(failures, images, upstream_images, "current image snapshot vs verified-pinned upstream snapshot")
     require_full_record_equal(failures, embedded_images, images, "embedded image registry vs current image snapshot")
-    require_full_record_equal(failures, classifiers, upstream_classifiers, "current classifier snapshot vs signed-tarball upstream snapshot")
+    require_full_record_equal(failures, classifiers, upstream_classifiers, "current classifier snapshot vs verified-pinned upstream snapshot")
     require_full_record_equal(failures, embedded_classifiers, classifiers, "embedded classifier registry vs current classifier snapshot")
 
     text_added, text_removed, text_changed = record_delta_counts(previous_text, text)
     image_added, image_removed, image_changed = record_delta_counts(previous_images, images)
     classifier_added, classifier_removed, classifier_changed = record_delta_counts(previous_classifiers, classifiers)
-    # The v1.0.0 schema-v6 oracle publishes normalized delta counts; enforce those rather than live hydration.
+    # The v1.0.1 schema-v6 oracle publishes normalized delta counts; enforce those rather than live hydration.
     if (text_added, text_removed) != (EXPECTED_TEXT_ADDED, EXPECTED_TEXT_REMOVED):
-        failures.append(f"v0.99.2..v1.0.0 text id delta: got +{text_added}/-{text_removed}, want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}")
-    # The signed schema-v6 oracle supplies normalized changed-record counts. Swift's
+        failures.append(f"v1.0.0..v1.0.1 text id delta: got +{text_added}/-{text_removed}, want +{EXPECTED_TEXT_ADDED}/-{EXPECTED_TEXT_REMOVED}")
+    # The verified pinned schema-v6 oracle supplies normalized changed-record counts. Swift's
     # reduced legacy image/chat structs intentionally cannot recompute those counts
     # byte-for-byte, so local validation enforces ID deltas, exact snapshots, and
     # manifest hashes, then reports the oracle changed counts.
     text_changed = EXPECTED_TEXT_CHANGED
     if (image_added, image_removed) != (EXPECTED_IMAGE_ADDED, EXPECTED_IMAGE_REMOVED):
-        failures.append(f"v0.99.2..v1.0.0 image id delta: got +{image_added}/-{image_removed}, want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}")
+        failures.append(f"v1.0.0..v1.0.1 image id delta: got +{image_added}/-{image_removed}, want +{EXPECTED_IMAGE_ADDED}/-{EXPECTED_IMAGE_REMOVED}")
     image_changed = EXPECTED_IMAGE_CHANGED
     if (classifier_added, classifier_removed, classifier_changed) != (EXPECTED_CLASSIFIER_ADDED, EXPECTED_CLASSIFIER_REMOVED, EXPECTED_CLASSIFIER_CHANGED):
-        failures.append(f"v0.99.2..v1.0.0 classifier delta: got +{classifier_added}/-{classifier_removed}/{classifier_changed} changed, want +{EXPECTED_CLASSIFIER_ADDED}/-{EXPECTED_CLASSIFIER_REMOVED}/{EXPECTED_CLASSIFIER_CHANGED} changed")
+        failures.append(f"v1.0.0..v1.0.1 classifier delta: got +{classifier_added}/-{classifier_removed}/{classifier_changed} changed, want +{EXPECTED_CLASSIFIER_ADDED}/-{EXPECTED_CLASSIFIER_REMOVED}/{EXPECTED_CLASSIFIER_CHANGED} changed")
 
     all_generated_raw = text_providers | text_apis | image_providers | image_apis | classifier_providers | classifier_apis
     missing = sorted(all_generated_raw - raw)
@@ -412,9 +412,9 @@ def collect_failures(self_test_mutation: bool = False, image_self_test_mutation:
         if digest != expected_hash:
             failures.append(f"{label} sha256: got {digest}, want {expected_hash}")
     if UPSTREAM_AUDIT_DOC.exists() and markdown_table_data_rows(UPSTREAM_AUDIT_DOC) != EXPECTED_CHANGED_PATHS:
-        failures.append(f"v1.0.0 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
+        failures.append(f"v1.0.1 audit matrix rows: got {markdown_table_data_rows(UPSTREAM_AUDIT_DOC)}, want {EXPECTED_CHANGED_PATHS}")
     if UPSTREAM_CROSSWALK_DOC.exists() and markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC) != EXPECTED_TEST_CORPUS:
-        failures.append(f"v1.0.0 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
+        failures.append(f"v1.0.1 crosswalk rows: got {markdown_table_data_rows(UPSTREAM_CROSSWALK_DOC)}, want {EXPECTED_TEST_CORPUS}")
     if UPSTREAM_CROSSWALK_DOC.exists() and CHANGED_TESTS_MANIFEST.exists():
         validate_changed_test_crosswalk(failures)
 

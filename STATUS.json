@@ -44,13 +44,13 @@
   ],
   "registries": {
     "classifierAPIs": 2,
-    "classifierModels": 15,
+    "classifierModels": 20,
     "classifierProviders": 5,
     "imageAPIs": 1,
-    "imageModels": 57,
+    "imageModels": 59,
     "imageProviders": 1,
     "textAPIs": 10,
-    "textModels": 1532,
+    "textModels": 1536,
     "textProviders": 41
   },
   "swiftPM": {
@@ -69,16 +69,16 @@
     "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
   },
   "upstream": {
-    "commit": "a13d35a742c6ef8462812a28fbe1d8c8b7431c32",
+    "commit": "a7229ddc21810d6245105978033b7df645ecc2f7",
     "package": "@earendil-works/pi-ai",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "usageDocumentation": "docs/USAGE.md",
   "validation": {
-    "latestStaticCheck": "completed v1.0.0 runtime 7e7e2de2495c646857369d6ac63cb64a5bced5a6; CI 36975868783 successful; native v1.0.0 and upstream-v1.0.0 published",
+    "latestStaticCheck": "pending local v1.0.1 provider candidate; commit/push/tag/release not authorised; heavy full gates awaiting explicit slot",
     "staticCommand": "python3 scripts/static-check.py",
     "swiftCommand": "swift test",
-    "swiftToolchainUnavailableInContainer": false,
-    "swiftToolchain": "local /home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift (6.3.2); hosted ubuntu Swift 6.4"
+    "swiftToolchain": "local /home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift (6.3.2); hosted ubuntu Swift 6.4",
+    "swiftToolchainUnavailableInContainer": false
   }
 }

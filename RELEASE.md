@@ -96,6 +96,36 @@ No v1.0.1 commit/push/tag/release has been made.
 - SBOM artifact retention: Ubuntu/static CI uploads SBOM, checksum, OSV output, scan summary, and license review artifacts with 30-day retention. Durable release assets for accepted releases are version-pinned under `upstream-vX.Y.Z` and published by the manual SBOM release workflow after validation.
 - Dependency-lock policy: `Package.resolved` is tracked and required for SBOM generation/validation; volatile SBOM output under `.artifacts/` is not committed.
 
+## v1.0.1 initial provider publication evidence
+
+Accepted runtime commit: `68e4052fde96cd9404aaddc56742c2ae5348664e` (`Port pi-ai v1.0.1 provider parity`). Parent: `daa9d9b07d13e5172f587b95918c6d9cedf43925`. Tree: `eb8d04a07912ce175e101dba36b6ca087de0b790`.
+
+Hosted CI for the accepted runtime:
+
+- Push CI run: <https://github.com/rcarmo/swift-ai/actions/runs/37165556108>
+- Runtime CI jobs: `111327607813` (`swift-test (ubuntu-latest)`) and `111327607944` (`static-check`), both successful.
+- Hosted tests: `305` tests, `0` failures.
+- Runtime SBOM artifact: `11289268006`; artifact ZIP SHA-256 `7a2f41e16e1e575ae9262cca23db1f76f06e9c02f64949f76d83851d7e332162`.
+- Runtime inner SBOM SHA-256: `352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`.
+- SBOM provenance: root component `swift-ai@1.0.1`; embedded `git.revision=68e4052fde96cd9404aaddc56742c2ae5348664e`; `git.dirty=false`; CycloneDX component count `2` (`swift-crypto`, `swift-asn1`); dependency graph has `3` dependency entries.
+- Security/license: OSV scanner returned no vulnerabilities; high/critical findings are empty; no waivers; license review passed for `swift-asn1` and `swift-crypto` under approved licenses.
+
+Initial native release:
+
+- Native release: `v1.0.1`, release database ID `402757174`, workflow run `37165998133` (`publish-sbom` job `111328878306`).
+- Annotated tag object: `f120f0c8976df20f82a55d1e5c9acfcceb02ff57` by `Rui Carmo <rui.carmo@gmail.com>`, targeting runtime `68e4052fde96cd9404aaddc56742c2ae5348664e`.
+- Assets: `608838456` (`sbom.cdx.json`, digest `sha256:352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`) and `608838457` (`sbom.cdx.json.sha256`, digest `sha256:438349ed2a330fe02a6d86208c2c8a0bcf6e2b0cb122477d35b3b39708d76d7a`).
+
+Upstream alias release:
+
+- Upstream alias release: `upstream-v1.0.1`, release database ID `402759260`, workflow run `37166282241` (`publish-sbom` job `111329721226`).
+- Alias ref: lightweight `upstream-v1.0.1 -> 68e4052fde96cd9404aaddc56742c2ae5348664e`.
+- Assets: `608847003` (`sbom.cdx.json`, digest `sha256:352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`) and `608847004` (`sbom.cdx.json.sha256`, digest `sha256:438349ed2a330fe02a6d86208c2c8a0bcf6e2b0cb122477d35b3b39708d76d7a`).
+
+Native and alias SBOM bytes are identical to the accepted hosted runtime artifact. Existing older refs, releases and assets were preserved during publication. Future `v1.0.1` durable work is a separate mandatory implementation cycle; Rui's policy requires a later same-version `v1.0.1` replacement/retag after durable acceptance. The current provider publication is not durable completion.
+
+A first tag-object creation attempt failed before any mutation because the Git Data API `tagger` field was submitted as a quoted JSON string. The corrected, authorised request used a JSON request body with a nested `tagger` object and then created `refs/tags/v1.0.1` from the returned tag-object SHA.
+
 ## v1.0.0 runtime evidence
 
 Accepted runtime commit: `7e7e2de2495c646857369d6ac63cb64a5bced5a6` (`Port pi-ai v1.0.0 and align classifier contract`). Parent/rollback lineage: `4dc7db8f4e9f68488f65f785e8abea29f53cf8f7` docs/status head after v0.99.2, with accepted v0.99.2 runtime `379018acd61375462d02a971e5283be6b009d33e`.

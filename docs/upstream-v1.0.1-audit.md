@@ -51,3 +51,28 @@ Runtime-candidate evidence only. No commit/push/tag/release has been authorised.
 - Actual typed Swift exports were independently compared against official raw snapshots with zero unexplained differences across all `1615` records. Accepted structural adaptations are implicit `type` for chat/image records and classifier `maxTokens = 0` default where official classifier records omit it.
 - Image `inputLimits` and provider compat metadata are preserved as metadata. This lane does not add image preprocessing/resizing or broad non-Anthropic mid-conversation runtime consumption.
 - Local full gates passed: warnings-as-errors build, `305` tests, deterministic repeats, `make check`, SBOM/security/licence, no `XCTSkip`, `git diff --check`, and clean-source snapshot. Hosted CI, commit/push and publication remain pending independent review and explicit authorization.
+
+
+## Initial native and upstream publication receipt
+
+Accepted runtime commit: `68e4052fde96cd9404aaddc56742c2ae5348664e` (`Port pi-ai v1.0.1 provider parity`). Parent: `daa9d9b07d13e5172f587b95918c6d9cedf43925`; tree: `eb8d04a07912ce175e101dba36b6ca087de0b790`.
+
+Hosted CI for the accepted runtime passed on push run `37165556108` with jobs `111327607813` (`swift-test (ubuntu-latest)`) and `111327607944` (`static-check`). Hosted test evidence was `305` tests / `0` failures. Artifact `11289268006` had ZIP SHA-256 `7a2f41e16e1e575ae9262cca23db1f76f06e9c02f64949f76d83851d7e332162`; the inner SBOM SHA-256 was `352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`, root `swift-ai@1.0.1`, `git.revision=68e4052fde96cd9404aaddc56742c2ae5348664e`, `git.dirty=false`, `2` components and `3` dependency entries.
+
+Native publication:
+
+- Tag/release: `v1.0.1`.
+- Annotated tag object: `f120f0c8976df20f82a55d1e5c9acfcceb02ff57`, tagger `Rui Carmo <rui.carmo@gmail.com>`, target `68e4052fde96cd9404aaddc56742c2ae5348664e`.
+- Release database ID: `402757174`.
+- Publisher workflow: `37165998133`, job `111328878306`, success.
+- Assets: `608838456` (`sbom.cdx.json`, `sha256:352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`) and `608838457` (`sbom.cdx.json.sha256`, `sha256:438349ed2a330fe02a6d86208c2c8a0bcf6e2b0cb122477d35b3b39708d76d7a`).
+
+Upstream alias publication:
+
+- Tag/release: `upstream-v1.0.1`.
+- Alias ref: lightweight `upstream-v1.0.1 -> 68e4052fde96cd9404aaddc56742c2ae5348664e`.
+- Release database ID: `402759260`.
+- Publisher workflow: `37166282241`, job `111329721226`, success.
+- Assets: `608847003` (`sbom.cdx.json`, `sha256:352b5b40f7600b794d1acd956efbb05a3b565a263e2bd91da05270a55f71fd57`) and `608847004` (`sbom.cdx.json.sha256`, `sha256:438349ed2a330fe02a6d86208c2c8a0bcf6e2b0cb122477d35b3b39708d76d7a`).
+
+Native and alias SBOM bytes match the accepted hosted runtime artifact. Older refs, releases and assets were preserved. A prior Git Data API call failed before mutation because `tagger` was encoded as a string; the successful call used an explicit JSON body with a nested `tagger` object. Durable implementation remains separate, and Rui's same-version `v1.0.1` durable replacement policy remains queued.

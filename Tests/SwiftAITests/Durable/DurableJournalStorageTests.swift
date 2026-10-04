@@ -252,6 +252,15 @@ final class DurableJournalStorageTests: XCTestCase {
     }
 
     func testLockPreventsConcurrentOpenAndCrashReleaseProcess() async throws {
+        #if os(Linux)
+        if ProcessInfo.processInfo.environment["SWIFT_AI_DURABLE_LOCK_CHILD"] == "1" {
+            let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SWIFT_AI_DURABLE_LOCK_DIR"]!, isDirectory: true)
+            let storage = try DurableJournalStorage(directory: dir)
+            defer { withExtendedLifetime(storage) {} }
+            try FileHandle.standardError.write(contentsOf: Data("LOCKED\n".utf8))
+            while true { _ = pause() }
+        }
+        #endif
         let dir = tempDir()
         let storage = try DurableJournalStorage(directory: dir)
         XCTAssertThrowsError(try DurableJournalStorage(directory: dir))
@@ -260,24 +269,17 @@ final class DurableJournalStorageTests: XCTestCase {
         try await reopened.close()
 
         #if os(Linux)
-        let script = dir.appendingPathComponent("lock-holder.swift")
-        try """
-        import Foundation
-        import Glibc
-        let path = CommandLine.arguments[1] + "/session.lock"
-        let fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
-        if fd < 0 { exit(2) }
-        if flock(fd, LOCK_EX | LOCK_NB) != 0 { exit(3) }
-        print("LOCKED")
-        fflush(stdout)
-        sleep(30)
-        """.write(to: script, atomically: true, encoding: .utf8)
         let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift")
-        proc.arguments = [script.path, dir.path]
+        proc.executableURL = Bundle.main.executableURL
+        proc.arguments = ["SwiftAITests.DurableJournalStorageTests/testLockPreventsConcurrentOpenAndCrashReleaseProcess"]
+        var environment = ProcessInfo.processInfo.environment
+        environment["SWIFT_AI_DURABLE_LOCK_CHILD"] = "1"
+        environment["SWIFT_AI_DURABLE_LOCK_DIR"] = dir.path
+        proc.environment = environment
         let pipe = Pipe()
-        proc.standardOutput = pipe
+        proc.standardError = pipe
         try proc.run()
+        try pipe.fileHandleForWriting.close()
         let ack = pipe.fileHandleForReading.availableData
         XCTAssertEqual(String(data: ack, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), "LOCKED")
         XCTAssertThrowsError(try DurableJournalStorage(directory: dir))

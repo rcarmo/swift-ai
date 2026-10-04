@@ -3500,6 +3500,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testCodexPluggableTransport() async throws {
+        await SwiftAI.bootstrap()
         await CodexTransportRegistry.shared.setTransport(FakeCodexTransport())
         defer { Task { await CodexTransportRegistry.shared.setTransport(nil) } }
         let model = Model(id: "codex", name: "Codex", api: .openAICodexResponses, provider: .openAICodex)

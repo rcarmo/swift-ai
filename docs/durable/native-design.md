@@ -1,6 +1,6 @@
 # Swift durable S1a native foundation design
 
-S1a adds the storage and mutation-line foundation for a later durable agent harness. It is not the useful durable harness: it does not run providers, tools, subagents, hooks, compaction, inbox steering or watches.
+S1a adds the storage and mutation-line foundation. S1b adds a persistent no-tool generation/session vertical on top of it. S1b is still not the useful tool-capable durable harness: tools, subagents, hooks, compaction, inbox steering and watches remain later work.
 
 ## Scope
 
@@ -37,6 +37,18 @@ A complete bad checksum, bad terminator, sequence gap, sequence duplicate, alloc
 ## Mutation gate
 
 `DurableMutationGate` is independent of Swift actor reentrancy. Public submissions are queued. Cancelling before admission removes the queued job. Once a job is admitted, the write/settle/adopt-or-poison/publication step is owned by the gate and is not cancelled by a dropped caller. `close()` seals public admission and waits for admitted work to drain.
+
+## S1b no-tool generation
+
+`DurableSession` owns a FIFO executor and mutation gate. Admission persists an input entry, pending task, request-scoped submission, queue document and full pinned intent before provider effects. The pinned intent strips auth, callback, telemetry, transport and endpoint fields; at dispatch, the runtime overlays only the current registry endpoint/headers while preserving pinned behavior fields.
+
+Provider streams must produce exactly one terminal. Stop/length assistant terminals settle as answers. Error, deferred, tool-use and invalid terminal identity/usage settle as typed durable failures. Usage documents retain complete counters/cost and conversation aggregates by pinned provider/API/model identity.
+
+Before JSON encoding, S1b walks complete native intent/terminal/failure DTOs with shared depth/node/string/total-byte budgets. The native estimator deliberately uses conservative container/key/enum overhead, so its accepted payload headroom can be smaller than the encoded byte ceiling; fixed public limits are not widened to compensate.
+
+Open is zero-effect. Explicit resume scans durable pending/running/completing tasks and feeds them through the bounded owned FIFO in successive batches. Running recovery reuses the persisted prepared transcript; staged success/failure recovery finalizes without another provider call. Public admission and observer waiters reserve bounded capacity before commit. Cancelling an observer removes only that waiter; committed work continues under session ownership.
+
+Close seals new admission, drains admitted work, closes storage exactly once and preserves its common result. An unexpected executor or uncertain storage error seals the session, fails queued observers without starting their provider effects, and runs the same owned close workflow. Typed provider terminals settle as durable task failures and do not stop later queued generations.
 
 ## Platform scope
 

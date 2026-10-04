@@ -1,6 +1,6 @@
 # Swift durable S1a test crosswalk
 
-The official durable package has 42 test suites. S1a covers the storage and mutation-line subset only.
+The official durable package has 42 test suites. S1a covers storage/mutation foundations; S1b adds the persistent no-tool session/generation/recovery subset.
 
 | # | Upstream suite | S1a disposition |
 |---:|---|---|
@@ -12,20 +12,20 @@ The official durable package has 42 test suites. S1a covers the storage and muta
 | 6 | `harness-context.test.ts` | Later: provider context assembly. |
 | 7 | `harness-conversations.test.ts` | S1a covers root conversation records only. |
 | 8 | `harness-events.test.ts` | Later: committed event stream. |
-| 9 | `harness-generation-recovery.test.ts` | Later: provider executor recovery. |
-| 10 | `harness-generation.test.ts` | Later: provider executor. |
+| 9 | `harness-generation-recovery.test.ts` | S1b covers bounded explicit resume, pinned-intent recovery, staged success/failure recovery and journal SIGKILL at admission and Completing acknowledgement seams. |
+| 10 | `harness-generation.test.ts` | S1b covers persistent no-tool provider streaming and terminal settlement. |
 | 11 | `harness-inbox.test.ts` | Later: inbox steering/follow-up. |
 | 12 | `harness-inspect.test.ts` | Later: inspection API. |
-| 13 | `harness-lifecycle.test.ts` | S1a covers storage open/close and gate close. |
+| 13 | `harness-lifecycle.test.ts` | S1a covers storage/gate lifecycle; S1b covers cancellation-aware session observers, owned drain and fail-stop cleanup. |
 | 14 | `harness-live-deltas.test.ts` | Later: live deltas. |
 | 15 | `harness-output.test.ts` | Later: tool output commits. |
-| 16 | `harness-ownership.test.ts` | S1a covers record owner validation only. |
+| 16 | `harness-ownership.test.ts` | S1a covers record owner validation; S1b keeps committed generation and close workflows alive after observer cancellation. |
 | 17 | `harness-prompt.test.ts` | Later: prompt/section replay. |
 | 18 | `harness-registry.test.ts` | Later: extension registry. |
 | 19 | `harness-structured.test.ts` | Later: structured provider requests. |
-| 20 | `harness-submissions.test.ts` | S1a covers submission records and request IDs. |
+| 20 | `harness-submissions.test.ts` | S1a covers records/request IDs; S1b covers durable placed/done/unanswered generation submissions and semantic idempotency. |
 | 21 | `harness-task-graph.test.ts` | Later: graph view. |
-| 22 | `harness-tasks-recovery.test.ts` | S1a covers record checkpoints only. |
+| 22 | `harness-tasks-recovery.test.ts` | S1a covers checkpoint validation; S1b recovers Running prepared context, Running context failure and Completing success/failure checkpoints. |
 | 23 | `harness-tasks.test.ts` | S1a covers task records only. |
 | 24 | `harness-tools-recovery.test.ts` | Later: replay-safe tools. |
 | 25 | `harness-tools.test.ts` | Later: durable tools. |

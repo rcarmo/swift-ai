@@ -10,10 +10,11 @@
 | Torn final frame recovery | Implemented only for incomplete final EOF frames; interior or complete corruption fails closed. |
 | Corruption fail-closed | Implemented for complete checksum/terminator/version/sequence/allocator damage. |
 | Uncertain storage failure poison | Implemented as `DurableError.durabilityUncertain` on failed append/sync/ack seams followed by poisoned storage state. |
-| Close versus abort | `close()` seals admission, rejects queued public jobs and drains admitted gate jobs. Durable abort is later work. |
-| Built-in generation/tool execution | Later S1b/S1c. No provider loop is added in S1a. |
-| Tool replay policy | Later S1c. S1a stores task records and checkpoints only. |
+| Close versus abort | `close()` seals admission and drains admitted generation work. Observer cancellation detaches only the caller. Unexpected executor/storage failure seals the session, prevents queued provider effects and runs owned cleanup. Durable abort is later work. |
+| Built-in generation/tool execution | S1b implements persistent no-tool provider generation through the public stream registry; tool execution remains S1c. |
+| Tool replay policy | Later S1c. S1b rejects tool-use/deferred terminals as typed unsupported failures. |
 | Ownership drain | Owner IDs and acyclic same-conversation task-owner validation are present. Runtime drain semantics are later. |
+| Persistent no-tool recovery | S1b open is zero-effect; explicit resume processes pinned pending/running/completing work through bounded batches and finalizes staged success, typed failure and context-limit checkpoints without rebilling. Journal SIGKILL tests cover admission and post-provider Completing acknowledgement loss. |
 | Fork/reset/inbox/compaction/hooks/extensions | Later phases. |
 | Watches/events/task graph | Later phases. |
 | SQLite/JSONL alternative backends | Later optional phases. |

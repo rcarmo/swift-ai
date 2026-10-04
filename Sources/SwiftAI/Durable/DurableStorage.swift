@@ -227,7 +227,7 @@ enum DurableValidation {
     }
 
     @discardableResult
-    private static func validateEntryRecord(_ record: DurableEntryRecord, max: Int, label: String, error: (String) -> DurableError) throws -> Int {
+    static func validateEntryRecord(_ record: DurableEntryRecord, max: Int, label: String, error: (String) -> DurableError) throws -> Int {
         var bytes = 2 + fieldBytes("id", numberBytes(record.id)) + fieldBytes("conversationID", numberBytes(record.conversationID)) + fieldBytes("createdSeq", numberBytes(record.createdSeq))
         bytes += try fieldBytes("kind", escapedStringBytes(record.kind, label: "\(label).kind", error: error))
         if let byTaskID = record.byTaskID { bytes += fieldBytes("byTaskID", numberBytes(byTaskID)) }
@@ -434,7 +434,7 @@ enum DurableValidation {
 
     private static func numberBytes(_ value: Int64) -> Int { String(value).utf8.count }
 
-    private static func escapedStringBytes(_ string: String, label: String, maxUTF8: Int = DurableLimits.maxStringBytes, error: (String) -> DurableError) throws -> Int {
+    static func escapedStringBytes(_ string: String, label: String, maxUTF8: Int = DurableLimits.maxStringBytes, error: (String) -> DurableError) throws -> Int {
         guard string.utf8.count <= maxUTF8 else { throw error("\(label) string exceeds limit") }
         var total = 2
         for scalar in string.unicodeScalars {
@@ -448,11 +448,11 @@ enum DurableValidation {
         return total
     }
 
-    private static func checkBytes(_ bytes: Int, max: Int, label: String, error: (String) -> DurableError) throws {
+    static func checkBytes(_ bytes: Int, max: Int, label: String, error: (String) -> DurableError) throws {
         guard bytes <= max else { throw error("\(label) exceeds \(max) bytes") }
     }
 
-    private static func measureJSON(_ value: JSONValue, label: String, error: (String) -> DurableError) throws -> Int {
+    static func measureJSON(_ value: JSONValue, label: String, error: (String) -> DurableError) throws -> Int {
         var nodes = 0
         return try measureJSON(value, label: label, depth: 0, nodes: &nodes, error: error)
     }

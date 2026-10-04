@@ -12,8 +12,8 @@
 | Uncertain storage failure poison | Implemented as `DurableError.durabilityUncertain` on failed append/sync/ack seams followed by poisoned storage state. |
 | Close versus abort | `close()` seals admission and drains admitted generation work. Observer cancellation detaches only the caller. Unexpected executor/storage failure seals the session, prevents queued provider effects and runs owned cleanup. Durable abort is later work. |
 | Built-in generation/tool execution | S1b implements persistent no-tool provider generation through the public stream registry; tool execution remains S1c. |
-| Tool replay policy | Later S1c. S1b rejects tool-use/deferred terminals as typed unsupported failures. |
-| Ownership drain | Owner IDs and acyclic same-conversation task-owner validation are present. Runtime drain semantics are later. |
+| Tool replay policy | S1c pins declarations, implementation/schema identity and safe/unsafe policy. Pending work executes once; staged results finalize without effect; started safe work reuses the durable idempotency key with explicit billing uncertainty; started unsafe work settles interrupted without a second effect. Deferred terminals remain unsupported. |
+| Ownership drain | S1c creates serial child tool tasks and executes them inline under the owned generation workflow. The parent remains waiting until ordered child settlement; abort and close retain model/tool effects and the journal writer through cleanup. |
 | Persistent no-tool recovery | S1b open is zero-effect; explicit resume processes pinned pending/running/completing work through bounded batches and finalizes staged success, typed failure and context-limit checkpoints without rebilling. Journal SIGKILL tests cover admission and post-provider Completing acknowledgement loss. |
 | Fork/reset/inbox/compaction/hooks/extensions | Later phases. |
 | Watches/events/task graph | Later phases. |

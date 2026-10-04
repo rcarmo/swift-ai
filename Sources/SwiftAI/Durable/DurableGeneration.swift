@@ -8,6 +8,7 @@ public struct DurableGenerationRequest: Sendable {
     public var requestID: String?
     public var payloadHash: String?
     public var options: StreamOptions?
+    var offeredTools: [DurableToolBinding] = []
 
     public init(conversationID: Int64, model: Model, systemPrompt: String? = nil, transcript: [Message], requestID: String? = nil, payloadHash: String? = nil, options: StreamOptions? = nil) {
         self.conversationID = conversationID
@@ -152,6 +153,9 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
     var payloadHash: String?
     var options: DurablePinnedOptions
     var attempt: Int
+    var offeredTools: [DurableToolBinding]?
+    var roundMessages: [Message]?
+    var round: Int?
 
     init(request: DurableGenerationRequest, inputEntryID: Int64) {
         conversationID = request.conversationID
@@ -167,6 +171,9 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
         payloadHash = request.payloadHash
         options = DurablePinnedOptions(request.sanitizedOptions())
         attempt = 1
+        offeredTools = request.offeredTools
+        roundMessages = []
+        round = 1
     }
 
     var request: DurableGenerationRequest { DurableGenerationRequest(conversationID: conversationID, model: model, systemPrompt: systemPrompt, transcript: transcript, requestID: requestID, payloadHash: payloadHash, options: options.streamOptions()) }
@@ -176,7 +183,8 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
         conversationID == other.conversationID &&
         model == other.model &&
         systemPrompt == other.systemPrompt && transcript == other.transcript &&
-        requestID == other.requestID && payloadHash == other.payloadHash && options == other.options
+        requestID == other.requestID && payloadHash == other.payloadHash && options == other.options &&
+        (offeredTools ?? []) == (other.offeredTools ?? [])
     }
 }
 
@@ -253,7 +261,9 @@ struct DurableGenerationPlanner {
     }
 
     static func finalSuccessBatch(snapshot: DurableSnapshot, task: DurableTaskRecord, submission: DurableSubmissionRecord?, inputEntryID: Int64, terminal: DurableStreamTerminal) throws -> DurableCommitBatch {
-        let existingUsage = document(scope: "task", ownerID: task.id, kind: "generation.usage", in: snapshot)
+        let intent = try intent(for: task, in: snapshot)
+        let usageKind = (intent.offeredTools ?? []).isEmpty ? "generation.usage" : "generation.usage.round.\(intent.round ?? 1)"
+        let existingUsage = document(scope: "task", ownerID: task.id, kind: usageKind, in: snapshot)
         let existingAggregate = document(scope: "conversation", ownerID: task.conversationID, kind: "durable.usage", in: snapshot)
         let existingLive = document(scope: "conversation", ownerID: task.conversationID, kind: "durable.live", in: snapshot)
         let existingQueue = document(scope: "conversation", ownerID: task.conversationID, kind: "durable.queue", in: snapshot)
@@ -270,7 +280,7 @@ struct DurableGenerationPlanner {
         let settled = submission.map { DurableSubmissionRecord(id: $0.id, conversationID: $0.conversationID, requestID: $0.requestID, type: $0.type, payloadHash: $0.payloadHash, status: .done, entryID: inputEntryID, answerID: assistantEntryID, createdSeq: $0.createdSeq) }
         let usage = terminal.usage ?? terminal.message.usage
         let modelKey = try pinnedModelIdentity(task: task, in: snapshot)
-        let usageDoc = DurableDocumentRecord(id: usageDocumentID, scope: "task", ownerID: task.id, kind: "generation.usage", value: usageValue(usage, model: modelKey))
+        let usageDoc = DurableDocumentRecord(id: usageDocumentID, scope: "task", ownerID: task.id, kind: usageKind, value: usageValue(usage, model: modelKey))
         let aggregate = DurableDocumentRecord(id: aggregateDocumentID, scope: "conversation", ownerID: task.conversationID, kind: "durable.usage", value: try aggregateUsageValue(existing: existingAggregate?.value, adding: usage, model: modelKey))
         let live = DurableDocumentRecord(id: liveDocumentID, scope: "conversation", ownerID: task.conversationID, kind: "durable.live", value: .object(["lastTaskID": .number(Double(task.id)), "lastEntryID": .number(Double(assistantEntryID))]))
         let queue = queueDocument(id: queueDocumentID, conversationID: task.conversationID, existing: existingQueue, adding: nil, removing: task.id)
@@ -278,7 +288,9 @@ struct DurableGenerationPlanner {
     }
 
     static func aggregateFailureFinalBatch(snapshot: DurableSnapshot, task: DurableTaskRecord, submission: DurableSubmissionRecord?, inputEntryID: Int64?, failure: DurableFailureInfo) throws -> DurableCommitBatch {
-        let existingUsage = document(scope: "task", ownerID: task.id, kind: "generation.usage", in: snapshot)
+        let intent = try intent(for: task, in: snapshot)
+        let usageKind = (intent.offeredTools ?? []).isEmpty ? "generation.usage" : "generation.usage.round.\(intent.round ?? 1)"
+        let existingUsage = document(scope: "task", ownerID: task.id, kind: usageKind, in: snapshot)
         let existingQueue = document(scope: "conversation", ownerID: task.conversationID, kind: "durable.queue", in: snapshot)
         let required = (existingUsage == nil ? 1 : 0) + (existingQueue == nil ? 1 : 0) + 1
         var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: required)
@@ -289,7 +301,7 @@ struct DurableGenerationPlanner {
         let failed = DurableTaskRecord(id: task.id, conversationID: task.conversationID, ownerTaskID: task.ownerTaskID, kind: task.kind, status: .failed, checkpoint: try stagedFailureCheckpoint(failure), abortRequested: task.abortRequested, background: task.background, outcome: .object(["errorCode": .string(failure.code), "aggregateIncomplete": .bool(true)]), createdSeq: task.createdSeq)
         let settled = submission.map { DurableSubmissionRecord(id: $0.id, conversationID: $0.conversationID, requestID: $0.requestID, type: $0.type, payloadHash: $0.payloadHash, status: .unanswered, entryID: inputEntryID ?? $0.entryID, reason: failure.code, createdSeq: $0.createdSeq) }
         let modelKey = try pinnedModelIdentity(task: task, in: snapshot)
-        let usage = DurableDocumentRecord(id: usageID, scope: "task", ownerID: task.id, kind: "generation.usage", value: usageValue(failure.usage, model: modelKey))
+        let usage = DurableDocumentRecord(id: usageID, scope: "task", ownerID: task.id, kind: usageKind, value: usageValue(failure.usage, model: modelKey))
         let queue = queueDocument(id: queueID, conversationID: task.conversationID, existing: existingQueue, adding: nil, removing: task.id)
         let incomplete = DurableDocumentRecord(id: incompleteID, scope: "task", ownerID: task.id, kind: "generation.aggregate-incomplete", value: .object(["code": .string(failure.code), "aggregatePreserved": .bool(true)]))
         return DurableCommitBatch(tasks: [failed], submissions: settled.map { [$0] } ?? [], documents: [usage, queue, incomplete])
@@ -297,8 +309,10 @@ struct DurableGenerationPlanner {
 
     static func failureBatches(snapshot: DurableSnapshot, task: DurableTaskRecord, submission: DurableSubmissionRecord?, inputEntryID: Int64?, failure: DurableFailureInfo) throws -> (DurableCommitBatch, DurableCommitBatch) {
         let failure = boundedFailureInfo(failure)
+        let intent = try intent(for: task, in: snapshot)
+        let usageKind = (intent.offeredTools ?? []).isEmpty ? "generation.usage" : "generation.usage.round.\(intent.round ?? 1)"
         let existingQueue = document(scope: "conversation", ownerID: task.conversationID, kind: "durable.queue", in: snapshot)
-        let existingUsage = document(scope: "task", ownerID: task.id, kind: "generation.usage", in: snapshot)
+        let existingUsage = document(scope: "task", ownerID: task.id, kind: usageKind, in: snapshot)
         let existingAggregate = document(scope: "conversation", ownerID: task.conversationID, kind: "durable.usage", in: snapshot)
         var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: (existingQueue == nil ? 1 : 0) + (existingUsage == nil ? 1 : 0) + (existingAggregate == nil ? 1 : 0) + 1)
         func takeID() -> Int64 { ids.removeFirst() }
@@ -311,7 +325,7 @@ struct DurableGenerationPlanner {
         let settled = submission.map { DurableSubmissionRecord(id: $0.id, conversationID: $0.conversationID, requestID: $0.requestID, type: $0.type, payloadHash: $0.payloadHash, status: .unanswered, entryID: inputEntryID ?? $0.entryID, reason: failure.code, createdSeq: $0.createdSeq) }
         let queue = queueDocument(id: queueID, conversationID: task.conversationID, existing: existingQueue, adding: nil, removing: task.id)
         let modelKey = try pinnedModelIdentity(task: task, in: snapshot)
-        let usage = DurableDocumentRecord(id: usageID, scope: "task", ownerID: task.id, kind: "generation.usage", value: usageValue(failure.usage, model: modelKey))
+        let usage = DurableDocumentRecord(id: usageID, scope: "task", ownerID: task.id, kind: usageKind, value: usageValue(failure.usage, model: modelKey))
         var documents = [queue, usage]
         do {
             let aggregateValue = try aggregateUsageValue(existing: existingAggregate?.value, adding: failure.usage, model: modelKey)
@@ -326,23 +340,18 @@ struct DurableGenerationPlanner {
         let events = await SwiftAI.stream(model: model, context: context, options: options)
         var terminal: DurableStreamTerminal?
         var failure: DurableFailureInfo?
-        var unsupportedToolUse = false
         for await event in events {
             switch event {
-            case .toolCallStart, .toolCallDelta, .toolCallEnd:
-                unsupportedToolUse = true
             case .done(let reason, let message):
                 guard terminal == nil, failure == nil else { throw DurableError.invalidRecord("duplicate_terminal") }
-                if unsupportedToolUse { failure = failureInfo(from: message, defaultCode: "tool_use_unsupported") }
-                else { terminal = try validatedTerminal(message: message, reason: reason, pinned: model) }
+                terminal = try validatedTerminal(message: message, reason: reason, pinned: model)
             case .error(_, let message, _):
                 guard terminal == nil, failure == nil else { throw DurableError.invalidRecord("duplicate_terminal") }
-                failure = failureInfo(from: message, defaultCode: unsupportedToolUse ? "tool_use_unsupported" : "provider_error")
+                failure = failureInfo(from: message, defaultCode: "provider_error")
             default: break
             }
         }
         if let failure { throw DurableGenerationFailure.failure(failure) }
-        if unsupportedToolUse { throw DurableGenerationFailure.failure(DurableFailureInfo(code: "tool_use_unsupported", usage: nil, diagnostics: nil)) }
         guard let terminal else { throw DurableError.invalidRecord("missing_terminal") }
         return terminal
     }
@@ -376,7 +385,8 @@ struct DurableGenerationPlanner {
     }
 
     static func context(for intent: DurableGenerationIntent, in snapshot: DurableSnapshot) -> AIContext {
-        AIContext(systemPrompt: intent.systemPrompt, messages: intent.preparedTranscript ?? preparedContextMessages(for: intent, in: snapshot))
+        let messages = (intent.preparedTranscript ?? preparedContextMessages(for: intent, in: snapshot)) + (intent.roundMessages ?? [])
+        return AIContext(systemPrompt: intent.systemPrompt, messages: messages, tools: (intent.offeredTools ?? []).map(\.definition))
     }
 
     static func preparedContextMessages(for intent: DurableGenerationIntent, in snapshot: DurableSnapshot) -> [Message] {
@@ -385,6 +395,8 @@ struct DurableGenerationPlanner {
             guard let completedIntent = try? self.intent(for: task, in: snapshot), completedIntent.inputEntryID != intent.inputEntryID else { continue }
             entryIDs.insert(completedIntent.inputEntryID)
             for entry in snapshot.entries.values where entry.conversationID == intent.conversationID && entry.byTaskID == task.id { entryIDs.insert(entry.id) }
+            let childIDs = Set(snapshot.tasks.values.filter { $0.ownerTaskID == task.id }.map(\.id))
+            for entry in snapshot.entries.values where entry.conversationID == intent.conversationID && entry.byTaskID.map(childIDs.contains) == true { entryIDs.insert(entry.id) }
         }
         for submission in snapshot.submissions.values where submission.conversationID == intent.conversationID && submission.answerID != nil {
             if let inputID = submission.entryID, inputID != intent.inputEntryID { entryIDs.insert(inputID) }
@@ -424,8 +436,12 @@ struct DurableGenerationPlanner {
         if let model = message.model, model != pinned.id { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: "invalid_terminal_model")) }
         if let stopReason = message.stopReason, stopReason != reason { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: "invalid_terminal_stop_reason")) }
         if message.deferred != nil { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: "deferred_unsupported")) }
-        if message.content.contains(where: { $0.type == "toolCall" }) { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: "tool_use_unsupported")) }
-        guard reason == .stop || reason == .length else { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: errorCode(reason.rawValue))) }
+        let calls = message.content.filter { $0.type == "toolCall" }
+        if reason == .toolUse {
+            guard !calls.isEmpty else { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: "invalid_tool_terminal")) }
+        } else {
+            guard calls.isEmpty, reason == .stop || reason == .length else { throw DurableGenerationFailure.failure(failureInfo(from: message, defaultCode: errorCode(reason.rawValue))) }
+        }
         try validateUsage(message.usage)
         return DurableStreamTerminal(message: message, usage: message.usage, diagnostics: message.diagnostics, stopReason: reason)
     }
@@ -499,14 +515,16 @@ struct DurableGenerationPlanner {
         var costCacheWrite = existing?.objectValue?["cost"]?.objectValue?["cacheWrite"]?.doubleValue ?? 0
         var cost = existing?.objectValue?["cost"]?.objectValue?["total"]?.doubleValue ?? 0
         var perModel = existing?.objectValue?["perModel"]?.objectValue ?? [:]
-        var modelUsage = perModel[model]?.objectValue ?? [:]
+        var perTool = existing?.objectValue?["perTool"]?.objectValue ?? [:]
+        let isTool = model.hasPrefix("tool:")
+        var modelUsage = (isTool ? perTool[model] : perModel[model])?.objectValue ?? [:]
         if let usage {
             input = try checkedAdd(input, usage.input); output = try checkedAdd(output, usage.output); cacheRead = try checkedAdd(cacheRead, usage.cacheRead); cacheWrite = try checkedAdd(cacheWrite, usage.cacheWrite); cacheWrite1h = try checkedAdd(cacheWrite1h, usage.cacheWrite1h ?? 0); reasoning = try checkedAdd(reasoning, usage.reasoning); total = try checkedAdd(total, usage.totalTokens)
             costInput = try checkedCost(costInput, usage.cost.input); costOutput = try checkedCost(costOutput, usage.cost.output); costCacheRead = try checkedCost(costCacheRead, usage.cost.cacheRead); costCacheWrite = try checkedCost(costCacheWrite, usage.cost.cacheWrite); cost = try checkedCost(cost, usage.cost.total)
             modelUsage = try usageSummaryValue(existing: .object(modelUsage), adding: usage).objectValue ?? modelUsage
         }
-        perModel[model] = .object(modelUsage)
-        return .object(["perModel": .object(perModel), "input": .number(Double(input)), "output": .number(Double(output)), "cacheRead": .number(Double(cacheRead)), "cacheWrite": .number(Double(cacheWrite)), "cacheWrite1h": .number(Double(cacheWrite1h)), "reasoning": .number(Double(reasoning)), "totalTokens": .number(Double(total)), "cost": .object(["input": .number(costInput), "output": .number(costOutput), "cacheRead": .number(costCacheRead), "cacheWrite": .number(costCacheWrite), "total": .number(cost)])])
+        if isTool { perTool[model] = .object(modelUsage) } else { perModel[model] = .object(modelUsage) }
+        return .object(["perModel": .object(perModel), "perTool": .object(perTool), "input": .number(Double(input)), "output": .number(Double(output)), "cacheRead": .number(Double(cacheRead)), "cacheWrite": .number(Double(cacheWrite)), "cacheWrite1h": .number(Double(cacheWrite1h)), "reasoning": .number(Double(reasoning)), "totalTokens": .number(Double(total)), "cost": .object(["input": .number(costInput), "output": .number(costOutput), "cacheRead": .number(costCacheRead), "cacheWrite": .number(costCacheWrite), "total": .number(cost)])])
     }
 
     static func usageSummaryValue(existing: JSONValue?, adding usage: Usage) throws -> JSONValue {
@@ -577,7 +595,7 @@ struct DurableGenerationPlanner {
         if let sampling = intent.options.samplingParams { options["samplingParams"] = .object(sampling) }
         if let metadata = intent.options.metadata { options["metadata"] = .object(metadata) }
         for (key, value) in [("region", intent.options.region), ("profile", intent.options.profile), ("project", intent.options.project), ("location", intent.options.location), ("textVerbosity", intent.options.textVerbosity), ("sessionId", intent.options.sessionId), ("azureApiVersion", intent.options.azureApiVersion), ("azureResourceName", intent.options.azureResourceName), ("azureDeploymentName", intent.options.azureDeploymentName)] where value != nil { options[key] = .string(value!) }
-        var value: [String: JSONValue] = ["conversationID": .number(Double(intent.conversationID)), "inputEntryID": .number(Double(intent.inputEntryID)), "model": .object(model), "transcriptCount": .number(Double(intent.transcript.count)), "options": .object(options), "attempt": .number(Double(intent.attempt))]
+        var value: [String: JSONValue] = ["conversationID": .number(Double(intent.conversationID)), "inputEntryID": .number(Double(intent.inputEntryID)), "model": .object(model), "transcriptCount": .number(Double(intent.transcript.count)), "options": .object(options), "attempt": .number(Double(intent.attempt)), "toolCount": .number(Double((intent.offeredTools ?? []).count)), "round": .number(Double(intent.round ?? 1))]
         if let prompt = intent.systemPrompt { value["systemPrompt"] = .string(prompt) }
         if let requestID = intent.requestID { value["requestID"] = .string(requestID) }
         if let payloadHash = intent.payloadHash { value["payloadHash"] = .string(payloadHash) }

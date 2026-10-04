@@ -7,10 +7,13 @@ import XCTest
 
 private final class S1BMistralURLProtocol: URLProtocol {
     nonisolated(unsafe) static var requests: [URLRequest] = []
+    nonisolated(unsafe) static var holdRequests = false
+    nonisolated(unsafe) static var held: [(S1BMistralURLProtocol, URLRequest)] = []
+    static func releaseHeld() { let values = held; held = []; for (instance, request) in values { instance.respond(to: request) } }
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "mistral-s1b.test" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() {
-        Self.requests.append(request)
+    override func startLoading() { Self.requests.append(request); if Self.holdRequests { Self.held.append((self, request)); return }; respond(to: request) }
+    private func respond(to request: URLRequest) {
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/event-stream"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         let body = "data: {\"id\":\"wire-1\",\"model\":\"mistral-s1b\",\"choices\":[{\"delta\":{\"content\":\"wire\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":1,\"total_tokens\":3}}\n\ndata: [DONE]\n\n"
@@ -71,7 +74,6 @@ final class DurableGenerationTests: XCTestCase {
     }
 
     func testProductionMistralHTTPStreamUsesLiveProcessAuthNotJournal() async throws {
-        XCTAssertEqual(ProcessInfo.processInfo.environment["MISTRAL_API_KEY"], "durable-test-not-secret")
         S1BMistralURLProtocol.requests = []
         let previousConfiguration = MistralConversationsProvider.urlSessionConfiguration
         MistralConversationsProvider.urlSessionConfiguration = { let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [S1BMistralURLProtocol.self]; return config }
@@ -81,7 +83,7 @@ final class DurableGenerationTests: XCTestCase {
         await AIRegistry.shared.register(model)
         var options = StreamOptions(); options.apiKey = "must-not-persist"; options.temperature = 0.25
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-s1b-http-\(UUID().uuidString)", isDirectory: true)
-        let storage = try DurableJournalStorage(directory: dir); let session = DurableSession(storage: storage)
+        let storage = try DurableJournalStorage(directory: dir); let session = DurableSession(storage: storage, toolRegistry: nil, liveConnectionResolver: { _ in DurableLiveConnection(endpoint: "https://mistral-s1b.test/v1", apiKey: "durable-test-not-secret") })
         let conversation = try await session.createConversation()
         let result = try await session.submit(DurableGenerationRequest(conversationID: conversation.id, model: model, transcript: [.user("hello wire")], requestID: "wire", options: options))
         XCTAssertEqual(result.entry?.messages?.first?.content.first?.text, "wire")
@@ -97,6 +99,20 @@ final class DurableGenerationTests: XCTestCase {
         let reopenedSnapshot = try await reopened.snapshot()
         XCTAssertEqual(reopenedSnapshot.tasks[result.task.id]?.status, .completed)
         try await reopened.close()
+    }
+
+    func testReopenRedispatchUsesFreshLiveCredentialAndPinnedBehavior() async throws {
+        S1BMistralURLProtocol.requests = []; S1BMistralURLProtocol.holdRequests = false; S1BMistralURLProtocol.held = []
+        let previousConfiguration = MistralConversationsProvider.urlSessionConfiguration; MistralConversationsProvider.urlSessionConfiguration = { let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [S1BMistralURLProtocol.self]; return config }; defer { MistralConversationsProvider.urlSessionConfiguration = previousConfiguration }
+        await AIRegistry.shared.register(APIProvider(api: .mistralConversations, stream: { model, context, options in MistralConversationsProvider.stream(model: model, context: context, options: options) }))
+        let model = Model(id: "mistral-s1c-reopen", name: "Mistral Reopen", api: .mistralConversations, provider: .mistral, baseUrl: "https://old-live.test/v1", maxTokens: 64); await AIRegistry.shared.register(model)
+        var options = StreamOptions(); options.temperature = 0.37; options.apiKey = "old-live-secret"
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-s1c-reopen-\(UUID().uuidString)", isDirectory: true); let storage = try DurableJournalStorage(directory: dir); _ = try await storage.commit(DurableCommitBatch(conversations: [DurableConversationRecord(id: 1)]))
+        let admission = try DurableGenerationPlanner.admitBatch(snapshot: try await storage.snapshot(), request: DurableGenerationRequest(conversationID: 1, model: model, transcript: [.user("redispatch")], requestID: "redispatch", options: options)); _ = try await storage.commit(admission.batch); try await storage.close()
+        let reopenedStorage = try DurableJournalStorage(directory: dir); let reopened = DurableSession(storage: reopenedStorage, toolRegistry: nil, liveConnectionResolver: { _ in DurableLiveConnection(endpoint: "https://mistral-s1b.test/v1", apiKey: "fresh-live-secret") }); XCTAssertTrue(S1BMistralURLProtocol.requests.isEmpty); _ = try await reopened.resumeQueued()
+        while (try await reopened.snapshot()).tasks.values.contains(where: { ![.completed, .failed, .aborted].contains($0.status) }) { await Task.yield() }
+        let request = try XCTUnwrap(S1BMistralURLProtocol.requests.last); XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer fresh-live-secret"); XCTAssertTrue(String(data: request.httpBody ?? Data(), encoding: .utf8)?.contains("\"temperature\":0.37") == true)
+        let journal = String(data: try Data(contentsOf: dir.appendingPathComponent("journal.log")), encoding: .utf8) ?? ""; XCTAssertFalse(journal.contains("old-live-secret")); XCTAssertFalse(journal.contains("fresh-live-secret")); XCTAssertFalse(journal.contains("old-live.test")); try await reopened.close()
     }
 
     func testAggregateOverflowFailsLegallyAndPreservesKnownTurnUsage() async throws {

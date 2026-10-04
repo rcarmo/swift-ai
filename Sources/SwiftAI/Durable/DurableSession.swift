@@ -5,11 +5,13 @@ struct DurableSessionTestingHooks: Sendable {
     var onSubmitWaiter: (@Sendable (Int64) -> Void)?
     var onCloseWaiter: (@Sendable (Int64) -> Void)?
     var onRecoveryDeferred: (@Sendable () -> Void)?
-    init(onCloseSealed: (@Sendable () -> Void)? = nil, onSubmitWaiter: (@Sendable (Int64) -> Void)? = nil, onCloseWaiter: (@Sendable (Int64) -> Void)? = nil, onRecoveryDeferred: (@Sendable () -> Void)? = nil) {
+    var beforeToolExecution: (@Sendable ([Int64]) async -> Void)?
+    init(onCloseSealed: (@Sendable () -> Void)? = nil, onSubmitWaiter: (@Sendable (Int64) -> Void)? = nil, onCloseWaiter: (@Sendable (Int64) -> Void)? = nil, onRecoveryDeferred: (@Sendable () -> Void)? = nil, beforeToolExecution: (@Sendable ([Int64]) async -> Void)? = nil) {
         self.onCloseSealed = onCloseSealed
         self.onSubmitWaiter = onSubmitWaiter
         self.onCloseWaiter = onCloseWaiter
         self.onRecoveryDeferred = onRecoveryDeferred
+        self.beforeToolExecution = beforeToolExecution
     }
 }
 
@@ -34,6 +36,8 @@ public actor DurableSession {
     private let gate: DurableMutationGate
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
+    private let toolRegistry: DurableToolRegistry?
+    private let liveConnectionResolver: DurableLiveConnectionResolver?
     private var queue: [GenerationJob] = []
     private var worker: Task<Void, Never>?
     private var nextJobID: Int64 = 0
@@ -51,20 +55,34 @@ public actor DurableSession {
     private var closeWaiters: [CloseWaiter] = []
     private var nextCloseWaiterID: Int64 = 0
     private var closeTask: Task<Void, Never>?
+    private var toolCancellationSignals: [Int64: DurableCancellationSignal] = [:]
 
     public init(storage: DurableStorage) {
         self.storage = storage
         self.gate = DurableMutationGate()
         self.testingHooks = nil
         self.capacity = DurableLimits.maxPublicQueue
+        self.toolRegistry = nil
+        self.liveConnectionResolver = nil
     }
 
-    init(storage: DurableStorage, testingHooks: DurableSessionTestingHooks = DurableSessionTestingHooks(), capacity: Int = DurableLimits.maxPublicQueue) {
+    public init(storage: DurableStorage, toolRegistry: DurableToolRegistry?, liveConnectionResolver: DurableLiveConnectionResolver? = nil) {
+        self.storage = storage
+        self.gate = DurableMutationGate()
+        self.testingHooks = nil
+        self.capacity = DurableLimits.maxPublicQueue
+        self.toolRegistry = toolRegistry
+        self.liveConnectionResolver = liveConnectionResolver
+    }
+
+    init(storage: DurableStorage, testingHooks: DurableSessionTestingHooks = DurableSessionTestingHooks(), capacity: Int = DurableLimits.maxPublicQueue, toolRegistry: DurableToolRegistry? = nil, liveConnectionResolver: DurableLiveConnectionResolver? = nil) {
         precondition(capacity > 0 && capacity <= DurableLimits.maxPublicQueue)
         self.storage = storage
         self.gate = DurableMutationGate()
         self.testingHooks = testingHooks
         self.capacity = capacity
+        self.toolRegistry = toolRegistry
+        self.liveConnectionResolver = liveConnectionResolver
     }
 
     public func snapshot() async throws -> DurableSnapshot {
@@ -102,11 +120,14 @@ public actor DurableSession {
         guard observerReservations + taskWaiters.values.reduce(0, { $0 + $1.count }) < capacity else { throw DurableError.queueFull }
         activeAdmissions += 1
         observerReservations += 1
+        var configuredRequest = request
+        if let toolRegistry { configuredRequest.offeredTools = await toolRegistry.snapshot() }
+        let admittedRequest = configuredRequest
         let admission: DurableGenerationAdmission
         do {
             admission = try await gate.submit { () async throws -> DurableGenerationAdmission in
                 let snapshot = try await self.storage.snapshot()
-                let admission = try DurableGenerationPlanner.admitBatch(snapshot: snapshot, request: request)
+                let admission = try DurableGenerationPlanner.admitBatch(snapshot: snapshot, request: admittedRequest)
                 if admission.duplicate == nil { _ = try await self.storage.commit(admission.batch) }
                 return admission
             }
@@ -155,11 +176,36 @@ public actor DurableSession {
             throw error
         }
         activeAdmissions -= 1
-        recoverySweepRequested = snapshot.tasks.values.contains { [.pending, .running, .completing].contains($0.status) }
+        recoverySweepRequested = snapshot.tasks.values.contains { $0.kind == "generation" && [.pending, .running, .waiting, .completing].contains($0.status) }
         enqueueRecoverable(from: snapshot)
         wakeDeferredRecovery()
         finishCloseIfNeeded()
         return DurableRecovery.plan(from: snapshot)
+    }
+
+    public func abort(taskID: Int64) async throws -> DurableTaskRecord {
+        try ensureAdmitting()
+        let terminal: DurableTaskRecord = try await gate.submit {
+            let snapshot = try await self.storage.snapshot()
+            guard let task = snapshot.tasks[taskID] else { throw DurableError.invalidRecord("missing abort task") }
+            if [.completed, .failed, .aborted].contains(task.status) { return task }
+            var updates: [DurableTaskRecord] = []
+            func abortedCopy(_ value: DurableTaskRecord) -> DurableTaskRecord {
+                let noOwnedChildren = value.kind == "generation" && value.status != .running && !snapshot.tasks.values.contains { $0.ownerTaskID == value.id && ![.completed, .failed, .aborted].contains($0.status) }
+                let pendingGeneration = value.kind == "generation" && value.status == .pending
+                let status: DurableTaskStatus = pendingGeneration || noOwnedChildren ? .aborted : value.status
+                return DurableTaskRecord(id: value.id, conversationID: value.conversationID, ownerTaskID: value.ownerTaskID, kind: value.kind, status: status, checkpoint: value.checkpoint, abortRequested: true, background: value.background, outcome: status == .aborted ? .object(["code": .string("aborted")]) : value.outcome, createdSeq: value.createdSeq)
+            }
+            updates.append(abortedCopy(task))
+            if task.kind == "generation" { for child in snapshot.tasks.values where child.ownerTaskID == task.id && ![.completed, .failed, .aborted].contains(child.status) { updates.append(abortedCopy(child)) } }
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: updates))
+            return updates[0]
+        }
+        if terminal.kind == "generation" {
+            let snapshot = try await storage.snapshot()
+            for child in snapshot.tasks.values where child.ownerTaskID == taskID { toolCancellationSignals[child.id]?.cancel() }
+        } else { toolCancellationSignals[taskID]?.cancel() }
+        return terminal
     }
 
     public func close() async throws {
@@ -169,6 +215,7 @@ public actor DurableSession {
             return
         }
         isClosing = true
+        await toolRegistry?.seal()
         testingHooks?.onCloseSealed?()
         guard closeWaiters.count < capacity else { startCommonCloseIfReady(); throw DurableError.queueFull }
         guard nextCloseWaiterID < DurableLimits.maxExactInteger else { startCommonCloseIfReady(); throw DurableError.invalidRecord("close waiter id overflow") }
@@ -195,7 +242,11 @@ public actor DurableSession {
     private func enqueueRecoverable(from snapshot: DurableSnapshot) {
         let available = max(0, capacity - activeAdmissions - scheduledTaskIDs.count - runningTaskIDs.count)
         let recoverable = snapshot.tasks.values
-            .filter { [.pending, .running, .completing].contains($0.status) && !scheduledTaskIDs.contains($0.id) && !runningTaskIDs.contains($0.id) }
+            .filter { task in
+                guard task.kind == "generation", [.pending, .running, .waiting, .completing].contains(task.status), !scheduledTaskIDs.contains(task.id), !runningTaskIDs.contains(task.id) else { return false }
+                if let owner = task.ownerTaskID, snapshot.tasks[owner]?.kind == "generation" { return false }
+                return true
+            }
             .sorted { $0.id < $1.id }
         for task in recoverable.prefix(available) { enqueue(taskID: task.id, waiter: nil) }
         recoverySweepRequested = recoverable.count > available
@@ -240,6 +291,13 @@ public actor DurableSession {
             scheduledTaskIDs.remove(job.taskID)
             runningTaskIDs.insert(job.taskID)
             do {
+                let snapshot = try await storage.snapshot()
+                if snapshot.tasks[job.taskID]?.kind == "tool" {
+                    try await executeToolChild(job.taskID)
+                    runningTaskIDs.remove(job.taskID)
+                    if let parentID = (try await storage.snapshot()).tasks[job.taskID]?.ownerTaskID { try await resumeWaitingParent(parentID) }
+                    continue
+                }
                 let result = try await recover(taskID: job.taskID)
                 runningTaskIDs.remove(job.taskID)
                 let outcome: Result<DurableGenerationResult, Error> = .success(result)
@@ -258,6 +316,16 @@ public actor DurableSession {
         guard let task = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing recovery task") }
         let intent = try DurableGenerationPlanner.intent(for: task, in: snapshot)
         let submission = snapshot.submissions.values.first { $0.entryID == intent.inputEntryID && $0.conversationID == intent.conversationID }
+        if task.status == .waiting {
+            let childIDs = task.checkpoint?.objectValue?["childIDs"]?.arrayValue?.compactMap { $0.doubleValue.map(Int64.init) } ?? []
+            guard !childIDs.isEmpty else { throw DurableError.corruptStorage("waiting generation has no tool children") }
+            for childID in childIDs { try await executeToolChild(childID) }
+            try await resumeWaitingParent(taskID)
+            let resumed = try await storage.snapshot(); guard let resumedTask = resumed.tasks[taskID] else { throw DurableError.corruptStorage("missing resumed generation") }
+            if resumedTask.status == .aborted { return DurableGenerationResult(task: resumedTask, submission: submission.flatMap { resumed.submissions[$0.id] }, entry: nil) }
+            let resumedIntent = try DurableGenerationPlanner.intent(for: resumedTask, in: resumed)
+            return try await run(taskID: taskID, submissionID: submission?.id, inputEntryID: resumedIntent.inputEntryID, intent: resumedIntent, startIfPending: false)
+        }
         if [.completed, .failed, .aborted].contains(task.status) {
             let answerID = submission?.answerID
             let answer = answerID.flatMap { snapshot.entries[$0] } ?? snapshot.entries.values.first { $0.byTaskID == task.id && $0.kind == "assistant" }
@@ -297,11 +365,14 @@ public actor DurableSession {
         let contextSnapshot = try await storage.snapshot()
         if let task = contextSnapshot.tasks[taskID] { dispatchIntent = try DurableGenerationPlanner.intent(for: task, in: contextSnapshot) }
         else { dispatchIntent = intent }
+        let beforeDispatch = try await storage.snapshot()
+        if beforeDispatch.tasks[taskID]?.abortRequested == true { return try await settleAbortedGeneration(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, usage: nil) }
+        if dispatchIntent.round ?? 1 > 8 { return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: DurableFailureInfo(code: "tool_round_limit", usage: nil, diagnostics: nil)) }
         let terminal: DurableStreamTerminal
         do {
-            let model = try await resolvedModel(for: dispatchIntent)
+            let (model, options) = try await resolvedDispatch(for: dispatchIntent)
             let context = DurableGenerationPlanner.context(for: dispatchIntent, in: contextSnapshot)
-            terminal = try await DurableGenerationPlanner.collectTerminal(model: model, context: context, options: dispatchIntent.options.streamOptions())
+            terminal = try await DurableGenerationPlanner.collectTerminal(model: model, context: context, options: options)
         } catch DurableGenerationFailure.failure(let failure) {
             return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure)
         } catch DurableGenerationFailure.outputLimit(let failure) {
@@ -309,20 +380,277 @@ public actor DurableSession {
         } catch {
             return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: DurableFailureInfo(code: DurableGenerationPlanner.errorCode(String(describing: error)), usage: nil, diagnostics: nil))
         }
+        let afterProvider = try await storage.snapshot()
+        if afterProvider.tasks[taskID]?.abortRequested == true { return try await settleAbortedGeneration(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, usage: terminal.usage) }
+        if terminal.stopReason == .toolUse {
+            do {
+                try await processToolRound(taskID: taskID, terminal: terminal)
+                let nextSnapshot = try await storage.snapshot()
+                guard let nextTask = nextSnapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing waiting generation") }
+                if nextTask.status == .aborted { return DurableGenerationResult(task: nextTask, submission: submissionID.flatMap { nextSnapshot.submissions[$0] }, entry: nil) }
+                let nextIntent = try DurableGenerationPlanner.intent(for: nextTask, in: nextSnapshot)
+                return try await run(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, intent: nextIntent, startIfPending: false)
+            } catch DurableGenerationFailure.failure(let failure) {
+                return try await settleRoundFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, terminal: terminal, failure: failure)
+            } catch let error as DurableError {
+                return try await settleRoundFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, terminal: terminal, failure: DurableFailureInfo(code: DurableGenerationPlanner.errorCode(String(describing: error)), usage: terminal.usage, diagnostics: terminal.diagnostics))
+            }
+        }
         do { return try await settleSuccess(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, terminal: terminal) }
         catch DurableGenerationFailure.outputLimit(let failure) { return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure) }
     }
 
-    private func resolvedModel(for intent: DurableGenerationIntent) async throws -> Model {
-        guard var model = await AIRegistry.shared.model(provider: intent.model.provider, id: intent.model.id), model.api == intent.model.api else { throw DurableError.invalidRecord("missing_model") }
-        let endpoint = model.baseUrl
-        let headers = model.headers
-        model = intent.model
-        model.baseUrl = endpoint
-        model.headers = headers
-        let provider = await AIRegistry.shared.apiProvider(for: model.api)
-        guard !model.baseUrl.isEmpty || provider != nil else { throw DurableError.invalidRecord("missing_endpoint") }
-        return model
+    private func resolvedDispatch(for intent: DurableGenerationIntent) async throws -> (Model, StreamOptions) {
+        guard var current = await AIRegistry.shared.model(provider: intent.model.provider, id: intent.model.id), current.api == intent.model.api else { throw DurableError.invalidRecord("missing_model") }
+        var options = intent.options.streamOptions()
+        if let liveConnectionResolver {
+            do {
+                let connection = try await liveConnectionResolver(intent.model)
+                if let endpoint = connection.endpoint { current.baseUrl = endpoint }
+                if let headers = connection.headers { current.headers = headers }
+                options.apiKey = connection.apiKey
+                options.bearerToken = connection.bearerToken
+            } catch { throw DurableError.invalidRecord("live_connection_failed") }
+        }
+        let endpoint = current.baseUrl
+        let headers = current.headers
+        current = intent.model
+        current.baseUrl = endpoint
+        current.headers = headers
+        let provider = await AIRegistry.shared.apiProvider(for: current.api)
+        guard !current.baseUrl.isEmpty || provider != nil else { throw DurableError.invalidRecord("missing_endpoint") }
+        return (current, options)
+    }
+
+    private func settleAbortedGeneration(taskID: Int64, submissionID: Int64?, inputEntryID: Int64, usage: Usage?) async throws -> DurableGenerationResult {
+        try await gate.submit {
+            let snapshot = try await self.storage.snapshot(); guard let task = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing aborted generation") }
+            if task.status == .aborted { return DurableGenerationResult(task: task, submission: submissionID.flatMap { snapshot.submissions[$0] }, entry: nil) }
+            let intent = try DurableGenerationPlanner.intent(for: task, in: snapshot), round = intent.round ?? 1
+            let usageKind = "generation.usage.round.\(round)", modelIdentity = "\(intent.model.provider.rawValue)/\(intent.model.api.rawValue)/\(intent.model.id)"
+            let existing = DurableGenerationPlanner.document(scope: "task", ownerID: taskID, kind: usageKind, in: snapshot)
+            let existingAggregate = DurableGenerationPlanner.document(scope: "conversation", ownerID: task.conversationID, kind: "durable.usage", in: snapshot)
+            var documents: [DurableDocumentRecord] = []
+            var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: (usage != nil && existing == nil ? 1 : 0) + (usage != nil && existingAggregate == nil ? 1 : 0) + 1)
+            func take() -> Int64 { ids.removeFirst() }
+            if let usage, existing == nil {
+                documents.append(DurableDocumentRecord(id: take(), scope: "task", ownerID: taskID, kind: usageKind, value: DurableGenerationPlanner.usageValue(usage, model: modelIdentity)))
+                do { documents.append(DurableDocumentRecord(id: existingAggregate?.id ?? take(), scope: "conversation", ownerID: task.conversationID, kind: "durable.usage", value: try DurableGenerationPlanner.aggregateUsageValue(existing: existingAggregate?.value, adding: usage, model: modelIdentity), createdSeq: existingAggregate?.createdSeq ?? 0)) }
+                catch { documents.append(DurableDocumentRecord(id: take(), scope: "task", ownerID: taskID, kind: "generation.aggregate-incomplete", value: .object(["code": .string("usage_overflow"), "aggregatePreserved": .bool(true)]))) }
+            }
+            let aborted = DurableTaskRecord(id: task.id, conversationID: task.conversationID, ownerTaskID: task.ownerTaskID, kind: task.kind, status: .aborted, checkpoint: task.checkpoint, abortRequested: true, background: task.background, outcome: .object(["code": .string("aborted")]), createdSeq: task.createdSeq)
+            let submission = submissionID.flatMap { snapshot.submissions[$0] }.map { DurableSubmissionRecord(id: $0.id, conversationID: $0.conversationID, requestID: $0.requestID, type: $0.type, payloadHash: $0.payloadHash, status: .withdrawn, entryID: inputEntryID, reason: "aborted", createdSeq: $0.createdSeq) }
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: [aborted], submissions: submission.map { [$0] } ?? [], documents: documents))
+            let final = try await self.storage.snapshot(); return DurableGenerationResult(task: final.tasks[taskID]!, submission: submissionID.flatMap { final.submissions[$0] }, entry: nil)
+        }
+    }
+
+    private func settleRoundFailure(taskID: Int64, submissionID: Int64?, inputEntryID: Int64, terminal: DurableStreamTerminal, failure: DurableFailureInfo) async throws -> DurableGenerationResult {
+        try await gate.submit {
+            let snapshot = try await self.storage.snapshot(); guard let task = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing round failure task") }
+            let intent = try DurableGenerationPlanner.intent(for: task, in: snapshot); let round = intent.round ?? 1
+            let existing = DurableGenerationPlanner.document(scope: "task", ownerID: taskID, kind: "generation.usage.round.\(round)", in: snapshot)
+            if existing == nil {
+                let id = try DurableSubmissionPlanner.nextID(from: snapshot).first!
+                _ = try await self.storage.commit(DurableCommitBatch(documents: [DurableDocumentRecord(id: id, scope: "task", ownerID: taskID, kind: "generation.usage.round.\(round)", value: DurableGenerationPlanner.usageValue(terminal.usage, model: "\(intent.model.provider.rawValue)/\(intent.model.api.rawValue)/\(intent.model.id)"))]))
+            }
+        }
+        return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure)
+    }
+
+    private func processToolRound(taskID: Int64, terminal: DurableStreamTerminal) async throws {
+        guard let registry = toolRegistry else { throw DurableGenerationFailure.failure(DurableFailureInfo(code: "tool_use_unsupported", usage: terminal.usage, diagnostics: terminal.diagnostics)) }
+        let calls = terminal.message.content.filter { $0.type == "toolCall" }
+        guard !calls.isEmpty, calls.count <= 32 else { throw DurableGenerationFailure.failure(DurableFailureInfo(code: "tool_call_limit", usage: terminal.usage, diagnostics: terminal.diagnostics)) }
+        let childIDs: [Int64] = try await gate.submit {
+            let snapshot = try await self.storage.snapshot()
+            guard let parent = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing tool parent") }
+            var intent = try DurableGenerationPlanner.intent(for: parent, in: snapshot)
+            guard (intent.round ?? 1) <= 8 else { throw DurableGenerationFailure.failure(DurableFailureInfo(code: "tool_round_limit", usage: terminal.usage, diagnostics: terminal.diagnostics)) }
+            let bindings = Dictionary(uniqueKeysWithValues: (intent.offeredTools ?? []).map { ($0.definition.name, $0) })
+            let providerIDs = calls.compactMap(\.id)
+            guard providerIDs.count == calls.count, Set(providerIDs).count == providerIDs.count else { throw DurableGenerationFailure.failure(DurableFailureInfo(code: "duplicate_tool_call_id", usage: terminal.usage, diagnostics: terminal.diagnostics)) }
+            var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: 1 + calls.count * 3 + 2)
+            func take() -> Int64 { ids.removeFirst() }
+            let assistantID = take()
+            var children: [DurableTaskRecord] = []
+            var documents: [DurableDocumentRecord] = []
+            var plannedChildIDs: [Int64] = []
+            for call in calls {
+                guard let providerID = call.id, !providerID.isEmpty, providerID.utf8.count <= 256, let name = call.name, let binding = bindings[name], let arguments = call.arguments else { throw DurableGenerationFailure.failure(DurableFailureInfo(code: "invalid_tool_call", usage: terminal.usage, diagnostics: terminal.diagnostics)) }
+                try DurableToolSchema.validate(arguments: arguments, against: binding.definition.parameters)
+                let childID = take(), intentID = take(), resultPlaceholderID = take()
+                plannedChildIDs.append(childID)
+                let toolIntent = DurableToolIntent(parentTaskID: taskID, providerCallID: providerID, durableToolID: "tool-\(childID)", idempotencyKey: "tool-\(childID)-1", binding: binding, originalArguments: arguments, executionArguments: arguments, logicalAttempt: 1)
+                children.append(DurableTaskRecord(id: childID, conversationID: parent.conversationID, ownerTaskID: taskID, kind: "tool", status: .pending, checkpoint: .object(["phase": .string("pending"), "resultPlaceholderID": .number(Double(resultPlaceholderID))])))
+                documents.append(DurableDocumentRecord(id: intentID, scope: "task", ownerID: childID, kind: "tool.intent", value: try DurableGenerationPlanner.encodeJSON(toolIntent)))
+            }
+            let round = intent.round ?? 1
+            let usageID = take(), aggregateID = take()
+            let existingAggregate = DurableGenerationPlanner.document(scope: "conversation", ownerID: parent.conversationID, kind: "durable.usage", in: snapshot)
+            let aggregateValue = try DurableGenerationPlanner.aggregateUsageValue(existing: existingAggregate?.value, adding: terminal.usage, model: "\(intent.model.provider.rawValue)/\(intent.model.api.rawValue)/\(intent.model.id)")
+            let modelIdentity = "\(intent.model.provider.rawValue)/\(intent.model.api.rawValue)/\(intent.model.id)"
+            documents.append(DurableDocumentRecord(id: usageID, scope: "task", ownerID: taskID, kind: "generation.usage.round.\(round)", value: DurableGenerationPlanner.usageValue(terminal.usage, model: modelIdentity)))
+            documents.append(DurableDocumentRecord(id: existingAggregate?.id ?? aggregateID, scope: "conversation", ownerID: parent.conversationID, kind: "durable.usage", value: aggregateValue, createdSeq: existingAggregate?.createdSeq ?? 0))
+            let assistant = DurableEntryRecord(id: assistantID, conversationID: parent.conversationID, kind: "assistant-tool-call", messages: [terminal.message], byTaskID: taskID)
+            intent.roundMessages = (intent.roundMessages ?? []) + [terminal.message]
+            let intentDoc = try Self.toolIntentDocument(snapshot: snapshot, taskID: taskID, intent: intent)
+            let waiting = DurableTaskRecord(id: parent.id, conversationID: parent.conversationID, ownerTaskID: parent.ownerTaskID, kind: parent.kind, status: .waiting, checkpoint: .object(["phase": .string("waiting_tools"), "childIDs": .array(plannedChildIDs.map { .number(Double($0)) })]), abortRequested: parent.abortRequested, background: parent.background, outcome: parent.outcome, createdSeq: parent.createdSeq)
+            _ = try await self.storage.commit(DurableCommitBatch(entries: [assistant], tasks: [waiting] + children, documents: documents + [intentDoc]))
+            return plannedChildIDs
+        }
+        if let beforeToolExecution = testingHooks?.beforeToolExecution { await beforeToolExecution(childIDs) }
+        for childID in childIDs { try await executeToolChild(childID) }
+        try await resumeWaitingParent(taskID)
+        _ = registry
+    }
+
+    private nonisolated static func toolIntentDocument(snapshot: DurableSnapshot, taskID: Int64, intent: DurableGenerationIntent) throws -> DurableDocumentRecord {
+        guard let existing = DurableGenerationPlanner.document(scope: "task", ownerID: taskID, kind: "generation.intent", in: snapshot) else { throw DurableError.corruptStorage("missing parent intent") }
+        return DurableDocumentRecord(id: existing.id, scope: existing.scope, ownerID: existing.ownerID, kind: existing.kind, value: try DurableGenerationPlanner.encodeJSON(intent), createdSeq: existing.createdSeq)
+    }
+
+    private func executeToolChild(_ childID: Int64) async throws {
+        var snapshot = try await storage.snapshot()
+        guard var child = snapshot.tasks[childID], child.kind == "tool", let intentDoc = DurableGenerationPlanner.document(scope: "task", ownerID: childID, kind: "tool.intent", in: snapshot) else { throw DurableError.corruptStorage("missing tool child intent") }
+        let intent = try DurableGenerationPlanner.decodeJSON(DurableToolIntent.self, from: intentDoc.value)
+        if [.completed, .failed, .aborted].contains(child.status) { return }
+        if child.abortRequested, child.status == .pending {
+            try await gate.submit {
+                let snapshot = try await self.storage.snapshot(); guard let current = snapshot.tasks[childID] else { throw DurableError.corruptStorage("missing aborted tool child") }
+                let running = DurableTaskRecord(id: current.id, conversationID: current.conversationID, ownerTaskID: current.ownerTaskID, kind: current.kind, status: .running, checkpoint: .object(["phase": .string("aborting")]), abortRequested: true, background: current.background, outcome: current.outcome, createdSeq: current.createdSeq)
+                _ = try await self.storage.commit(DurableCommitBatch(tasks: [running]))
+            }
+            let updated = try await storage.snapshot(); child = updated.tasks[childID]!
+            let aborted = DurableStagedToolResult(content: "Tool execution was aborted", isError: true, usage: nil, documents: [], code: "aborted", billingUnknown: false)
+            try await stageAndFinalizeToolChild(child: child, intent: intent, result: aborted); return
+        }
+        if child.status == .completing, let staged = child.checkpoint?.objectValue?["result"] { let result = try DurableGenerationPlanner.decodeJSON(DurableStagedToolResult.self, from: staged); try await finalizeToolChild(child: child, intent: intent, result: result); return }
+        let replayingStarted = child.status == .running
+        if replayingStarted, intent.binding.replayPolicy == .unsafe {
+            let interrupted = DurableStagedToolResult(content: "Tool execution was interrupted", isError: true, usage: nil, documents: [], code: "interrupted", billingUnknown: true)
+            try await stageAndFinalizeToolChild(child: child, intent: intent, result: interrupted); return
+        }
+        try DurableToolSchema.validateDefinition(intent.binding.definition)
+        guard try DurableToolSchema.identity(intent.binding.definition.parameters) == intent.binding.schemaIdentity else { throw DurableError.corruptStorage("tool binding schema identity mismatch") }
+        try DurableToolSchema.validate(arguments: intent.executionArguments, against: intent.binding.definition.parameters)
+        guard let registration = await toolRegistry?.resolve(intent.binding) else {
+            let unavailable = DurableStagedToolResult(content: "Tool implementation unavailable", isError: true, usage: nil, documents: [], code: "tool_unavailable", billingUnknown: replayingStarted)
+            try await stageAndFinalizeToolChild(child: child, intent: intent, result: unavailable); return
+        }
+        try await gate.submit {
+            let current = try await self.storage.snapshot(); guard let value = current.tasks[childID] else { throw DurableError.corruptStorage("missing tool child") }
+            let running = DurableTaskRecord(id: value.id, conversationID: value.conversationID, ownerTaskID: value.ownerTaskID, kind: value.kind, status: .running, checkpoint: .object(["phase": .string("started")]), abortRequested: value.abortRequested, background: value.background, outcome: value.outcome, createdSeq: value.createdSeq)
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: [running]))
+        }
+        snapshot = try await storage.snapshot(); child = snapshot.tasks[childID]!
+        let staged: DurableStagedToolResult
+        var knownUsage: Usage?
+        var invalidUsage = false
+        let signal = DurableCancellationSignal(); toolCancellationSignals[childID] = signal
+        defer { toolCancellationSignals.removeValue(forKey: childID) }
+        if child.abortRequested { signal.cancel() }
+        do {
+            let output = try await registration.execute(DurableToolExecution(durableToolID: intent.durableToolID, idempotencyKey: intent.idempotencyKey, providerCallID: intent.providerCallID, arguments: intent.executionArguments, logicalAttempt: intent.logicalAttempt, cancellation: signal))
+            knownUsage = DurableGenerationPlanner.validUsageOrNil(output.usage)
+            do { try DurableToolSchema.validateOutput(output) }
+            catch DurableToolOutputValidation.invalidUsage { invalidUsage = true; throw DurableToolOutputValidation.invalidUsage }
+            staged = DurableStagedToolResult(content: output.content, isError: output.isError, usage: output.usage, documents: output.documents, code: output.isError ? "tool_error" : nil, billingUnknown: replayingStarted)
+        } catch let error as DurableToolOutputValidation {
+            let code: String
+            switch error { case .outputLimit: code = "tool_output_limit"; case .invalidUsage: code = "invalid_tool_usage"; case .invalidDocuments: code = "invalid_tool_documents" }
+            staged = DurableStagedToolResult(content: "Tool result was rejected", isError: true, usage: knownUsage, documents: [], code: code, billingUnknown: replayingStarted || invalidUsage)
+        } catch {
+            staged = DurableStagedToolResult(content: "Tool failed", isError: true, usage: knownUsage, documents: [], code: "tool_error", billingUnknown: replayingStarted)
+        }
+        try await stageAndFinalizeToolChild(child: child, intent: intent, result: staged)
+    }
+
+    private func stageAndFinalizeToolChild(child: DurableTaskRecord, intent: DurableToolIntent, result: DurableStagedToolResult) async throws {
+        try await gate.submit {
+            let snapshot = try await self.storage.snapshot(); guard let current = snapshot.tasks[child.id] else { throw DurableError.corruptStorage("missing tool child") }
+            let completing = DurableTaskRecord(id: current.id, conversationID: current.conversationID, ownerTaskID: current.ownerTaskID, kind: current.kind, status: .completing, checkpoint: .object(["phase": .string("completing"), "result": try DurableGenerationPlanner.encodeJSON(result, maxBytes: DurableLimits.maxCheckpointBytes)]), abortRequested: current.abortRequested, background: current.background, outcome: current.outcome, createdSeq: current.createdSeq)
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: [completing]))
+        }
+        let snapshot = try await storage.snapshot(); try await finalizeToolChild(child: snapshot.tasks[child.id]!, intent: intent, result: result)
+    }
+
+    private func finalizeToolChild(child: DurableTaskRecord, intent: DurableToolIntent, result: DurableStagedToolResult) async throws {
+        try await gate.submit {
+            let snapshot = try await self.storage.snapshot(); guard let current = snapshot.tasks[child.id] else { throw DurableError.corruptStorage("missing tool child") }
+            let existingAggregate = DurableGenerationPlanner.document(scope: "conversation", ownerID: current.conversationID, kind: "durable.usage", in: snapshot)
+            let required = 4 + result.documents.count + (result.usage == nil ? 0 : 1) + (result.billingUnknown ? 1 : 0)
+            var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: required); func take() -> Int64 { ids.removeFirst() }
+            var applicationInvalid = false
+            let applicationDocuments: [DurableDocumentRecord]
+            do { applicationDocuments = current.abortRequested ? [] : try Self.applicationDocuments(result.documents, intent: intent, child: current, snapshot: snapshot, ids: &ids) }
+            catch { applicationInvalid = true; applicationDocuments = [] }
+            let content = applicationInvalid ? "Tool application documents were rejected" : result.content
+            let isError = result.isError || applicationInvalid
+            let code = applicationInvalid ? "invalid_tool_documents" : (result.code ?? "ok")
+            var message = Message(role: .toolResult, content: [.text(content)]); message.toolCallId = intent.providerCallID; message.toolName = intent.binding.definition.name; message.isError = isError
+            let entryID = take()
+            var documents = applicationDocuments
+            if let usage = result.usage {
+                let toolIdentity = "tool:\(intent.binding.implementationID)/\(intent.binding.implementationVersion)"
+                documents.append(DurableDocumentRecord(id: take(), scope: "task", ownerID: current.id, kind: "tool.usage.attempt.\(intent.logicalAttempt)", value: DurableGenerationPlanner.usageValue(usage, model: toolIdentity)))
+                do {
+                    let value = try DurableGenerationPlanner.aggregateUsageValue(existing: existingAggregate?.value, adding: usage, model: toolIdentity)
+                    documents.append(DurableDocumentRecord(id: existingAggregate?.id ?? take(), scope: "conversation", ownerID: current.conversationID, kind: "durable.usage", value: value, createdSeq: existingAggregate?.createdSeq ?? 0))
+                } catch {
+                    documents.append(DurableDocumentRecord(id: take(), scope: "task", ownerID: current.id, kind: "tool.aggregate-incomplete", value: .object(["attempt": .number(Double(intent.logicalAttempt)), "aggregatePreserved": .bool(true)])))
+                }
+            }
+            if result.billingUnknown { documents.append(DurableDocumentRecord(id: take(), scope: "task", ownerID: current.id, kind: "tool.billing-incomplete", value: .object(["attempt": .number(Double(intent.logicalAttempt)), "unknown": .bool(true)]))) }
+            let aggregateIncomplete = documents.contains { $0.kind == "tool.aggregate-incomplete" }
+            let finalError = isError || aggregateIncomplete
+            let finalCode = aggregateIncomplete ? "usage_overflow" : code
+            if aggregateIncomplete { message.content = [.text("Tool usage aggregate overflow")]; message.isError = true; documents.removeAll { $0.kind.hasPrefix("tool.application.") } }
+            let entry = DurableEntryRecord(id: entryID, conversationID: current.conversationID, kind: "tool-result", messages: [message], byTaskID: current.id)
+            let status: DurableTaskStatus = current.abortRequested ? .aborted : (finalError ? .failed : .completed)
+            let terminal = DurableTaskRecord(id: current.id, conversationID: current.conversationID, ownerTaskID: current.ownerTaskID, kind: current.kind, status: status, checkpoint: current.checkpoint, abortRequested: current.abortRequested, background: current.background, outcome: .object(["code": .string(finalCode), "entryID": .number(Double(entry.id))]), createdSeq: current.createdSeq)
+            _ = try await self.storage.commit(DurableCommitBatch(entries: [entry], tasks: [terminal], documents: documents))
+        }
+    }
+
+    private nonisolated static func applicationDocuments(_ proposed: [DurableToolApplicationDocument], intent: DurableToolIntent, child: DurableTaskRecord, snapshot: DurableSnapshot, ids: inout [Int64]) throws -> [DurableDocumentRecord] {
+        var seen = Set<String>(), output: [DurableDocumentRecord] = []
+        for item in proposed {
+            guard DurableToolSchema.validKindPart(item.suffix) else { throw DurableError.invalidRecord("invalid application document suffix") }
+            let scope = item.target == .conversation ? "conversation" : "task", owner = item.target == .conversation ? child.conversationID : child.id
+            let kind = "tool.application.\(intent.binding.definition.name).\(item.suffix)", key = "\(scope)/\(owner)/\(kind)"
+            guard seen.insert(key).inserted else { throw DurableError.invalidRecord("duplicate application document") }
+            let existing = DurableGenerationPlanner.document(scope: scope, ownerID: owner, kind: kind, in: snapshot)
+            if let existing {
+                guard let creator = existing.value.objectValue?["creatorTaskID"]?.doubleValue, creator.isFinite, creator.rounded(.towardZero) == creator, creator > 0, creator <= Double(DurableLimits.maxExactInteger), Int64(creator) == child.id else { throw DurableError.invalidRecord("invalid application document creator") }
+            }
+            guard let id = existing?.id ?? ids.first else { throw DurableError.invalidRecord("missing application document id") }; if existing == nil { ids.removeFirst() }
+            output.append(DurableDocumentRecord(id: id, scope: scope, ownerID: owner, kind: kind, value: .object(["creatorTaskID": .number(Double(child.id)), "value": item.value]), createdSeq: existing?.createdSeq ?? 0))
+        }
+        return output
+    }
+
+    private func resumeWaitingParent(_ taskID: Int64) async throws {
+        try await gate.submit {
+            let snapshot = try await self.storage.snapshot(); guard let parent = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing waiting parent") }
+            if parent.status == .aborted { return }
+            guard parent.status == .waiting else { return }
+            if parent.abortRequested {
+                let childIDs = parent.checkpoint?.objectValue?["childIDs"]?.arrayValue?.compactMap { $0.doubleValue.map(Int64.init) } ?? []
+                guard childIDs.allSatisfy({ id in snapshot.tasks[id].map { [.completed, .failed, .aborted].contains($0.status) } == true }) else { return }
+                let aborted = DurableTaskRecord(id: parent.id, conversationID: parent.conversationID, ownerTaskID: parent.ownerTaskID, kind: parent.kind, status: .aborted, checkpoint: parent.checkpoint, abortRequested: true, background: parent.background, outcome: .object(["code": .string("aborted")]), createdSeq: parent.createdSeq)
+                _ = try await self.storage.commit(DurableCommitBatch(tasks: [aborted])); return
+            }
+            let childIDs = parent.checkpoint?.objectValue?["childIDs"]?.arrayValue?.compactMap { $0.doubleValue.map(Int64.init) } ?? []
+            let children = childIDs.compactMap { snapshot.tasks[$0] }; guard children.count == childIDs.count, children.allSatisfy({ [.completed, .failed, .aborted].contains($0.status) }) else { throw DurableError.corruptStorage("waiting parent has incomplete children") }
+            var intent = try DurableGenerationPlanner.intent(for: parent, in: snapshot)
+            let resultMessages = childIDs.compactMap { id -> Message? in guard let entryID = snapshot.tasks[id]?.outcome?.objectValue?["entryID"]?.doubleValue.map(Int64.init) else { return nil }; return snapshot.entries[entryID]?.messages?.first }
+            guard resultMessages.count == childIDs.count else { throw DurableError.corruptStorage("missing ordered tool results") }
+            intent.roundMessages = (intent.roundMessages ?? []) + resultMessages; intent.round = (intent.round ?? 1) + 1
+            let intentDoc = try Self.toolIntentDocument(snapshot: snapshot, taskID: taskID, intent: intent)
+            let running = DurableTaskRecord(id: parent.id, conversationID: parent.conversationID, ownerTaskID: parent.ownerTaskID, kind: parent.kind, status: .running, checkpoint: DurableGenerationPlanner.checkpoint(intent: intent, phase: "running"), abortRequested: parent.abortRequested, background: parent.background, outcome: parent.outcome, createdSeq: parent.createdSeq)
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: [running], documents: [intentDoc]))
+        }
     }
 
     private func settleSuccess(taskID: Int64, submissionID: Int64?, inputEntryID: Int64, terminal: DurableStreamTerminal) async throws -> DurableGenerationResult {

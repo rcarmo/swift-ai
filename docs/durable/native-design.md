@@ -50,6 +50,16 @@ Open is zero-effect. Explicit resume scans durable pending/running/completing ta
 
 Close seals new admission, drains admitted work, closes storage exactly once and preserves its common result. An unexpected executor or uncertain storage error seals the session, fails queued observers without starting their provider effects, and runs the same owned close workflow. Typed provider terminals settle as durable task failures and do not stop later queued generations.
 
+## S1c owned tools
+
+S1c snapshots bounded tool declarations, implementation identity, schema identity and replay policy into each generation intent. The runtime validates the declared schema subset without coercion, commits assistant tool calls and serial child intents before effects, then executes children inline under the owned generation workflow and commits ordered native tool-result messages before the successor model round. This serial design is bounded and does not claim parallel child scheduling or worker-slot yielding. Later generation context reconstructs prior assistant calls and child results in entry order, including submissions without request IDs.
+
+A child progresses through pending, started, completing and terminal checkpoints. Safe started recovery uses the same durable idempotency key and records physical-invocation billing uncertainty until durable evidence resolves it. Unsafe started recovery performs no second effect and returns an interrupted result. Staged results finalize without another effect. Tool and model receipts use round/attempt-specific kinds and checked conversation aggregates.
+
+Tool application writes are data, not escaping storage closures. The runtime constructs `tool.application.<tool>.<suffix>` kinds, restricts scope to the parent conversation or current child, allocates IDs itself and proves the original child creator on updates. Invalid or mixed document sets commit no application writes while retaining valid billed usage.
+
+Explicit abort is separate from observer cancellation. Parent abort propagates to non-terminal children; child-only abort returns an ordered error result. Close retains the journal writer while model or tool effects remain owned. Live endpoint/auth resolution returns only a process-local connection DTO and cannot change pinned behaviour; resolver values and errors are absent from durable bytes.
+
 ## Platform scope
 
 The persistent journal backend is supported on Linux and macOS in S1a. Other platforms get a typed unsupported-storage error. macOS must still be verified on a real macOS host before claiming production persistence support there. No workflow is added for that proof in S1a.

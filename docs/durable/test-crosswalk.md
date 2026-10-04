@@ -19,7 +19,7 @@ The official durable package has 42 test suites. S1a covers storage/mutation fou
 | 13 | `harness-lifecycle.test.ts` | S1a covers storage/gate lifecycle; S1b covers cancellation-aware session observers, owned drain and fail-stop cleanup. |
 | 14 | `harness-live-deltas.test.ts` | Later: live deltas. |
 | 15 | `harness-output.test.ts` | Later: tool output commits. |
-| 16 | `harness-ownership.test.ts` | S1a covers record owner validation; S1b keeps committed generation and close workflows alive after observer cancellation. |
+| 16 | `harness-ownership.test.ts` | S1a covers record owner validation; S1b keeps committed generation alive after observer cancellation; S1c serial child tools yield parent capacity and drain through abort/close. |
 | 17 | `harness-prompt.test.ts` | Later: prompt/section replay. |
 | 18 | `harness-registry.test.ts` | Later: extension registry. |
 | 19 | `harness-structured.test.ts` | Later: structured provider requests. |
@@ -27,8 +27,8 @@ The official durable package has 42 test suites. S1a covers storage/mutation fou
 | 21 | `harness-task-graph.test.ts` | Later: graph view. |
 | 22 | `harness-tasks-recovery.test.ts` | S1a covers checkpoint validation; S1b recovers Running prepared context, Running context failure and Completing success/failure checkpoints. |
 | 23 | `harness-tasks.test.ts` | S1a covers task records only. |
-| 24 | `harness-tools-recovery.test.ts` | Later: replay-safe tools. |
-| 25 | `harness-tools.test.ts` | Later: durable tools. |
+| 24 | `harness-tools-recovery.test.ts` | S1c covers pending/started/staged/terminal recovery, safe/unsafe replay and six journal SIGKILL boundaries. |
+| 25 | `harness-tools.test.ts` | S1c covers enforced schemas, pinned bindings, ordered native call/results, multi-round answers, bounded outputs, billing, application documents and abort/close ownership. |
 | 26 | `harness-view.test.ts` | Later: conversation view. |
 | 27 | `jsonl-storage.test.ts` | Later optional backend. |
 | 28 | `memory-storage.test.ts` | Covered by `DurableMemoryStorageTests`. |

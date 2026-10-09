@@ -9,6 +9,7 @@ public struct DurableGenerationRequest: Sendable {
     public var payloadHash: String?
     public var options: StreamOptions?
     var offeredTools: [DurableToolBinding] = []
+    var extensions: [String] = []
 
     public init(conversationID: Int64, model: Model, systemPrompt: String? = nil, transcript: [Message], requestID: String? = nil, payloadHash: String? = nil, options: StreamOptions? = nil) {
         self.conversationID = conversationID
@@ -156,6 +157,7 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
     var offeredTools: [DurableToolBinding]?
     var roundMessages: [Message]?
     var round: Int?
+    var extensions: [String]?
 
     init(request: DurableGenerationRequest, inputEntryID: Int64) {
         conversationID = request.conversationID
@@ -172,6 +174,7 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
         options = DurablePinnedOptions(request.sanitizedOptions())
         attempt = 1
         offeredTools = request.offeredTools
+        extensions = request.extensions.isEmpty ? nil : request.extensions
         roundMessages = []
         round = 1
     }
@@ -184,7 +187,7 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
         model == other.model &&
         systemPrompt == other.systemPrompt && transcript == other.transcript &&
         requestID == other.requestID && payloadHash == other.payloadHash && options == other.options &&
-        (offeredTools ?? []) == (other.offeredTools ?? [])
+        (offeredTools ?? []) == (other.offeredTools ?? []) && (extensions ?? []) == (other.extensions ?? [])
     }
 }
 

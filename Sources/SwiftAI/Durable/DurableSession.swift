@@ -34,6 +34,7 @@ public actor DurableSession {
 
     let storage: DurableStorage
     let observation = DurableObservationHub()
+    public let extensionRegistry = DurableExtensionRegistry()
     let gate: DurableMutationGate
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
@@ -124,6 +125,10 @@ public actor DurableSession {
         observerReservations += 1
         var configuredRequest = request
         if let toolRegistry { configuredRequest.offeredTools = await toolRegistry.snapshot() }
+        if !configuredRequest.extensions.isEmpty {
+            do { configuredRequest.systemPrompt = try await renderPrompt(conversationID: request.conversationID, instructions: request.systemPrompt, extensions: configuredRequest.extensions) }
+            catch { activeAdmissions -= 1; observerReservations -= 1; finishCloseIfNeeded(); throw error }
+        }
         let admittedRequest = configuredRequest
         let admission: DurableGenerationAdmission
         do {
@@ -374,8 +379,16 @@ public actor DurableSession {
         let terminal: DurableStreamTerminal
         do {
             let (model, options) = try await resolvedDispatch(for: dispatchIntent)
-            let context = DurableGenerationPlanner.context(for: dispatchIntent, in: contextSnapshot)
+            var context = DurableGenerationPlanner.context(for: dispatchIntent, in: contextSnapshot)
+            let extensions = try await extensionRegistry.snapshot(names: dispatchIntent.extensions ?? [])
+            for value in extensions { if let hook = value.hooks.beforeRequest { context = try await hook(context) } }
             terminal = try await DurableGenerationPlanner.collectTerminal(model: model, context: context, options: options)
+            for value in extensions {
+                if let hook = value.hooks.afterResponse {
+                    do { try await hook(terminal.message) }
+                    catch { return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: DurableFailureInfo(code: "after_response_hook", usage: terminal.usage, diagnostics: terminal.diagnostics)) }
+                }
+            }
         } catch DurableGenerationFailure.failure(let failure) {
             return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure)
         } catch DurableGenerationFailure.outputLimit(let failure) {

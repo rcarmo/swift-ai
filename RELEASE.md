@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Agent/prompt/request-hook chunk
+
+Added persisted agent model/instructions/thinking/extension selection, install/replace/uninstall extension registry, selected prompt-section rendering and before-request/after-response hooks. Failed section renderers retain previously shown text without double tagging; invalid extension keys are rejected before installation. Named extension identity is pinned into generation intent, credentials/endpoints stay live-only, and after-response hook failures preserve billed usage. The native prompt currently passes a combined `AIContext.systemPrompt`; upstream mid-conversation system/tool-delta replay, task/tool hooks, wrappers and automatic scheduling still require integration. Full 406-test, warnings-as-errors and static/catalogue gates passed locally.
+
 ### Resumable manual compaction chunk
 
 Added native tool-group-aware compaction cut selection and a durable manual summarisation task with a pinned pre-effect transcript, no-cache bounded summary request, persisted summary/usage stage, stale-head protection and atomic summary/usage settlement. Journal reopen and explicit recovery finalise a staged summary without another provider call. Owned compaction reservations keep close from releasing storage during effects; concurrent recovery of one compaction is rejected. Manual compaction requires an idle conversation. Automatic pressure/overflow compaction, hook decisions/retry and scheduler integration remain follow-up scope. Full 403-test, warnings-as-errors and static/catalogue gates passed locally for this chunk.

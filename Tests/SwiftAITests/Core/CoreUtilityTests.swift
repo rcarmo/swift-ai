@@ -750,8 +750,8 @@ final class CoreUtilityTests: XCTestCase {
     func testHarnessCloneNilAndSaveLoadContext() throws {
         XCTAssertNil(Harness.cloneContext(nil))
         let context = AIContext(systemPrompt: "sys", messages: [.user("hello")], tools: [Tool(name: "echo", description: "Echo", parameters: .object(["type": .string("object")]))])
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-context-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+        let url = SwiftAITestScratch.file("context", extension: "json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         try Harness.saveContext(context, to: url)
         let loaded = try Harness.loadContext(from: url)
         XCTAssertEqual(loaded, context)

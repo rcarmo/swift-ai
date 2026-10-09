@@ -82,7 +82,7 @@ final class DurableGenerationTests: XCTestCase {
         let model = Model(id: "mistral-s1b", name: "Mistral S1b", api: .mistralConversations, provider: .mistral, baseUrl: "https://mistral-s1b.test/v1", maxTokens: 64)
         await AIRegistry.shared.register(model)
         var options = StreamOptions(); options.apiKey = "must-not-persist"; options.temperature = 0.25
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-s1b-http-\(UUID().uuidString)", isDirectory: true)
+        let dir = SwiftAITestScratch.directory("s1b-http")
         let storage = try DurableJournalStorage(directory: dir); let session = DurableSession(storage: storage, toolRegistry: nil, liveConnectionResolver: { _ in DurableLiveConnection(endpoint: "https://mistral-s1b.test/v1", apiKey: "durable-test-not-secret") })
         let conversation = try await session.createConversation()
         let result = try await session.submit(DurableGenerationRequest(conversationID: conversation.id, model: model, transcript: [.user("hello wire")], requestID: "wire", options: options))
@@ -107,7 +107,7 @@ final class DurableGenerationTests: XCTestCase {
         await AIRegistry.shared.register(APIProvider(api: .mistralConversations, stream: { model, context, options in MistralConversationsProvider.stream(model: model, context: context, options: options) }))
         let model = Model(id: "mistral-s1c-reopen", name: "Mistral Reopen", api: .mistralConversations, provider: .mistral, baseUrl: "https://old-live.test/v1", maxTokens: 64); await AIRegistry.shared.register(model)
         var options = StreamOptions(); options.temperature = 0.37; options.apiKey = "old-live-secret"
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-s1c-reopen-\(UUID().uuidString)", isDirectory: true); let storage = try DurableJournalStorage(directory: dir); _ = try await storage.commit(DurableCommitBatch(conversations: [DurableConversationRecord(id: 1)]))
+        let dir = SwiftAITestScratch.directory("s1c-reopen"); let storage = try DurableJournalStorage(directory: dir); _ = try await storage.commit(DurableCommitBatch(conversations: [DurableConversationRecord(id: 1)]))
         let admission = try DurableGenerationPlanner.admitBatch(snapshot: try await storage.snapshot(), request: DurableGenerationRequest(conversationID: 1, model: model, transcript: [.user("redispatch")], requestID: "redispatch", options: options)); _ = try await storage.commit(admission.batch); try await storage.close()
         let reopenedStorage = try DurableJournalStorage(directory: dir); let reopened = DurableSession(storage: reopenedStorage, toolRegistry: nil, liveConnectionResolver: { _ in DurableLiveConnection(endpoint: "https://mistral-s1b.test/v1", apiKey: "fresh-live-secret") }); XCTAssertTrue(S1BMistralURLProtocol.requests.isEmpty); _ = try await reopened.resumeQueued()
         while (try await reopened.snapshot()).tasks.values.contains(where: { ![.completed, .failed, .aborted].contains($0.status) }) { await Task.yield() }
@@ -185,7 +185,7 @@ final class DurableGenerationTests: XCTestCase {
 
     func testNoRequestIDTwoTurnHistoryUsesExactTaskIntentMapping() async throws {
         let capture = S1BCapture(); let model = await install(capture: capture)
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-s1b-no-key-\(UUID().uuidString)", isDirectory: true)
+        let dir = SwiftAITestScratch.directory("s1b-no-key")
         let firstSession = DurableSession(storage: try DurableJournalStorage(directory: dir)); let conversation = try await firstSession.createConversation()
         let first = try await firstSession.submit(DurableGenerationRequest(conversationID: conversation.id, model: model, transcript: [.user("first-no-key")]))
         XCTAssertEqual(first.task.status, .completed)

@@ -94,6 +94,36 @@ def grep_guard() -> None:
     print("ok: source guard checks")
 
 
+def check_project_temp_policy() -> None:
+    makefile = (ROOT / "Makefile").read_text()
+    agents = (ROOT / "AGENTS.md").read_text()
+    required_make = [
+        "PROJECT_TMP_RESOLVER := $(CURDIR)/scripts/project_tmp.py",
+        "PROJECT_TMP_BASE_ORIGIN := $(origin PROJECT_TMP_BASE)",
+        "override PROJECT_TMP_ROOT :=",
+        "--scratch-path $(SWIFTPM_BUILD_ROOT)",
+        "--cache-path $(SWIFTPM_CACHE_ROOT)",
+        "SWIFT_AI_TEST_RUN_ROOT",
+        "TMPDIR := $(RUN_TMP)",
+        "python3 scripts/test-project-tmp.py",
+    ]
+    missing_make = [item for item in required_make if item not in makefile]
+    if missing_make:
+        raise SystemExit("Makefile missing project-owned temp routing: " + ", ".join(missing_make))
+    required_agents = ["PROJECT_TMP_BASE", "/workspace/tmp/swift-ai", "${RUNNER_TEMP}/swift-ai", "tests/", "logs/", "runs/<purpose>/<run-id>/test-fs", "make tmp-init"]
+    missing_agents = [item for item in required_agents if item not in agents]
+    if missing_agents:
+        raise SystemExit("AGENTS.md missing project temp policy: " + ", ".join(missing_agents))
+    for path in (ROOT / "Tests").rglob("*.swift"):
+        text = path.read_text()
+        if "FileManager.default.temporaryDirectory" in text or "NSTemporaryDirectory()" in text:
+            raise SystemExit(f"test bypasses SwiftAITestScratch: {path.relative_to(ROOT)}")
+    validator = (ROOT / "scripts" / "validate-model-data.py").read_text()
+    if 'tempfile.TemporaryDirectory(prefix=prefix, dir=root)' not in validator or 'configured_run_tmp("model-data")' not in validator:
+        raise SystemExit("model validator temp directories are not project-owned")
+    print("ok: project-owned cache/temp policy")
+
+
 def check_package_manifest() -> None:
     manifest = (ROOT / "Package.swift").read_text()
     required = [
@@ -281,6 +311,7 @@ def main() -> int:
     run_audit()
     check_delimiters()
     grep_guard()
+    check_project_temp_policy()
     check_package_manifest()
     check_ci_workflow()
     check_native_tag_policy_simulation()

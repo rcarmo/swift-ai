@@ -31,18 +31,20 @@ final class EnvironmentTests: XCTestCase {
     }
 
     func testGetEnvAPIKeyWithEnvGoogleVertexADC() throws {
-        let path = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-adc.json")
+        let path = SwiftAITestScratch.file("adc", extension: "json")
         try "{}".write(to: path, atomically: true, encoding: .utf8)
-        defer { try? FileManager.default.removeItem(at: path) }
+        defer { try? FileManager.default.removeItem(at: path.deletingLastPathComponent()) }
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .googleVertex, env: ["GOOGLE_APPLICATION_CREDENTIALS": path.path, "GOOGLE_CLOUD_PROJECT": "project", "GOOGLE_CLOUD_LOCATION": "us-central1"]), "<authenticated>")
         XCTAssertNil(ProviderEnvironment.apiKey(for: .googleVertex, env: ["GOOGLE_APPLICATION_CREDENTIALS": path.path, "GOOGLE_CLOUD_PROJECT": "project"]))
     }
 
     func testGetEnvAPIKeyWithEnvBedrockAuthenticated() {
+        let token = SwiftAITestScratch.file("aws-web-identity-token")
+        defer { try? FileManager.default.removeItem(at: token.deletingLastPathComponent()) }
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_PROFILE": "default"]), "<authenticated>")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_ACCESS_KEY_ID": "a", "AWS_SECRET_ACCESS_KEY": "s"]), "<authenticated>")
         XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "/v2/creds"]), "<authenticated>")
-        XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_WEB_IDENTITY_TOKEN_FILE": "/tmp/token"]), "<authenticated>")
+        XCTAssertEqual(ProviderEnvironment.apiKey(for: .amazonBedrock, env: ["AWS_WEB_IDENTITY_TOKEN_FILE": token.path]), "<authenticated>")
     }
 
     func testResolveAPIKeyExplicitOptionPrecedence() {

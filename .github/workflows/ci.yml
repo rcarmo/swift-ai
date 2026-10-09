@@ -11,7 +11,12 @@ on:
 jobs:
   static-check:
     runs-on: ubuntu-latest
+    env:
+      RUN_PURPOSE: ci
+      RUN_ID: ${{ github.run_id }}-static-check-${{ github.run_attempt }}
     steps:
+      - name: Configure project scratch
+        run: echo "PROJECT_TMP_ROOT=$RUNNER_TEMP/swift-ai" >> "$GITHUB_ENV"
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
@@ -36,7 +41,12 @@ jobs:
         # macOS hosted CI is disabled by project policy; routine CI keeps Ubuntu + static checks only.
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      RUN_PURPOSE: ci
+      RUN_ID: ${{ github.run_id }}-swift-test-${{ github.run_attempt }}
     steps:
+      - name: Configure project scratch
+        run: echo "PROJECT_TMP_ROOT=$RUNNER_TEMP/swift-ai" >> "$GITHUB_ENV"
       - uses: actions/checkout@v5
       - run: swift --version
       - run: make check

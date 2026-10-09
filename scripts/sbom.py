@@ -18,10 +18,20 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from project_tmp import configured_run_tmp, initialise, resolve_project_root
+
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "scripts" / "sbom-policy.json"
 OUT_DIR = ROOT / ".artifacts" / "sbom"
-TOOLS_DIR = ROOT / ".artifacts" / "tools"
+PROJECT_TMP_ROOT = resolve_project_root(os.environ.get("SWIFT_AI_TMP_ROOT") if os.environ.get("SWIFT_AI_TMP_ROOT") else None)
+initialise(PROJECT_TMP_ROOT)
+TOOLS_DIR = Path(os.environ.get("SWIFT_AI_OSV_CACHE", PROJECT_TMP_ROOT / "cache" / "osv-scanner"))
+try:
+    TOOLS_DIR.relative_to(PROJECT_TMP_ROOT / "cache")
+except ValueError as error:
+    raise SystemExit(f"SWIFT_AI_OSV_CACHE must stay beneath {PROJECT_TMP_ROOT / 'cache'}") from error
+if TOOLS_DIR.exists() and (TOOLS_DIR.is_symlink() or not TOOLS_DIR.is_dir()):
+    raise SystemExit(f"SWIFT_AI_OSV_CACHE must be a real directory: {TOOLS_DIR}")
 OSV_BIN = TOOLS_DIR / "bin" / "osv-scanner"
 SBOM_PATH = OUT_DIR / "swift-ai.cdx.json"
 SHA_PATH = OUT_DIR / "swift-ai.cdx.json.sha256"
@@ -84,7 +94,23 @@ def resolved_pin_map() -> dict[str, dict[str, Any]]:
 
 def swift_dependency_graph() -> dict[str, Any]:
     swift = os.environ.get("SWIFT", "swift")
-    result = run([swift, "package", "show-dependencies", "--format", "json"])
+    required_paths = {
+        "SWIFT_AI_SWIFTPM_SCRATCH": str(PROJECT_TMP_ROOT / "build" / "swiftpm"),
+        "SWIFT_AI_SWIFTPM_CACHE": str(PROJECT_TMP_ROOT / "cache" / "swiftpm"),
+        "SWIFT_AI_SWIFTPM_CONFIG": str(PROJECT_TMP_ROOT / "cache" / "swiftpm-config"),
+        "SWIFT_AI_SWIFTPM_SECURITY": str(PROJECT_TMP_ROOT / "cache" / "swiftpm-security"),
+    }
+    paths = {name: os.environ.get(name, default) for name, default in required_paths.items()}
+    for path in paths.values():
+        Path(path).mkdir(parents=True, exist_ok=True)
+    result = run([
+        swift, "package",
+        "--scratch-path", paths["SWIFT_AI_SWIFTPM_SCRATCH"],
+        "--cache-path", paths["SWIFT_AI_SWIFTPM_CACHE"],
+        "--config-path", paths["SWIFT_AI_SWIFTPM_CONFIG"],
+        "--security-path", paths["SWIFT_AI_SWIFTPM_SECURITY"],
+        "show-dependencies", "--format", "json",
+    ])
     graph = json.loads(result.stdout)
     if graph.get("name") != package_name():
         raise SystemExit("SwiftPM dependency graph root name does not match Package.swift name")
@@ -299,9 +325,13 @@ def ensure_osv_scanner() -> str:
     env = os.environ.copy()
     env.update({
         "GOBIN": str(TOOLS_DIR / "bin"),
-        "GOPATH": str(TOOLS_DIR / "gopath"),
-        "GOMODCACHE": str(TOOLS_DIR / "gomod"),
+        "GOPATH": os.environ.get("GOPATH", str(TOOLS_DIR / "gopath")),
+        "GOMODCACHE": os.environ.get("GOMODCACHE", str(TOOLS_DIR / "gomod")),
+        "GOCACHE": os.environ.get("GOCACHE", str(TOOLS_DIR / "go-build")),
+        "TMPDIR": str(configured_run_tmp("sbom")),
     })
+    for name in ["GOBIN", "GOPATH", "GOMODCACHE", "GOCACHE", "TMPDIR"]:
+        Path(env[name]).mkdir(parents=True, exist_ok=True)
     run(["go", "install", f"github.com/google/osv-scanner/v2/cmd/osv-scanner@v{version}"], capture=False, env=env)
     out = run([str(OSV_BIN), "--version"]).stdout
     if f"osv-scanner version: {version}" not in out:

@@ -18,6 +18,8 @@ import tarfile
 import tempfile
 from pathlib import Path
 
+from project_tmp import configured_run_tmp
+
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TARBALL_SHA256 = "8a9e69b1309cf93405d87729fa123c8b11c6be7c646b16f34f8bef7b792f9138"
 EXPECTED_SCHEMA = 6
@@ -30,6 +32,14 @@ EXPECTED_GENERATED_AT = "2026-10-03T12:25:02.573Z"
 EXPECTED_STRUCTURE_HASH = "03d2e1aeeee6eb16959d4f727b47b9b187efaf863c688a47889fb90d200e6812"
 MODALITIES = {"text", "image"}
 REQUIRED_MANIFEST = {"schemaVersion", "generatedAt", "structureHash", "files"}
+
+
+def temporary_directory(prefix: str) -> tempfile.TemporaryDirectory[str]:
+    try:
+        root = configured_run_tmp("model-data")
+    except RuntimeError as error:
+        raise SystemExit(str(error)) from error
+    return tempfile.TemporaryDirectory(prefix=prefix, dir=root)
 
 
 def load_json(path: Path):
@@ -52,7 +62,7 @@ def provider_data_from_tarball(tarball: Path) -> tempfile.TemporaryDirectory[str
     digest = sha256(tarball)
     if digest != EXPECTED_TARBALL_SHA256:
         raise SystemExit(f"tarball sha256: got {digest}, want {EXPECTED_TARBALL_SHA256}")
-    temp = tempfile.TemporaryDirectory(prefix="swift-ai-provider-data-")
+    temp = temporary_directory("provider-data-")
     root = Path(temp.name)
     with tarfile.open(tarball, "r:gz") as archive:
         members = [m for m in archive.getmembers() if m.name.startswith("package/dist/providers/data/") and m.isfile()]
@@ -189,7 +199,7 @@ def derive_records(data_dir: Path) -> dict[str, list[dict]]:
 
 
 def inject_fault(data_dir: Path, fault: str) -> tempfile.TemporaryDirectory[str]:
-    temp = tempfile.TemporaryDirectory(prefix="swift-ai-provider-fault-")
+    temp = temporary_directory("provider-fault-")
     dst = Path(temp.name) / "data"
     shutil.copytree(data_dir, dst)
     if fault == "missing-file":
@@ -301,7 +311,7 @@ def main() -> int:
     manifest = validate_manifest(data_dir)
     records = derive_records(data_dir)
     if not args.validate_only:
-        with tempfile.TemporaryDirectory(prefix="swift-ai-model-render-") as tmp:
+        with temporary_directory("model-render-") as tmp:
             stage = Path(tmp)
             render_stage(records, manifest, stage)
             if render_fault:

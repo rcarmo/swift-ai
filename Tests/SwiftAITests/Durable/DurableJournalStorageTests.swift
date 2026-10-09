@@ -24,7 +24,7 @@ private struct CrashJournalFault: DurableJournalFaultInjector {
 
 final class DurableJournalStorageTests: XCTestCase {
     private func tempDir(_ name: String = #function) -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-durable-\(name)-\(UUID().uuidString)", isDirectory: true)
+        SwiftAITestScratch.directory("durable-\(name)")
     }
 
     func testJournalPersistsReopensAndReleasesLockOnClose() async throws {

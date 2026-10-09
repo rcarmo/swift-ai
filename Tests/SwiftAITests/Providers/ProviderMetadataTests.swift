@@ -248,7 +248,7 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         XCTAssertEqual(try GitHubCopilotOAuthProvider.normalizeVerificationURI("https://github.com/login/device"), "https://github.com/login/device")
         XCTAssertEqual(GitHubCopilotOAuthProvider.nextDevicePollIntervalAfterSlowDown(current: 5, serverInterval: nil), 10)
         XCTAssertEqual(GitHubCopilotOAuthProvider.nextDevicePollIntervalAfterSlowDown(current: 5, serverInterval: 12), 12)
-        XCTAssertThrowsError(try GitHubCopilotOAuthProvider.normalizeVerificationURI("$(id>/tmp/pwned)")) { error in
+        XCTAssertThrowsError(try GitHubCopilotOAuthProvider.normalizeVerificationURI("$(id>untrusted-output)")) { error in
             XCTAssertTrue(String(describing: error).contains("Untrusted verification_uri"))
         }
         let provider = GitHubCopilotOAuthProvider()
@@ -593,7 +593,8 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
     func testV0992AnthropicFederationAndStrictToolBehavior() async throws {
         await AnthropicMessagesProvider.clearFederationTokenCache()
         defer { Task { await AnthropicMessagesProvider.clearFederationTokenCache() } }
-        let tokenFile = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("anthropic-identity-\(UUID().uuidString).jwt")
+        let tokenFile = SwiftAITestScratch.file("anthropic-identity", extension: "jwt")
+        defer { try? FileManager.default.removeItem(at: tokenFile.deletingLastPathComponent()) }
         try "  header.payload.signature  \n".write(to: tokenFile, atomically: true, encoding: .utf8)
         let model = Model(id: "claude", name: "Claude", api: .anthropicMessages, provider: .anthropic, baseUrl: "https://api.anthropic.com/v1")
         var options = StreamOptions()

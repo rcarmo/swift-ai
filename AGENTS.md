@@ -1,6 +1,38 @@
+<!-- RUI-PROFILE-LIFECYCLE-20261005 -->
+## Current profiling and cleanup rule — supersedes older text below
+
+Rui's explicit rule: **profile and tune during pre-release tests; remove profiling data immediately after analysis/use.** Ordinary development tests do not require profiling on every run. Targeted diagnostic profiling is optional when useful and follows the same disposal rule.
+
+- During pre-release verification, capture CPU and heap/allocation behaviour, analyse hotspots and tune avoidable allocations/repeated work. Compare equivalent workloads without weakening correctness/security/numerical contracts. For Go, inspect CPU, alloc_space and alloc_objects; coverage alone is not profiling.
+- Keep captures and matching artifacts only while the current analysis needs them. Once used, immediately delete raw profiles, traces, matching test binaries, temporary fixtures and disposable logs, including failed/probe artifacts after diagnosis. Retain only concise conclusions and important measurements/limitations. Do not keep indefinite raw archives or copy them into exports/reports/evidence to evade cleanup.
+- Remove all completed disposable cache/build/test/run data promptly. Never delete files still in use: finish or safely pause the owning job and clean at a safe boundary. Preserve source, installed toolchains, durable datasets/checkpoints and intentional release assets. Minimise disk usage; no random exports or redundant snapshots.
+- This rule overrides **every conflicting older paragraph in this file and linked local guidance**, including “profile every test”, “unprofiled tests prohibited”, “retain all raw evidence”, “never delete profiles” and cleanup exclusions based only on an evidence/profiles directory name. Update helper/CI cleanup behaviour accordingly; do not weaken pre-release analysis.
+- Existing no-agent-contact and execution-pause rules remain unchanged. This policy grants no unsolicited coordination or automatic job restart.
+<!-- /RUI-PROFILE-LIFECYCLE-20261005 -->
+
+
+
 # Coding
 
 * Follow YAGNI principles.
+
+## Project-owned caches and temporary files
+
+* The canonical project name is `swift-ai`. Snapshot the incoming `TMPDIR` and resolve one project-owned root before exporting child temp variables. An absolute `PROJECT_TMP_BASE` selects `<base>/swift-ai`; a compatible absolute `PROJECT_TMP_ROOT` ending in `swift-ai` remains supported, and when both are set they must agree. Invalid/unusable overrides fail closed. Without overrides, CI uses `${RUNNER_TEMP}/swift-ai`, then the original inherited `${TMPDIR}/swift-ai`, then the platform temp base plus `/swift-ai`, regardless of `/workspace`; a local host uses writable `/workspace/tmp/swift-ai`, then platform temp plus `/swift-ai`. On this host the resolved root is `/workspace/tmp/swift-ai`. All reproducible caches, SwiftPM/compiler output and disposable scratch must stay beneath the resolved root:
+  - `cache/swiftpm`, `cache/swiftpm-config`, `cache/swiftpm-security`: SwiftPM caches/config/security state;
+  - `cache/swift-module`: Swift/Clang module cache;
+  - `cache/python`, `cache/go-*`, `cache/osv-scanner`: helper-language and security-tool caches;
+  - `build/swiftpm`: SwiftPM scratch/build output;
+  - `tests/`: project-scoped disposable test scratch where a tool cannot use a per-run directory;
+  - `logs/`: disposable tool logs (raw profiling logs are deleted after use; concise conclusions remain);
+  - `runs/<purpose>/<run-id>/tmp`: `TMPDIR`/`TMP`/`TEMP` and helper scratch;
+  - `runs/<purpose>/<run-id>/test-fs`: isolated XCTest-owned filesystem roots.
+* Initialise the hierarchy with `make tmp-init`. The repository-local `scripts/project_tmp.py` implements the same portable contract as `/workspace/tools/project-tmp.sh`, so CI and hosts without `/workspace/Makefile` remain self-contained. Make resolves once before exporting `TMPDIR` and child variables, exports all relevant paths and passes explicit SwiftPM paths. Direct commands must use the same resolver/variables or call the equivalent Make target; never use an unnamespaced temp root, home caches, source-tree `.build`, or ad-hoc top-level scratch.
+* `RUN_PURPOSE` and `RUN_ID` must be safe single path components. Random suffixes are allowed only inside the selected run hierarchy. Each CI job writes `PROJECT_TMP_ROOT=$RUNNER_TEMP/swift-ai` to `GITHUB_ENV` before build/test steps; absent that override, the generic CI fallback is used. Never derive a new project root from a child `TMPDIR` after Make has already routed it into `runs/`, which would create nested roots.
+* Tests must allocate through `SwiftAITestScratch`, which requires `SWIFT_AI_TEST_RUN_ROOT`, checks the configured project run hierarchy, refuses symlink roots and keeps each test in its own UUID directory. Preserve these ownership/isolation guards for crash and subprocess tests; child processes inherit the same configured root.
+* Python helpers must use `SWIFT_AI_RUN_TMP`/`TMPDIR`; SwiftPM must receive explicit scratch/cache/config/security paths; compiler/module caches must use `cache/swift-module`. Update new helpers and subprocesses accordingly.
+* Clean owned inactive disposable cache/build/run/profile/log output after use. Preserve source, lockfiles, durable datasets/checkpoints, intentional releases, concise conclusions, active jobs and other projects.
+
 
 ## Change discipline
 
@@ -44,10 +76,10 @@
   - Use `N/A` narrowly for JS/package/runtime mechanics that do not exist in SwiftPM; document why.
 * Production evidence must cover the real changed surface: wire serialization, production transport seams, `AsyncSequence`/stream behavior, parsers, replay semantics, error handling, cancellation, usage/cost accounting, generated catalog metadata, and registry/runtime behavior as applicable. Helper-only tests are not a substitute when provider transport/parser/replay behavior changed.
 * Do not hide or weaken tests. No hidden skips, broad TODO classifications, unproven N/A claims, or “documented but untested” production deltas are acceptable.
-* Required local gates before the final push:
-  - `swift build -Xswiftc -warnings-as-errors`
-  - `swift test`
-  - deterministic `swift test` repeats when doing release parity work
+* Required local gates before the final push (use the Make targets so cache/build/temp routing is enforced):
+  - `make build` (includes Swift warnings-as-errors)
+  - `make test`
+  - deterministic `make test` repeats with distinct `RUN_ID` values when doing release parity work
   - `make check`
   - `make sbom-check`
   - `python3 scripts/audit-parity.py`

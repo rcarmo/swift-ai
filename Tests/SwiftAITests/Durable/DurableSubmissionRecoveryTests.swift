@@ -42,7 +42,7 @@ private struct S1BCrashAfterDirectorySync: DurableJournalFaultInjector {
 #endif
 
 final class DurableSubmissionRecoveryTests: XCTestCase {
-    private func tempDir() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-s1b-recovery-\(UUID().uuidString)", isDirectory: true) }
+    private func tempDir() -> URL { SwiftAITestScratch.directory("s1b-recovery") }
 
     private func appendReceipt(_ value: String, to url: URL) {
         if !FileManager.default.fileExists(atPath: url.path) { _ = FileManager.default.createFile(atPath: url.path, contents: nil) }

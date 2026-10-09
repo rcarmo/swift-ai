@@ -119,10 +119,12 @@ final class DurableLimitTests: XCTestCase {
     }
 
     func testJournalAppendRejectsBeforeExceedingMaxJournalBytes() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("swift-ai-durable-max-journal-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dir = SwiftAITestScratch.directory("durable-max-journal")
         let journal = dir.appendingPathComponent("journal.log")
-        try Data(repeating: 0, count: DurableLimits.maxJournalBytes + 1).write(to: journal)
+        XCTAssertTrue(FileManager.default.createFile(atPath: journal.path, contents: nil))
+        let handle = try FileHandle(forWritingTo: journal)
+        try handle.truncate(atOffset: UInt64(DurableLimits.maxJournalBytes + 1))
+        try handle.close()
         XCTAssertThrowsError(try DurableJournalStorage(directory: dir)) { error in
             XCTAssertTrue(String(describing: error).contains("journal exceeds"))
         }

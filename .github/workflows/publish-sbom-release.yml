@@ -29,7 +29,12 @@ permissions:
 jobs:
   publish-sbom:
     runs-on: ubuntu-latest
+    env:
+      RUN_PURPOSE: publish-sbom
+      RUN_ID: ${{ github.run_id }}-publish-sbom-${{ github.run_attempt }}
     steps:
+      - name: Configure project scratch
+        run: echo "PROJECT_TMP_ROOT=$RUNNER_TEMP/swift-ai" >> "$GITHUB_ENV"
       - name: Validate inputs
         shell: bash
         run: |

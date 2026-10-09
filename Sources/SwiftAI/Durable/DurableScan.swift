@@ -21,8 +21,9 @@ public extension DurableInspection {
     }
 
     func scanEntries(conversationID: Int64? = nil, minEntryID: Int64? = nil, maxEntryID: Int64? = nil, order: DurableScanOrder? = nil, cursor: DurableScanCursor? = nil, limit: Int = DurableLimits.maxPageLimit) throws -> DurableScanPage<DurableEntryRecord> {
-        let values = snapshot.entries.values.filter {
-            (conversationID == nil || $0.conversationID == conversationID) && (minEntryID == nil || $0.id >= minEntryID!) && (maxEntryID == nil || $0.id <= maxEntryID!)
+        let visible = try conversationID.map { try DurableContext.visibleEntries(snapshot: snapshot, conversationID: $0) } ?? Array(snapshot.entries.values)
+        let values = visible.filter {
+            (minEntryID == nil || $0.id >= minEntryID!) && (maxEntryID == nil || $0.id <= maxEntryID!)
         }
         return try scan(Array(values), fallback: .descending, order: order, cursor: cursor, limit: limit, id: { $0.id })
     }

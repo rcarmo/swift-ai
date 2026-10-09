@@ -4,6 +4,12 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Conversation/context/observation chunk
+
+Native conversation forks now inherit visible ancestor entries through the exact cut, copy current/as-of conversation documents into independent instances, and leave initial-policy documents absent. Journal replay reconstructs rewindable document history. Reset markers and latest context edits define the active range; tool results are ordered by assistant calls, with explicit missing-result messages. Generation preparation and entry scans use that visible context. Document/view/commit observations acquire a baseline on the mutation line and publish acknowledged commits only, with bounded self-contained root frames, retirement and close termination.
+
+Swift adaptation: observations use value-semantic `AsyncStream` frames and root replacements rather than Chord operation batches; a caller consumes frames serially. The upstream callback-style watch API, typed document families/migrations, inbox, compaction and broader orchestration still require follow-up. Local Swift 6.3.2 build/static checks and the full 392-test suite passed for this chunk, including nested forks, historical document copies, reset/edit/tool ordering, journal reopen, watch retirement/recreation and bounded convergence. Full v1.1.0 parity is not yet accepted.
+
 * Official pi-ai/pi-durable tag: `abe508e1b89912adde45528136c3221eb69acdd7`.
 * AI npm SHA-256: `6caab33cec57480ed02c57fe37428a030a77cc2a0662814b435a5cf8932ad829`.
 * Durable npm SHA-256: `a0f95b4a418e8bc219e9cbde06baedada940c62c47068829208e4fff278c07be`.

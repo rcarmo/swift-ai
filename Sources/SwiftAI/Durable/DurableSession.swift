@@ -32,8 +32,9 @@ public actor DurableSession {
         let continuation: CheckedContinuation<Void, Error>
     }
 
-    private let storage: DurableStorage
-    private let gate: DurableMutationGate
+    let storage: DurableStorage
+    let observation = DurableObservationHub()
+    let gate: DurableMutationGate
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
     private let toolRegistry: DurableToolRegistry?
@@ -58,7 +59,7 @@ public actor DurableSession {
     private var toolCancellationSignals: [Int64: DurableCancellationSignal] = [:]
 
     public init(storage: DurableStorage) {
-        self.storage = storage
+        self.storage = DurableObservedStorage(underlying: storage, hub: observation)
         self.gate = DurableMutationGate()
         self.testingHooks = nil
         self.capacity = DurableLimits.maxPublicQueue
@@ -67,7 +68,7 @@ public actor DurableSession {
     }
 
     public init(storage: DurableStorage, toolRegistry: DurableToolRegistry?, liveConnectionResolver: DurableLiveConnectionResolver? = nil) {
-        self.storage = storage
+        self.storage = DurableObservedStorage(underlying: storage, hub: observation)
         self.gate = DurableMutationGate()
         self.testingHooks = nil
         self.capacity = DurableLimits.maxPublicQueue
@@ -77,7 +78,7 @@ public actor DurableSession {
 
     init(storage: DurableStorage, testingHooks: DurableSessionTestingHooks = DurableSessionTestingHooks(), capacity: Int = DurableLimits.maxPublicQueue, toolRegistry: DurableToolRegistry? = nil, liveConnectionResolver: DurableLiveConnectionResolver? = nil) {
         precondition(capacity > 0 && capacity <= DurableLimits.maxPublicQueue)
-        self.storage = storage
+        self.storage = DurableObservedStorage(underlying: storage, hub: observation)
         self.gate = DurableMutationGate()
         self.testingHooks = testingHooks
         self.capacity = capacity
@@ -215,6 +216,7 @@ public actor DurableSession {
             return
         }
         isClosing = true
+        await observation.close()
         await toolRegistry?.seal()
         testingHooks?.onCloseSealed?()
         guard closeWaiters.count < capacity else { startCommonCloseIfReady(); throw DurableError.queueFull }
@@ -805,7 +807,7 @@ public actor DurableSession {
         }
     }
 
-    private func ensureAdmitting() throws {
+    func ensureAdmitting() throws {
         if let executorFailure { throw executorFailure }
         if isClosed || isClosing { throw DurableError.closed }
     }

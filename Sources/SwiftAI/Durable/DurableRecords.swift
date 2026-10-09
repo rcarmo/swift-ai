@@ -55,6 +55,14 @@ public struct DurableConversationRecord: Codable, Equatable, Sendable {
     public init(id: Int64, parentConversationID: Int64? = nil, parentEntryID: Int64? = nil, ownerTaskID: Int64? = nil, createdSeq: Int64 = 0) { self.id = id; self.parentConversationID = parentConversationID; self.parentEntryID = parentEntryID; self.ownerTaskID = ownerTaskID; self.createdSeq = createdSeq }
 }
 
+public struct DurableContextEdit: Codable, Equatable, Sendable {
+    public enum Action: String, Codable, Sendable { case omit, replace }
+    public var target: Int64
+    public var action: Action
+    public var messages: [Message]?
+    public init(target: Int64, action: Action, messages: [Message]? = nil) { self.target = target; self.action = action; self.messages = messages }
+}
+
 public struct DurableEntryRecord: Codable, Equatable, Sendable {
     public var id: Int64
     public var conversationID: Int64
@@ -63,7 +71,9 @@ public struct DurableEntryRecord: Codable, Equatable, Sendable {
     public var data: JSONValue?
     public var byTaskID: Int64?
     public var createdSeq: Int64
-    public init(id: Int64, conversationID: Int64, kind: String, messages: [Message]? = nil, data: JSONValue? = nil, byTaskID: Int64? = nil, createdSeq: Int64 = 0) { self.id = id; self.conversationID = conversationID; self.kind = kind; self.messages = messages; self.data = data; self.byTaskID = byTaskID; self.createdSeq = createdSeq }
+    public var head: Int64?
+    public var edits: [DurableContextEdit]?
+    public init(id: Int64, conversationID: Int64, kind: String, messages: [Message]? = nil, data: JSONValue? = nil, byTaskID: Int64? = nil, createdSeq: Int64 = 0, head: Int64? = nil, edits: [DurableContextEdit]? = nil) { self.id = id; self.conversationID = conversationID; self.kind = kind; self.messages = messages; self.data = data; self.byTaskID = byTaskID; self.createdSeq = createdSeq; self.head = head; self.edits = edits }
 }
 
 public enum DurableTaskStatus: String, Codable, Sendable { case pending, running, waiting, completing, completed, failed, aborted }
@@ -99,6 +109,16 @@ public struct DurableSubmissionRecord: Codable, Equatable, Sendable {
     public init(id: Int64, conversationID: Int64, requestID: String? = nil, type: DurableSubmissionType, payloadHash: String? = nil, status: DurableSubmissionStatus = .queued, entryID: Int64? = nil, answerID: Int64? = nil, reason: String? = nil, createdSeq: Int64 = 0) { self.id = id; self.conversationID = conversationID; self.requestID = requestID; self.type = type; self.payloadHash = payloadHash; self.status = status; self.entryID = entryID; self.answerID = answerID; self.reason = reason; self.createdSeq = createdSeq }
 }
 
+public enum DurableDocumentHistory: String, Codable, Sendable { case latest, rewindable }
+public enum DurableDocumentForkPolicy: String, Codable, Sendable { case initial, current, asOf }
+public struct DurableDocumentRevision: Codable, Equatable, Sendable {
+    public var seq: Int64
+    public var version: Int
+    public var value: JSONValue
+    public var retired: Bool
+    public init(seq: Int64, version: Int, value: JSONValue, retired: Bool = false) { self.seq = seq; self.version = version; self.value = value; self.retired = retired }
+}
+
 public struct DurableDocumentRecord: Codable, Equatable, Sendable {
     public var id: Int64
     public var scope: String
@@ -106,7 +126,11 @@ public struct DurableDocumentRecord: Codable, Equatable, Sendable {
     public var kind: String
     public var value: JSONValue
     public var createdSeq: Int64
-    public init(id: Int64, scope: String, ownerID: Int64, kind: String, value: JSONValue, createdSeq: Int64 = 0) { self.id = id; self.scope = scope; self.ownerID = ownerID; self.kind = kind; self.value = value; self.createdSeq = createdSeq }
+    public var version: Int?
+    public var history: DurableDocumentHistory?
+    public var forkPolicy: DurableDocumentForkPolicy?
+    public var retired: Bool?
+    public init(id: Int64, scope: String, ownerID: Int64, kind: String, value: JSONValue, createdSeq: Int64 = 0, version: Int? = nil, history: DurableDocumentHistory? = nil, forkPolicy: DurableDocumentForkPolicy? = nil, retired: Bool? = nil) { self.id = id; self.scope = scope; self.ownerID = ownerID; self.kind = kind; self.value = value; self.createdSeq = createdSeq; self.version = version; self.history = history; self.forkPolicy = forkPolicy; self.retired = retired }
 }
 
 public struct DurableSnapshot: Codable, Equatable, Sendable {
@@ -117,7 +141,8 @@ public struct DurableSnapshot: Codable, Equatable, Sendable {
     public var tasks: [Int64: DurableTaskRecord]
     public var submissions: [Int64: DurableSubmissionRecord]
     public var documents: [Int64: DurableDocumentRecord]
-    public init(seq: Int64 = 0, highWaterID: Int64 = 0, conversations: [Int64: DurableConversationRecord] = [:], entries: [Int64: DurableEntryRecord] = [:], tasks: [Int64: DurableTaskRecord] = [:], submissions: [Int64: DurableSubmissionRecord] = [:], documents: [Int64: DurableDocumentRecord] = [:]) { self.seq = seq; self.highWaterID = highWaterID; self.conversations = conversations; self.entries = entries; self.tasks = tasks; self.submissions = submissions; self.documents = documents }
+    public var documentHistory: [Int64: [DurableDocumentRevision]]?
+    public init(seq: Int64 = 0, highWaterID: Int64 = 0, conversations: [Int64: DurableConversationRecord] = [:], entries: [Int64: DurableEntryRecord] = [:], tasks: [Int64: DurableTaskRecord] = [:], submissions: [Int64: DurableSubmissionRecord] = [:], documents: [Int64: DurableDocumentRecord] = [:], documentHistory: [Int64: [DurableDocumentRevision]]? = nil) { self.seq = seq; self.highWaterID = highWaterID; self.conversations = conversations; self.entries = entries; self.tasks = tasks; self.submissions = submissions; self.documents = documents; self.documentHistory = documentHistory }
 }
 
 public struct DurableCommitBatch: Codable, Equatable, Sendable {

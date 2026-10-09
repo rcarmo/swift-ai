@@ -127,7 +127,12 @@ enum DurableValidation {
             let existing = documents[record.id]
             if existing == nil { try admitID(record.id, "document") }
             guard record.scope == "session" || record.scope == "conversation" || record.scope == "task" else { throw DurableError.invalidRecord("unsupported document scope") }
-            if let existing { guard existing.scope == record.scope, existing.ownerID == record.ownerID, existing.kind == record.kind else { throw DurableError.invalidRecord("document identity is immutable") } }
+            if let existing {
+                guard existing.scope == record.scope, existing.ownerID == record.ownerID, existing.kind == record.kind, existing.history == record.history, existing.forkPolicy == record.forkPolicy else { throw DurableError.invalidRecord("document identity is immutable") }
+                guard existing.retired != true else { throw DurableError.invalidRecord("retired document is immutable") }
+                guard (record.version ?? 1) >= (existing.version ?? 1) else { throw DurableError.invalidRecord("document version rollback") }
+            }
+            guard (record.version ?? 1) > 0, record.forkPolicy != .asOf || record.history == .rewindable else { throw DurableError.invalidRecord("invalid document policy") }
             if record.scope == "conversation" { try requireConversation(record.ownerID, "document.owner") }
             if record.scope == "task" { try requireTask(record.ownerID, "document.owner") }
             try validateJSON(record.value, "document.value")
@@ -150,7 +155,16 @@ enum DurableValidation {
         for var record in batch.entries { if let existing = next.entries[record.id] { record.createdSeq = existing.createdSeq } else { record.createdSeq = seq }; next.entries[record.id] = record }
         for var record in batch.tasks { if let existing = next.tasks[record.id] { record.createdSeq = existing.createdSeq } else { record.createdSeq = seq }; next.tasks[record.id] = record }
         for var record in batch.submissions { if let existing = next.submissions[record.id] { record.createdSeq = existing.createdSeq } else { record.createdSeq = seq }; next.submissions[record.id] = record }
-        for var record in batch.documents { if let existing = next.documents[record.id] { record.createdSeq = existing.createdSeq } else { record.createdSeq = seq }; next.documents[record.id] = record }
+        for var record in batch.documents {
+            if let existing = next.documents[record.id] { record.createdSeq = existing.createdSeq } else { record.createdSeq = seq }
+            if record.history == .rewindable || record.forkPolicy == .asOf {
+                var revisions = next.documentHistory?[record.id] ?? []
+                revisions.append(DurableDocumentRevision(seq: seq, version: record.version ?? 1, value: record.value, retired: record.retired == true))
+                if next.documentHistory == nil { next.documentHistory = [:] }
+                next.documentHistory?[record.id] = revisions
+            }
+            next.documents[record.id] = record
+        }
         return next
     }
 
@@ -231,6 +245,12 @@ enum DurableValidation {
         var bytes = 2 + fieldBytes("id", numberBytes(record.id)) + fieldBytes("conversationID", numberBytes(record.conversationID)) + fieldBytes("createdSeq", numberBytes(record.createdSeq))
         bytes += try fieldBytes("kind", escapedStringBytes(record.kind, label: "\(label).kind", error: error))
         if let byTaskID = record.byTaskID { bytes += fieldBytes("byTaskID", numberBytes(byTaskID)) }
+        if let head = record.head { bytes += fieldBytes("head", numberBytes(head)) }
+        guard (record.edits?.count ?? 0) <= DurableLimits.maxJSONNodes else { throw error("too many context edits") }
+        for edit in record.edits ?? [] {
+            bytes += 64 + numberBytes(edit.target)
+            if let messages = edit.messages { bytes += try measureMessages(messages, label: "\(label).edit.messages", error: error) }
+        }
         if let messages = record.messages { bytes += try fieldBytes("messages", measureMessages(messages, label: "\(label).messages", error: error)) }
         if let data = record.data { bytes += try fieldBytes("data", measureJSON(data, label: "\(label).data", error: error)) }
         try checkBytes(bytes, max: max, label: label, error: error)
@@ -275,6 +295,10 @@ enum DurableValidation {
         bytes += try fieldBytes("scope", escapedStringBytes(record.scope, label: "\(label).scope", error: error))
         bytes += try fieldBytes("kind", escapedStringBytes(record.kind, label: "\(label).kind", error: error))
         bytes += try fieldBytes("value", measureJSON(record.value, label: "\(label).value", error: error))
+        if let version = record.version { bytes += fieldBytes("version", numberBytes(Int64(version))) }
+        if let history = record.history { bytes += try fieldBytes("history", escapedStringBytes(history.rawValue, label: "\(label).history", error: error)) }
+        if let fork = record.forkPolicy { bytes += try fieldBytes("forkPolicy", escapedStringBytes(fork.rawValue, label: "\(label).forkPolicy", error: error)) }
+        if record.retired != nil { bytes += fieldBytes("retired", 5) }
         try checkBytes(bytes, max: max, label: label, error: error)
         return bytes
     }
@@ -310,6 +334,10 @@ enum DurableValidation {
         if let tools = message.toolsAdded { bytes += try fieldBytes("toolsAdded", measureTools(tools, label: "\(label).toolsAdded", depth: depth + 1, nodes: &nodes, error: error)) }
         if let removed = message.toolsRemoved { bytes += try fieldBytes("toolsRemoved", measureToolRefs(removed, label: "\(label).toolsRemoved", error: error)) }
         if let nestedCalls = message.nestedCalls { bytes += try fieldBytes("nestedCalls", measureJSON(nestedCalls, label: "\(label).nestedCalls", depth: depth + 1, nodes: &nodes, error: error)) }
+        if let duration = message.durationMs {
+            guard duration.isFinite, duration >= 0 else { throw error("invalid message duration") }
+            bytes += fieldBytes("durationMs", 32)
+        }
         if message.isError != nil { bytes += fieldBytes("isError", 5) }
         if message.endTurn != nil { bytes += fieldBytes("endTurn", 5) }
         return bytes
@@ -502,8 +530,8 @@ enum DurableValidation {
             _ = try validateConversationRecord(record, max: DurableLimits.maxRecordBytes, label: "conversation", error: DurableError.corruptStorage)
             if let parentConversationID = record.parentConversationID { guard snapshot.conversations[parentConversationID] != nil else { throw DurableError.corruptStorage("conversation missing parent conversation") } }
             if let parentEntryID = record.parentEntryID {
-                guard let parentEntry = snapshot.entries[parentEntryID] else { throw DurableError.corruptStorage("conversation missing parent entry") }
-                if let parentConversationID = record.parentConversationID, parentEntry.conversationID != parentConversationID { throw DurableError.corruptStorage("conversation parent entry mismatch") }
+                guard snapshot.entries[parentEntryID] != nil else { throw DurableError.corruptStorage("conversation missing parent entry") }
+                // An ancestor's immutable entry may be visible through a nested fork; checked below.
             }
             if let ownerTaskID = record.ownerTaskID { guard snapshot.tasks[ownerTaskID] != nil else { throw DurableError.corruptStorage("conversation missing owner task") } }
         }
@@ -554,9 +582,36 @@ enum DurableValidation {
             guard record.scope == "session" || record.scope == "conversation" || record.scope == "task" else { throw DurableError.corruptStorage("unsupported document scope") }
             if record.scope == "conversation" { guard snapshot.conversations[record.ownerID] != nil else { throw DurableError.corruptStorage("document missing conversation owner") } }
             if record.scope == "task" { guard snapshot.tasks[record.ownerID] != nil else { throw DurableError.corruptStorage("document missing task owner") } }
-            guard documentAddresses.insert(documentAddress(record)).inserted else { throw DurableError.corruptStorage("duplicate document address in snapshot") }
+            if record.retired != true { guard documentAddresses.insert(documentAddress(record)).inserted else { throw DurableError.corruptStorage("duplicate document address in snapshot") } }
+            guard (record.version ?? 1) > 0, record.forkPolicy != .asOf || record.history == .rewindable else { throw DurableError.corruptStorage("invalid document policy") }
         }
         if let maxID = ids.max() { guard snapshot.highWaterID >= maxID else { throw DurableError.corruptStorage("snapshot high-water below max id") } }
+        for conversation in snapshot.conversations.values {
+            if let parent = conversation.parentConversationID {
+                guard let cut = conversation.parentEntryID else { throw DurableError.corruptStorage("fork missing cut") }
+                guard try DurableContext.visibleEntries(snapshot: snapshot, conversationID: parent).contains(where: { $0.id == cut }) else { throw DurableError.corruptStorage("fork cut is not visible") }
+            } else if conversation.parentEntryID != nil { throw DurableError.corruptStorage("fork cut missing parent") }
+            _ = try DurableContext.visibleEntries(snapshot: snapshot, conversationID: conversation.id)
+        }
+        for entry in snapshot.entries.values {
+            if entry.head != nil || entry.edits?.isEmpty == false {
+                let visible = Set(try DurableContext.visibleEntries(snapshot: snapshot, conversationID: entry.conversationID).filter { $0.id <= entry.id }.map(\.id))
+                if let head = entry.head { guard visible.contains(head) else { throw DurableError.corruptStorage("head target is not visible") } }
+                for edit in entry.edits ?? [] {
+                    guard edit.target < entry.id, visible.contains(edit.target), edit.action != .replace || edit.messages != nil else { throw DurableError.corruptStorage("invalid context edit") }
+                }
+            }
+        }
+        for (id, revisions) in snapshot.documentHistory ?? [:] {
+            guard let record = snapshot.documents[id], record.history == .rewindable || record.forkPolicy == .asOf else { throw DurableError.corruptStorage("orphan document history") }
+            var previous: Int64 = 0
+            for revision in revisions {
+                guard revision.seq > previous, revision.seq <= snapshot.seq, revision.version > 0 else { throw DurableError.corruptStorage("invalid document revision") }
+                try validateJSON(revision.value, label: "document history")
+                previous = revision.seq
+            }
+            guard let last = revisions.last, last.value == record.value, last.version == (record.version ?? 1), last.retired == (record.retired == true) else { throw DurableError.corruptStorage("document history/current mismatch") }
+        }
         try validateTaskOwners(snapshot.tasks)
     }
 

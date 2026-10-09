@@ -405,13 +405,15 @@ struct DurableGenerationPlanner {
         for entry in snapshot.entries.values where entry.conversationID == intent.conversationID && entry.byTaskID == nil && entry.id != intent.inputEntryID {
             if !snapshot.submissions.values.contains(where: { $0.entryID == entry.id }) { entryIDs.insert(entry.id) }
         }
-        let priorMessages = snapshot.entries.values
-            .filter { $0.conversationID == intent.conversationID && entryIDs.contains($0.id) }
-            .sorted { $0.id < $1.id }
-            .flatMap { $0.messages ?? [] }
-        let currentMessages = snapshot.entries[intent.inputEntryID]?.messages ?? intent.transcript
-        let messages = priorMessages + currentMessages
-        return messages.isEmpty ? intent.transcript : messages
+        // The current input fixes this request's range. Later queued inputs must not leak in.
+        guard let view = try? DurableContext.derive(snapshot: snapshot, conversationID: intent.conversationID, at: intent.inputEntryID) else { return intent.transcript }
+        var messages: [Message] = []
+        for (entry, contribution) in zip(view.entries, view.contributions) {
+            if entry.conversationID != intent.conversationID || entryIDs.contains(entry.id) || entry.id == intent.inputEntryID || entry.head != nil {
+                messages.append(contentsOf: contribution)
+            }
+        }
+        return DurableContext.orderToolResults(messages)
     }
 
     static func checkpoint(intent: DurableGenerationIntent, phase: String) -> JSONValue {

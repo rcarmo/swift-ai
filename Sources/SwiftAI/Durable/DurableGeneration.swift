@@ -10,6 +10,7 @@ public struct DurableGenerationRequest: Sendable {
     public var options: StreamOptions?
     var offeredTools: [DurableToolBinding] = []
     var extensions: [String] = []
+    var existingSubmissionID: Int64?
 
     public init(conversationID: Int64, model: Model, systemPrompt: String? = nil, transcript: [Message], requestID: String? = nil, payloadHash: String? = nil, options: StreamOptions? = nil) {
         self.conversationID = conversationID
@@ -217,6 +218,23 @@ struct DurableGenerationPlanner {
         }
 
         let existingQueue = document(scope: "conversation", ownerID: request.conversationID, kind: "durable.queue", in: snapshot)
+        if let submissionID = request.existingSubmissionID {
+            guard let submission = snapshot.submissions[submissionID], submission.conversationID == request.conversationID, submission.status == .placed, submission.type == .input, let inputID = submission.entryID else { throw DurableError.invalidRecord("inbox generation requires placed input") }
+            if let task = snapshot.tasks.values.first(where: { task in
+                guard let stored = try? Self.intent(for: task, in: snapshot) else { return false }; return stored.inputEntryID == inputID
+            }) {
+                let entry = snapshot.entries.values.filter { $0.byTaskID == task.id && $0.kind == "assistant" }.max { $0.id < $1.id }
+                return DurableGenerationAdmission(taskID: task.id, inputEntryID: inputID, submissionID: submissionID, duplicate: DurableGenerationResult(task: task, submission: submission, entry: entry), request: nil, batch: DurableCommitBatch())
+            }
+            var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: existingQueue == nil ? 3 : 2)
+            let taskID = ids.removeFirst(), intentID = ids.removeFirst()
+            let intent = DurableGenerationIntent(request: request, inputEntryID: inputID)
+            try preflightIntent(intent)
+            let task = DurableTaskRecord(id: taskID, conversationID: request.conversationID, kind: "generation", checkpoint: checkpoint(intent: intent, phase: "pending"))
+            let document = DurableDocumentRecord(id: intentID, scope: "task", ownerID: taskID, kind: "generation.intent", value: try encodeJSON(intent))
+            let queue = queueDocument(id: existingQueue?.id ?? ids.removeFirst(), conversationID: request.conversationID, existing: existingQueue, adding: taskID, removing: nil)
+            return DurableGenerationAdmission(taskID: taskID, inputEntryID: inputID, submissionID: submissionID, duplicate: nil, request: request, batch: DurableCommitBatch(tasks: [task], documents: [document, queue]))
+        }
         let required = 3 + (request.requestID == nil ? 0 : 1) + (existingQueue == nil ? 1 : 0)
         var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: required)
         func takeID() -> Int64 { ids.removeFirst() }
@@ -409,10 +427,12 @@ struct DurableGenerationPlanner {
             if !snapshot.submissions.values.contains(where: { $0.entryID == entry.id }) { entryIDs.insert(entry.id) }
         }
         // The current input fixes this request's range. Later queued inputs must not leak in.
-        guard let view = try? DurableContext.derive(snapshot: snapshot, conversationID: intent.conversationID, at: intent.inputEntryID) else { return intent.transcript }
+        let placedInbox = snapshot.submissions.values.filter { $0.conversationID == intent.conversationID && $0.status == .placed && $0.payloadHash?.hasPrefix("inbox:") == true }.compactMap(\.entryID)
+        let tail = max(intent.inputEntryID, placedInbox.max() ?? intent.inputEntryID)
+        guard let view = try? DurableContext.derive(snapshot: snapshot, conversationID: intent.conversationID, at: tail) else { return intent.transcript }
         var messages: [Message] = []
         for (entry, contribution) in zip(view.entries, view.contributions) {
-            if entry.conversationID != intent.conversationID || entryIDs.contains(entry.id) || entry.id == intent.inputEntryID || entry.head != nil {
+            if entry.conversationID != intent.conversationID || entryIDs.contains(entry.id) || entry.id == intent.inputEntryID || entry.head != nil || snapshot.submissions.values.contains(where: { $0.entryID == entry.id && $0.status == .placed && $0.payloadHash?.hasPrefix("inbox:") == true }) {
                 messages.append(contentsOf: contribution)
             }
         }

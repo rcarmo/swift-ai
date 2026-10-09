@@ -671,8 +671,8 @@ enum DurableValidation {
         case .done:
             guard record.entryID != nil, record.answerID != nil, record.reason == nil else { throw missingReferenceError("done submission requires entry and answer") }
         case .unanswered:
-            let unplacedStaleWrite = record.type == .write && record.reason == "stale" && record.payloadHash?.hasPrefix("inbox:") == true
-            guard record.entryID != nil || unplacedStaleWrite, record.answerID == nil, record.reason != nil else { throw missingReferenceError("unanswered submission requires entry and reason") }
+            let unplacedInboxTerminal = record.payloadHash?.hasPrefix("inbox:") == true && ((record.type == .write && record.reason == "stale") || (record.type == .input && record.reason == "aborted"))
+            guard record.entryID != nil || unplacedInboxTerminal, record.answerID == nil, record.reason != nil else { throw missingReferenceError("unanswered submission requires entry and reason") }
         case .withdrawn:
             guard record.answerID == nil, record.reason != nil else { throw missingReferenceError("withdrawn submission requires reason and no answer") }
         }

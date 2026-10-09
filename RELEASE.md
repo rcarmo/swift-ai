@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Automatic inbox follow-up scheduling chunk
+
+Configured agents can now admit `send` input and explicitly resume persisted inbox work without caller-owned provider execution. The generation worker schedules selected placed follow-ups after terminal settlement, reuses their existing input/submission IDs and respects agent one/all queue modes. Combined input context is preserved without duplicate entries; abort removes queued user inputs as unanswered while passive writes remain queued. Scheduling holds close reservations across asynchronous preparation. Full 416-test, warnings-as-errors and static/catalogue gates passed locally. Background subagents and automatic pressure/overflow compaction remain follow-up scope.
+
 ### Local environment and core tools chunk
 
 Added a native execution-environment protocol and local owned-root adapter, streamed bounded UTF-8 line reads, BOM/replacement-character handling, exact original-region edit checks, CRLF/BOM-preserving writes, and core read/write/edit/bash tool registration through the durable provider/tool loop. Filesystem paths reject root escape and symlink traversal; trusted bash scripts are explicitly unsandboxed. Linux commands use detached process groups, timeout/cancellation termination, bounded output tails and spill files beneath project scratch. Tests verify descendant timeout termination, nonzero exits, byte-limit spill, line bounds, invalid UTF-8, overlapping/nonunique edits and isolation. Full 414-test, warnings-as-errors and static/catalogue gates passed locally. Native file watches, image/PowerShell tools, progressive output-window callbacks and the full read differential corpus remain follow-up scope.

@@ -22,7 +22,7 @@ public actor DurableSession {
         let continuation: CheckedContinuation<DurableGenerationResult, Error>?
     }
 
-    private struct TaskWaiter {
+    struct TaskWaiter {
         let id: Int64
         let continuation: CheckedContinuation<DurableGenerationResult, Error>
     }
@@ -41,7 +41,7 @@ public actor DurableSession {
     let gate: DurableMutationGate
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
-    private let toolRegistry: DurableToolRegistry?
+    let toolRegistry: DurableToolRegistry?
     let liveConnectionResolver: DurableLiveConnectionResolver?
     private var queue: [GenerationJob] = []
     private var worker: Task<Void, Never>?
@@ -54,8 +54,8 @@ public actor DurableSession {
     var activeAdmissions = 0
     var runningCompactions = Set<Int64>()
     private var recoverySweepRequested = false
-    private var isClosing = false
-    private var isClosed = false
+    var isClosing = false
+    var isClosed = false
     private var executorFailure: Error?
     private var closeError: Error?
     private var closeWaiters: [CloseWaiter] = []
@@ -208,7 +208,14 @@ public actor DurableSession {
             }
             updates.append(abortedCopy(task))
             if task.kind == "generation" { for child in snapshot.tasks.values where child.ownerTaskID == task.id && ![.completed, .failed, .aborted].contains(child.status) { updates.append(abortedCopy(child)) } }
-            _ = try await self.storage.commit(DurableCommitBatch(tasks: updates))
+            var inbox = try DurableInboxPlanner.state(snapshot: snapshot, conversationID: task.conversationID)
+            let inputIDs = Set(inbox.items.filter { $0.mode != .write }.map(\.submissionID))
+            let submissions = snapshot.submissions.values.filter { inputIDs.contains($0.id) && $0.status == .queued }.map { value -> DurableSubmissionRecord in
+                var record = value; record.status = .unanswered; record.reason = "aborted"; return record
+            }
+            inbox.items.removeAll { inputIDs.contains($0.submissionID) }
+            let documents = submissions.isEmpty ? [] : [try DurableInboxPlanner.document(snapshot: snapshot, conversationID: task.conversationID, state: inbox)]
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: updates, submissions: submissions, documents: documents))
             return updates[0]
         }
         if terminal.kind == "generation" {
@@ -269,7 +276,7 @@ public actor DurableSession {
         if recoverySweepRequested, worker == nil { ensureWorker() }
     }
 
-    private func enqueue(taskID: Int64, waiter: TaskWaiter?) {
+    func enqueue(taskID: Int64, waiter: TaskWaiter?) {
         if let waiter { attachTaskWaiter(taskID: taskID, waiter: waiter) }
         guard !scheduledTaskIDs.contains(taskID), !runningTaskIDs.contains(taskID) else { return }
         do {
@@ -314,6 +321,7 @@ public actor DurableSession {
                 runningTaskIDs.remove(job.taskID)
                 let outcome: Result<DurableGenerationResult, Error> = .success(result)
                 resumeTaskWaiters(taskID: job.taskID, result: outcome)
+                try await scheduleFollowUps(conversationID: result.task.conversationID)
             } catch {
                 runningTaskIDs.remove(job.taskID)
                 resumeTaskWaiters(taskID: job.taskID, result: .failure(error))
@@ -685,7 +693,8 @@ public actor DurableSession {
             let resultMessages = childIDs.compactMap { id -> Message? in guard let entryID = snapshot.tasks[id]?.outcome?.objectValue?["entryID"]?.doubleValue.map(Int64.init) else { return nil }; return snapshot.entries[entryID]?.messages?.first }
             guard resultMessages.count == childIDs.count else { throw DurableError.corruptStorage("missing ordered tool results") }
             intent.roundMessages = (intent.roundMessages ?? []) + resultMessages; intent.round = (intent.round ?? 1) + 1
-            let boundary = try DurableInboxPlanner.boundary(snapshot: snapshot, conversationID: parent.conversationID, at: .postTools, steering: .oneAtATime, followUp: .oneAtATime)
+            let modes = try await self.queueModes(conversationID: parent.conversationID, snapshot: snapshot)
+            let boundary = try DurableInboxPlanner.boundary(snapshot: snapshot, conversationID: parent.conversationID, at: .postTools, steering: modes.0, followUp: modes.1)
             if boundary.result.reset {
                 let projected = DurableValidation.applying(boundary.batch, to: snapshot, seq: snapshot.seq + 1, highWater: max(snapshot.highWaterID, boundary.batch.entries.map(\.id).max() ?? 0))
                 intent.preparedTranscript = try DurableContext.derive(snapshot: projected, conversationID: parent.conversationID).messages
@@ -720,7 +729,8 @@ public actor DurableSession {
                     finalBatch.submissions.append(settled)
                 }
                 let projected = DurableValidation.applying(finalBatch, to: afterCompleting, seq: afterCompleting.seq + 1, highWater: max(afterCompleting.highWaterID, finalBatch.entries.map(\.id).max() ?? 0, finalBatch.documents.map(\.id).max() ?? 0))
-                let boundary = try DurableInboxPlanner.boundary(snapshot: projected, conversationID: taskForFinal.conversationID, at: .final, steering: .oneAtATime, followUp: .oneAtATime)
+                let modes = try await self.queueModes(conversationID: taskForFinal.conversationID, snapshot: projected)
+                let boundary = try DurableInboxPlanner.boundary(snapshot: projected, conversationID: taskForFinal.conversationID, at: .final, steering: modes.0, followUp: modes.1)
                 finalBatch.entries += boundary.batch.entries; finalBatch.submissions += boundary.batch.submissions; finalBatch.documents += boundary.batch.documents
                 _ = try await self.storage.commit(finalBatch)
             } catch DurableGenerationFailure.failure(let failure) {

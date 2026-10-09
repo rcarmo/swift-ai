@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Typed document migration and callback watches chunk
+
+Added document definitions with scope/version/history/fork validation, pure read-time migration, owned-line update-time migration and fail-closed newer-version access. Throwing update callbacks persist no state; historical reads migrate the selected stored revision without rewriting journal history. Added callback watch handles with acquisition value before start, off-line serial delivery, bounded root-frame convergence, listener re-entry, retirement, idempotent stop/cancel and first-terminal-reason semantics. Stop does not join or cancel an already-running callback. Native root frames remain the Swift adaptation of Chord operations. Full 400-test, warnings-as-errors and static/catalogue gates passed locally. Typed document families and broader orchestration remain follow-up scope.
+
 ### Persisted inbox/boundary chunk
 
 Inbox input and passive-write submissions now persist separately from generation admission, with request-ID semantic deduplication, withdrawal, bounded queue size and journal recovery. Post-tool boundaries place all passive writes before selected steering input; final boundaries also select follow-ups. Reset writes promote a tool boundary to final and stale head writes settle unanswered without restoring cut history. Tool-round continuation includes the placed steering context, and final answer settlement plus next boundary placement share one storage batch. The native API exposes explicit queue/placement operations; automatic follow-up run scheduling, configurable agent queue settings and abort cascades remain follow-up scope. Full 396-test, warnings-as-errors and static/catalogue gates passed locally for this chunk.

@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Resumable manual compaction chunk
+
+Added native tool-group-aware compaction cut selection and a durable manual summarisation task with a pinned pre-effect transcript, no-cache bounded summary request, persisted summary/usage stage, stale-head protection and atomic summary/usage settlement. Journal reopen and explicit recovery finalise a staged summary without another provider call. Owned compaction reservations keep close from releasing storage during effects; concurrent recovery of one compaction is rejected. Manual compaction requires an idle conversation. Automatic pressure/overflow compaction, hook decisions/retry and scheduler integration remain follow-up scope. Full 403-test, warnings-as-errors and static/catalogue gates passed locally for this chunk.
+
 ### Typed document migration and callback watches chunk
 
 Added document definitions with scope/version/history/fork validation, pure read-time migration, owned-line update-time migration and fail-closed newer-version access. Throwing update callbacks persist no state; historical reads migrate the selected stored revision without rewriting journal history. Added callback watch handles with acquisition value before start, off-line serial delivery, bounded root-frame convergence, listener re-entry, retirement, idempotent stop/cancel and first-terminal-reason semantics. Stop does not join or cancel an already-running callback. Native root frames remain the Swift adaptation of Chord operations. Full 400-test, warnings-as-errors and static/catalogue gates passed locally. Typed document families and broader orchestration remain follow-up scope.

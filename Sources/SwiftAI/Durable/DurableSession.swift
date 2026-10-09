@@ -38,7 +38,7 @@ public actor DurableSession {
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
     private let toolRegistry: DurableToolRegistry?
-    private let liveConnectionResolver: DurableLiveConnectionResolver?
+    let liveConnectionResolver: DurableLiveConnectionResolver?
     private var queue: [GenerationJob] = []
     private var worker: Task<Void, Never>?
     private var nextJobID: Int64 = 0
@@ -47,7 +47,8 @@ public actor DurableSession {
     private var taskWaiters: [Int64: [TaskWaiter]] = [:]
     private var nextTaskWaiterID: Int64 = 0
     private var observerReservations = 0
-    private var activeAdmissions = 0
+    var activeAdmissions = 0
+    var runningCompactions = Set<Int64>()
     private var recoverySweepRequested = false
     private var isClosing = false
     private var isClosed = false
@@ -402,7 +403,7 @@ public actor DurableSession {
         catch DurableGenerationFailure.outputLimit(let failure) { return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure) }
     }
 
-    private func providerSessionID(conversationID: Int64) async throws -> String {
+    func providerSessionID(conversationID: Int64) async throws -> String {
         try await gate.submit {
             let snapshot = try await self.storage.snapshot()
             if let document = DurableGenerationPlanner.document(scope: "conversation", ownerID: conversationID, kind: "pi.provider", in: snapshot) {
@@ -752,7 +753,7 @@ public actor DurableSession {
         finishCloseIfNeeded()
     }
 
-    private func finishCloseIfNeeded() { startCommonCloseIfReady() }
+    func finishCloseIfNeeded() { startCommonCloseIfReady() }
 
     private func startCommonCloseIfReady() {
         guard isClosing, !isClosed, closeTask == nil, queue.isEmpty, worker == nil, activeAdmissions == 0 else { return }

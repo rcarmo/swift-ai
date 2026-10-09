@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Local environment and core tools chunk
+
+Added a native execution-environment protocol and local owned-root adapter, streamed bounded UTF-8 line reads, BOM/replacement-character handling, exact original-region edit checks, CRLF/BOM-preserving writes, and core read/write/edit/bash tool registration through the durable provider/tool loop. Filesystem paths reject root escape and symlink traversal; trusted bash scripts are explicitly unsandboxed. Linux commands use detached process groups, timeout/cancellation termination, bounded output tails and spill files beneath project scratch. Tests verify descendant timeout termination, nonzero exits, byte-limit spill, line bounds, invalid UTF-8, overlapping/nonunique edits and isolation. Full 414-test, warnings-as-errors and static/catalogue gates passed locally. Native file watches, image/PowerShell tools, progressive output-window callbacks and the full read differential corpus remain follow-up scope.
+
 ### Native task ownership/recovery chunk
 
 Added registered versioned native task definitions, explicit bounded resume, persisted input/checkpoints, child creation/wait, completing-stage results, ownership drain before parent settlement, abort-tree marking/handlers and task graph inspection. Missing/mismatched definitions block execution; completing recovery settles without repeating effects. A failed task does not stop later tasks, and committed pre-effect checkpoints survive failed callbacks. The scheduler is a serial native adapter; worker-slot yielding, arbitrary sibling waits, memos, handover/orphan policies, background generation/subagents and automatic wake are still follow-up scope. Full 410-test, warnings-as-errors and static/catalogue gates passed locally.

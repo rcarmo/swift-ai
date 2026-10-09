@@ -56,6 +56,7 @@ public enum SwiftAI {
         await AIRegistry.shared.register(APIProvider(api: .googleGeminiCLI, stream: { model, context, options in GoogleGeminiCLIProvider.stream(model: model, context: context, options: options) }))
         await AIRegistry.shared.register(APIProvider(api: .bedrockConverseStream, stream: { model, context, options in BedrockProvider.stream(model: model, context: context, options: options) }))
         await ImagesRegistry.shared.register(ImagesAPIProvider(api: .openRouterImages, generateImages: { model, context, options in await OpenRouterImagesProvider.generateImages(model: model, context: context, options: options) }))
+        await ClassifierRegistry.shared.register(ClassifierAPIProvider(api: .openAIDecisions, classify: { model, context, options in await OpenAIDecisionsProvider.classify(model: model, context: context, options: options) }))
         await ClassifierRegistry.shared.register(ClassifierAPIProvider(api: .typeSafeSystemOne, classify: { model, context, options in
             var resolved = options ?? ClassifierOptions()
             if (resolved.apiKey ?? "").isEmpty { resolved.apiKey = ProviderEnvironment.apiKey(for: model.provider, env: resolved.env) }
@@ -93,8 +94,31 @@ public enum SwiftAI {
         guard let provider = await AIRegistry.shared.apiProvider(for: model.api) else {
             return AsyncStream { continuation in continuation.yield(.error(reason: .error, message: nil, error: AIError.noProvider(model.api))); continuation.finish() }
         }
-        if options?.reasoning != nil, let simple = provider.streamSimple { return simple(model, context, options) }
-        return provider.stream(model, context, options)
+        let startedAt = Int64(Date().timeIntervalSince1970 * 1000)
+        let monotonicStart = DispatchTime.now().uptimeNanoseconds
+        let inner: AsyncStream<AIEvent>
+        if options?.reasoning != nil, let simple = provider.streamSimple { inner = simple(model, context, options) }
+        else { inner = provider.stream(model, context, options) }
+        return AsyncStream { continuation in
+            let forward = Task {
+                func timed(_ message: Message) -> Message {
+                    var result = message
+                    if result.durationMs == nil, result.timestamp >= startedAt {
+                        result.durationMs = Double((DispatchTime.now().uptimeNanoseconds - monotonicStart) / 1_000_000)
+                    }
+                    return result
+                }
+                for await event in inner {
+                    switch event {
+                    case .done(let reason, let message): continuation.yield(.done(reason: reason, message: timed(message)))
+                    case .error(let reason, let message, let error): continuation.yield(.error(reason: reason, message: message.map(timed), error: error))
+                    default: continuation.yield(event)
+                    }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in forward.cancel() }
+        }
     }
 
     private static func authenticatedOptions(model: Model, options: StreamOptions?) -> StreamOptions? {

@@ -400,9 +400,25 @@ public actor DurableSession {
         catch DurableGenerationFailure.outputLimit(let failure) { return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure) }
     }
 
+    private func providerSessionID(conversationID: Int64) async throws -> String {
+        try await gate.submit {
+            let snapshot = try await self.storage.snapshot()
+            if let document = DurableGenerationPlanner.document(scope: "conversation", ownerID: conversationID, kind: "pi.provider", in: snapshot) {
+                guard let id = document.value.objectValue?["sessionId"]?.stringValue, !id.isEmpty else { throw DurableError.corruptStorage("invalid provider session ID") }
+                return id
+            }
+            let id = AIUtilities.uuidv7()
+            let documentID = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: 1)[0]
+            let document = DurableDocumentRecord(id: documentID, scope: "conversation", ownerID: conversationID, kind: "pi.provider", value: .object(["sessionId": .string(id)]))
+            _ = try await self.storage.commit(DurableCommitBatch(documents: [document]))
+            return id
+        }
+    }
+
     private func resolvedDispatch(for intent: DurableGenerationIntent) async throws -> (Model, StreamOptions) {
         guard var current = await AIRegistry.shared.model(provider: intent.model.provider, id: intent.model.id), current.api == intent.model.api else { throw DurableError.invalidRecord("missing_model") }
         var options = intent.options.streamOptions()
+        options.sessionId = try await providerSessionID(conversationID: intent.conversationID)
         if let liveConnectionResolver {
             do {
                 let connection = try await liveConnectionResolver(intent.model)
@@ -544,12 +560,13 @@ public actor DurableSession {
             _ = try await self.storage.commit(DurableCommitBatch(tasks: [running]))
         }
         snapshot = try await storage.snapshot(); child = snapshot.tasks[childID]!
-        let staged: DurableStagedToolResult
+        var staged: DurableStagedToolResult
         var knownUsage: Usage?
         var invalidUsage = false
         let signal = DurableCancellationSignal(); toolCancellationSignals[childID] = signal
         defer { toolCancellationSignals.removeValue(forKey: childID) }
         if child.abortRequested { signal.cancel() }
+        let startedAt = DispatchTime.now().uptimeNanoseconds
         do {
             let output = try await registration.execute(DurableToolExecution(durableToolID: intent.durableToolID, idempotencyKey: intent.idempotencyKey, providerCallID: intent.providerCallID, arguments: intent.executionArguments, logicalAttempt: intent.logicalAttempt, cancellation: signal))
             knownUsage = DurableGenerationPlanner.validUsageOrNil(output.usage)
@@ -563,6 +580,7 @@ public actor DurableSession {
         } catch {
             staged = DurableStagedToolResult(content: "Tool failed", isError: true, usage: knownUsage, documents: [], code: "tool_error", billingUnknown: replayingStarted)
         }
+        staged.durationMs = Double((DispatchTime.now().uptimeNanoseconds - startedAt) / 1_000_000)
         try await stageAndFinalizeToolChild(child: child, intent: intent, result: staged)
     }
 
@@ -588,7 +606,7 @@ public actor DurableSession {
             let content = applicationInvalid ? "Tool application documents were rejected" : result.content
             let isError = result.isError || applicationInvalid
             let code = applicationInvalid ? "invalid_tool_documents" : (result.code ?? "ok")
-            var message = Message(role: .toolResult, content: [.text(content)]); message.toolCallId = intent.providerCallID; message.toolName = intent.binding.definition.name; message.isError = isError
+            var message = Message(role: .toolResult, content: [.text(content)]); message.toolCallId = intent.providerCallID; message.toolName = intent.binding.definition.name; message.isError = isError; message.durationMs = result.durationMs
             let entryID = take()
             var documents = applicationDocuments
             if let usage = result.usage {

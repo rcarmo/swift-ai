@@ -83,6 +83,8 @@ final class DurableToolTests: XCTestCase {
         let contexts = await capture.contexts; XCTAssertEqual(contexts.count, 2)
         XCTAssertEqual(contexts[1].messages.map(\.role), [.user, .assistant, .toolResult])
         XCTAssertEqual(contexts[1].messages[1].content.first?.id, "call-1"); XCTAssertEqual(contexts[1].messages[2].toolCallId, "call-1")
+        XCTAssertNotNil(contexts[1].messages[2].durationMs)
+        XCTAssertGreaterThanOrEqual(contexts[1].messages[2].durationMs ?? -1, 0)
         let snapshot = try await session.snapshot()
         XCTAssertEqual(snapshot.tasks.values.filter { $0.kind == "tool" }.count, 1)
         XCTAssertNotNil(snapshot.documents.values.first { $0.kind == "tool.usage.attempt.1" })

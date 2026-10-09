@@ -7,6 +7,7 @@ public enum ProviderEnvironment {
         .google: ["GEMINI_API_KEY"],
         .googleVertex: ["GOOGLE_CLOUD_API_KEY"],
         .azureOpenAI: ["AZURE_OPENAI_API_KEY"],
+        .azure: ["AZURE_OPENAI_API_KEY"],
         .radius: ["PI_GATEWAY_API_KEY"],
         .githubCopilot: ["COPILOT_GITHUB_TOKEN"],
         .mistral: ["MISTRAL_API_KEY"],
@@ -65,6 +66,8 @@ public enum ProviderEnvironment {
     public static func apiKey(for provider: ClassifierProvider, env: ProviderEnv? = nil) -> String? {
         let names: [String]
         switch provider {
+        case .openAIClassifier:
+            names = ["OPENAI_API_KEY"]
         case .typesafe:
             names = ["TYPESAFE_API_KEY"]
         case .cloudflareWorkersAI:

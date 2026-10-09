@@ -58,7 +58,7 @@ public struct RetryPolicy: Equatable, Sendable {
 
 public enum AssistantErrorRetryClassifier {
     private static let nonRetryablePattern = try! NSRegularExpression(pattern: "GoUsageLimitError|FreeUsageLimitError|Monthly usage limit reached|available balance|insufficient_quota|out of budget|quota exceeded|billing", options: [.caseInsensitive])
-    private static let retryablePattern = try! NSRegularExpression(pattern: "overloaded|currently experiencing high demand|model is at capacity|rate.?limit|too many requests|429|500|502|503|504|524|service.?unavailable|server.?error|internal.?error|provider.?returned.?error|exceeded request buffer limit while retrying upstream|network.?error|connection.?error|connection.?refused|connection.?lost|other side closed|socket connection was closed|fetch failed|getaddrinfo|ENOTFOUND|EAI_AGAIN|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|websocket.?closed|websocket.?error|ended without|stream ended before message_stop|http2 request did not get a response|retry delay|you can retry your request|try your request again|please retry your request|ResourceExhausted", options: [.caseInsensitive])
+    private static let retryablePattern = try! NSRegularExpression(pattern: "overloaded|server_busy|servers are currently busy|pending stream has been canceled|currently experiencing high demand|model is at capacity|rate.?limit|too many requests|429|500|502|503|504|524|service.?unavailable|server.?error|internal.?error|provider.?returned.?error|exceeded request buffer limit while retrying upstream|network.?error|connection.?error|connection.?refused|connection.?lost|other side closed|socket connection was closed|fetch failed|getaddrinfo|ENOTFOUND|EAI_AGAIN|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|websocket.?closed|websocket.?error|ended without|stream ended before message_stop|http2 request did not get a response|retry delay|you can retry your request|try your request again|please retry your request|ResourceExhausted", options: [.caseInsensitive])
     public static func isRetryableAssistantError(_ message: Message) -> Bool {
         guard message.stopReason == .error, let errorMessage = message.errorMessage, !errorMessage.isEmpty else { return false }
         let range = NSRange(errorMessage.startIndex..<errorMessage.endIndex, in: errorMessage)
@@ -164,13 +164,13 @@ public enum ProviderRetry {
         return delay
     }
 
-    public static func run<T>(maxRetries: Int, maxRetryDelayMs: Int = 60_000, sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, operation: @Sendable () async throws -> T) async throws -> T {
+    public static func run<T>(maxRetries: Int, maxRetryDelayMs: Int = 60_000, noRetryStatuses: [Int] = [], sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, operation: @Sendable () async throws -> T) async throws -> T {
         var remaining = max(0, maxRetries)
         let initial = remaining
         while true {
             do { return try await operation() }
             catch let error as ProviderRetryError {
-                guard remaining > 0, isRetryable(error) else { throw error }
+                guard remaining > 0, isRetryable(error), !(error.status.map { noRetryStatuses.contains($0) } ?? false) else { throw error }
                 let retryIndex = initial - remaining
                 remaining -= 1
                 try await sleep(UInt64(try retryDelayMilliseconds(error, retryIndex: retryIndex, maxRetryDelayMs: maxRetryDelayMs)) * 1_000_000)

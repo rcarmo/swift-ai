@@ -45,7 +45,7 @@ private final class UUIDV7State: @unchecked Sendable {
 }
 
 public enum AIUtilities {
-    public static let charsPerToken = 4
+    public static let charsPerToken = 3.5
     public static let estimatedImageChars = 4800
     public static let contextSafetyTokens = 4096
     public static let minMaxTokens = 1
@@ -81,6 +81,13 @@ public enum AIUtilities {
         let clamped = clampThinkingLevel(model: model, level: level)
         if let map = model?.thinkingLevelMap, let maybe = map[clamped] { return maybe }
         return clamped == .off ? "none" : clamped.rawValue
+    }
+
+    public static func resolveSamplingParams(model: Model, level: ModelThinkingLevel, request: [String: JSONValue]? = nil) -> [String: JSONValue] {
+        var params = model.samplingParams ?? [:]
+        for (key, value) in model.samplingParamsByThinkingLevel?[clampThinkingLevel(model: model, level: level)] ?? [:] { params[key] = value }
+        for (key, value) in request ?? [:] { params[key] = value }
+        return params
     }
 
     public static func defaultThinkingBudgets() -> ThinkingBudgets { ThinkingBudgets(minimal: 1024, low: 2048, medium: 8192, high: 16_384) }
@@ -274,13 +281,22 @@ public enum AIUtilities {
 
     public static func calculateCost(cost modelCost: ModelCost, usage: Usage) -> CostBreakdown {
         let million = 1_000_000.0
+        var rates = modelCost
+        let contextTokens = Double(usage.input) + Double(usage.cacheRead) + Double(usage.cacheWrite)
+        var selectedThreshold = -Double.infinity
+        for tier in modelCost.tiers ?? [] {
+            guard let object = tier.objectValue, let threshold = object["inputTokensAbove"]?.doubleValue, threshold.isFinite, contextTokens > threshold, threshold > selectedThreshold else { continue }
+            guard let input = object["input"]?.doubleValue, let output = object["output"]?.doubleValue, let cacheRead = object["cacheRead"]?.doubleValue, let cacheWrite = object["cacheWrite"]?.doubleValue, [input, output, cacheRead, cacheWrite].allSatisfy({ $0.isFinite }) else { continue }
+            rates = ModelCost(input: input, output: output, cacheRead: cacheRead, cacheWrite: cacheWrite)
+            selectedThreshold = threshold
+        }
         let longWrite = min(max(usage.cacheWrite1h ?? 0, 0), usage.cacheWrite)
         let shortWrite = usage.cacheWrite - longWrite
         var cost = CostBreakdown()
-        cost.input = Double(usage.input) * modelCost.input / million
-        cost.output = Double(usage.output) * modelCost.output / million
-        cost.cacheRead = Double(usage.cacheRead) * modelCost.cacheRead / million
-        cost.cacheWrite = (Double(shortWrite) * modelCost.cacheWrite + Double(longWrite) * modelCost.input * 2.0) / million
+        cost.input = Double(usage.input) * rates.input / million
+        cost.output = Double(usage.output) * rates.output / million
+        cost.cacheRead = Double(usage.cacheRead) * rates.cacheRead / million
+        cost.cacheWrite = (Double(shortWrite) * rates.cacheWrite + Double(longWrite) * rates.input * 2.0) / million
         cost.total = cost.input + cost.output + cost.cacheRead + cost.cacheWrite
         return cost
     }

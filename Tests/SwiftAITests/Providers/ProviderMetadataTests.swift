@@ -405,23 +405,23 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         let models = try BuiltinModels.all()
         let completionGrammar = models.filter { $0.completionsCompat?.supportsOpenAIGrammarTools == true }
         let responseGrammar = models.filter { $0.responsesCompat?.supportsOpenAIGrammarTools == true }
-        XCTAssertEqual(completionGrammar.count + responseGrammar.count, 111)
+        XCTAssertEqual(completionGrammar.count + responseGrammar.count, 112)
         XCTAssertTrue(models.contains { $0.completionsCompat?.supportsStrictMode == false })
         XCTAssertTrue(models.contains { $0.completionsCompat?.sendSessionAffinityHeaders == true })
         XCTAssertTrue(models.contains { $0.responsesCompat?.supportsAdditionalTools == true })
     }
 
     func testV101TypedBuiltinModelsMatchRawSnapshotsAfterDecode() throws {
-        let rawOfficial = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: "scripts/models.v1.0.1.json"))) as! [[String: Any]]
+        let rawOfficial = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: "scripts/models.v1.1.0.json"))) as! [[String: Any]]
         let typed = try BuiltinModels.all()
         XCTAssertEqual(typed.count, rawOfficial.count)
         let typedGrammar = typed.filter { $0.completionsCompat?.supportsOpenAIGrammarTools == true || $0.responsesCompat?.supportsOpenAIGrammarTools == true }.count
         let rawGrammar = rawOfficial.filter { (($0["compat"] as? [String: Any])?["supportsOpenAIGrammarTools"] as? Bool) == true || (($0["compat"] as? [String: Any])?["supportsOpenaiGrammarTools"] as? Bool) == true }.count
-        XCTAssertEqual(typedGrammar, 111)
+        XCTAssertEqual(typedGrammar, 112)
         XCTAssertEqual(typedGrammar, rawGrammar)
         let typedCompletionMidSystem = typed.filter { $0.completionsCompat?.supportsMidConvoSystemMessages == true }.count
         let rawCompletionMidSystem = rawOfficial.filter { ($0["api"] as? String) == "openai-completions" && (($0["compat"] as? [String: Any])?["supportsMidConvoSystemMessages"] as? Bool) == true }.count
-        XCTAssertEqual(typedCompletionMidSystem, 25)
+        XCTAssertEqual(typedCompletionMidSystem, 26)
         XCTAssertEqual(typedCompletionMidSystem, rawCompletionMidSystem)
         let typedCompletionToolAdditions = typed.filter { $0.completionsCompat?.supportsMidConvoToolAdditions == true }.count
         let rawCompletionToolAdditions = rawOfficial.filter { ($0["api"] as? String) == "openai-completions" && (($0["compat"] as? [String: Any])?["supportsMidConvoToolAdditions"] as? Bool) == true }.count
@@ -442,12 +442,12 @@ data: {"candidates":[{"content":{"parts":[{"text":"lo"}]},"finishReason":"STOP"}
         let typedAdditionalTools = typed.filter { $0.responsesCompat?.supportsAdditionalTools == true }.count
         XCTAssertEqual(typedAdditionalTools, rawAdditionalTools)
         let actualImages = try encodedMap(BuiltinImageModels.all()) { "\($0.provider.rawValue)/\($0.id)" }
-        let rawImages = try JSONDecoder().decode([ImagesModel].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/image-models.v1.0.1.json")))
+        let rawImages = try JSONDecoder().decode([ImagesModel].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/image-models.v1.1.0.json")))
         let expectedImages = try encodedMap(rawImages) { "\($0.provider.rawValue)/\($0.id)" }
         XCTAssertEqual(actualImages, expectedImages)
-        XCTAssertEqual(try BuiltinImageModels.all().filter { $0.inputLimits != nil }.count, 57)
+        XCTAssertEqual(try BuiltinImageModels.all().filter { $0.inputLimits != nil }.count, 59)
         let actualClassifiers = try encodedMap(BuiltinClassifierModels.all()) { "\($0.provider.rawValue)/\($0.id)" }
-        let rawClassifiers = try JSONDecoder().decode([ClassifierModel].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/classifier-models.v1.0.1.json")))
+        let rawClassifiers = try JSONDecoder().decode([ClassifierModel].self, from: Data(contentsOf: URL(fileURLWithPath: "scripts/classifier-models.v1.1.0.json")))
         let expectedClassifiers = try encodedMap(rawClassifiers) { "\($0.provider.rawValue)/\($0.id)" }
         XCTAssertEqual(actualClassifiers, expectedClassifiers)
     }

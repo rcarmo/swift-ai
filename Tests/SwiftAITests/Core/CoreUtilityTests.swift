@@ -328,12 +328,12 @@ final class CoreUtilityTests: XCTestCase {
             Message(role: .user, content: [.text(String(repeating: "x", count: 4_000))], timestamp: 300),
         ])
         let staleEstimate = AIUtilities.estimateContextTokens(staleContext)
-        XCTAssertEqual(staleEstimate.tokens, 1005)
+        XCTAssertEqual(staleEstimate.tokens, 1149)
         XCTAssertEqual(staleEstimate.usageTokens, 0)
-        XCTAssertEqual(staleEstimate.trailingTokens, 1005)
+        XCTAssertEqual(staleEstimate.trailingTokens, 1149)
         XCTAssertNil(staleEstimate.lastUsageIndex)
         let model = Model(id: "test-model", name: "Test Model", api: .openAIResponses, provider: .openAI, contextWindow: 10_000, maxTokens: 8_000)
-        XCTAssertEqual(AIUtilities.effectiveMaxTokens(model: model, context: staleContext, options: nil, defaultToModel: true), 4899)
+        XCTAssertEqual(AIUtilities.effectiveMaxTokens(model: model, context: staleContext, options: nil, defaultToModel: true), 4755)
 
         let freshContext = AIContext(messages: [
             Message(role: .user, content: [.text("summary")], timestamp: 200),
@@ -343,9 +343,9 @@ final class CoreUtilityTests: XCTestCase {
             Message(role: .user, content: [.text("tail")], timestamp: 500),
         ])
         let freshEstimate = AIUtilities.estimateContextTokens(freshContext)
-        XCTAssertEqual(freshEstimate.tokens, 2001)
+        XCTAssertEqual(freshEstimate.tokens, 2002)
         XCTAssertEqual(freshEstimate.usageTokens, 2000)
-        XCTAssertEqual(freshEstimate.trailingTokens, 1)
+        XCTAssertEqual(freshEstimate.trailingTokens, 2)
         XCTAssertEqual(freshEstimate.lastUsageIndex, 3)
     }
 
@@ -360,11 +360,11 @@ final class CoreUtilityTests: XCTestCase {
     }
 
     func testV0803EstimateClampErrorAndRetryUtilities() {
-        XCTAssertEqual(AIUtilities.estimateTextTokens("12345678"), 2)
+        XCTAssertEqual(AIUtilities.estimateTextTokens("12345678"), 3)
         XCTAssertEqual(AIUtilities.estimateTextTokens("123456789"), 3)
         XCTAssertEqual(AIUtilities.estimateTextTokens(""), 0)
         XCTAssertEqual(AIUtilities.estimateTextTokens("hello"), 2)
-        XCTAssertEqual(AIUtilities.estimateTextAndImageContentTokens([.text("abcd"), .image(data: "x", mimeType: "image/png")]), 1201)
+        XCTAssertEqual(AIUtilities.estimateTextAndImageContentTokens([.text("abcd"), .image(data: "x", mimeType: "image/png")]), 1373)
         XCTAssertEqual(AIUtilities.contentText([.text("a"), .thinking("hidden"), .text("b")]), "ab")
         XCTAssertEqual(AIUtilities.contentText([.text("a"), .thinking("hidden"), .text("b")], includeThinking: true, separator: "|"), "a|hidden|b")
         let uuidBase: UInt64 = 0x7fff_cfe5_6800
@@ -385,8 +385,8 @@ final class CoreUtilityTests: XCTestCase {
         let context = AIContext(systemPrompt: "sys", messages: [.user("hello"), assistant, .user("tail")], tools: [Tool(name: "lookup", description: "Lookup", parameters: .object(["type": .string("object")]))])
         let estimate = AIUtilities.estimateContextTokens(context)
         XCTAssertEqual(estimate.usageTokens, 125)
-        XCTAssertEqual(estimate.trailingTokens, 1)
-        XCTAssertEqual(estimate.tokens, 126)
+        XCTAssertEqual(estimate.trailingTokens, 2)
+        XCTAssertEqual(estimate.tokens, 127)
         let boundary = AIContext(messages: [.user("hello")])
         let model = Model(id: "m", name: "M", api: .openAICompletions, provider: .openAI, contextWindow: 5000, maxTokens: 2000)
         XCTAssertEqual(AIUtilities.clampMaxTokensToContext(model: model, context: boundary, maxTokens: 2000), 902)
@@ -422,7 +422,7 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(MistralConversationsProvider.buildRequestBody(model: Model(id: "mistral", name: "Mistral", api: .mistralConversations, provider: .mistral, contextWindow: 5000, maxTokens: 2000), context: boundary, options: explicitOptions)["max_tokens"], .number(902))
         let defaultClampModel = Model(id: "gpt", name: "GPT", api: .openAICompletions, provider: .openAI, contextWindow: 10000, maxTokens: 8000)
         let longContext = AIContext(messages: [.user(String(repeating: "x", count: 8000))])
-        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: defaultClampModel, context: longContext, options: nil)["max_completion_tokens"], .number(3904))
+        XCTAssertEqual(OpenAICompletionsProvider.buildRequestBody(model: defaultClampModel, context: longContext, options: nil)["max_completion_tokens"], .number(3618))
         XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://foundry.ai.azure.com"), "https://foundry.ai.azure.com/openai/v1")
         XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://foundry.services.ai.azure.com/openai/v1/responses"), "https://foundry.services.ai.azure.com/openai/v1")
         let sonnet5 = Model(id: "anthropic.claude-sonnet-5", name: "Claude Sonnet 5", api: .bedrockConverseStream, provider: .amazonBedrock, reasoning: true)

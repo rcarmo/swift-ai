@@ -586,6 +586,7 @@ struct DurableGenerationPlanner {
             "baseUrl": .string(intent.model.baseUrl), "input": .array(intent.model.input.map { .string($0) }), "contextWindow": .number(Double(intent.model.contextWindow)), "maxTokens": .number(Double(intent.model.maxTokens))
         ]
         if let sampling = intent.model.samplingParams { model["samplingParams"] = .object(sampling) }
+        if let levels = intent.model.samplingParamsByThinkingLevel { model["samplingParamsByThinkingLevel"] = .object(Dictionary(uniqueKeysWithValues: levels.map { ($0.key.rawValue, JSONValue.object($0.value)) })) }
         if let limits = intent.model.inputLimits { model["inputLimits"] = .object(limits) }
         if let cache = intent.model.promptCache { model["promptCache"] = .object(cache) }
         if let providers = intent.model.providers { model["providers"] = .array(providers) }

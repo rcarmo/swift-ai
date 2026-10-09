@@ -158,20 +158,20 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testSwiftAIStatusConstants() {
-        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "1.0.1")
-        XCTAssertEqual(SwiftAIStatus.textModelCount, 1536)
-        XCTAssertEqual(SwiftAIStatus.imageModelCount, 59)
-        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 20)
+        XCTAssertEqual(SwiftAIStatus.upstreamVersion, "1.1.0")
+        XCTAssertEqual(SwiftAIStatus.textModelCount, 1563)
+        XCTAssertEqual(SwiftAIStatus.imageModelCount, 61)
+        XCTAssertEqual(SwiftAIStatus.classifierModelCount, 26)
         XCTAssertTrue(SwiftAIStatus.bundledRuntimeAPIs.contains(.openAICompletions))
         XCTAssertEqual(SwiftAIStatus.pluggableTransports["bedrock-converse-stream"], "BedrockTransport")
     }
 
     func testGeneratedModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinModels.upstreamVersion, "1.0.1")
-        XCTAssertEqual(BuiltinModels.modelCount, 1536)
+        XCTAssertEqual(BuiltinModels.upstreamVersion, "1.1.0")
+        XCTAssertEqual(BuiltinModels.modelCount, 1563)
         XCTAssertEqual(BuiltinModels.providerCount, 41)
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1536)
+        XCTAssertEqual(models.count, 1563)
         XCTAssertTrue(models.contains { $0.provider == .openAI && $0.id == "gpt-4.1" })
         XCTAssertTrue(models.contains { $0.provider == .kimiCoding && $0.id == "k3" && $0.api == .anthropicMessages })
         XCTAssertTrue(models.contains { $0.provider == .moonshotAI && $0.id == "kimi-k3" && $0.api == .openAICompletions })
@@ -242,7 +242,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try model(.githubCopilot, "claude-opus-5.5").api, .anthropicMessages)
         XCTAssertEqual(try model(.githubCopilot, "gpt-6-sol").api, .openAIResponses)
         XCTAssertEqual(try model(.githubCopilot, "gpt-6-luna").api, .openAIResponses)
-        XCTAssertEqual(try model(.azureOpenAI, "gpt-6-sol").api, .azureOpenAIResponses)
+        XCTAssertEqual(try model(.azure, "gpt-6-sol").api, .azureOpenAIResponses)
     }
 
     func testBasetenSamplingAndChatTemplateArgs() throws {
@@ -329,11 +329,11 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testGeneratedImageModelRegistryMetadata() throws {
-        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "1.0.1")
-        XCTAssertEqual(BuiltinImageModels.modelCount, 59)
+        XCTAssertEqual(BuiltinImageModels.upstreamVersion, "1.1.0")
+        XCTAssertEqual(BuiltinImageModels.modelCount, 61)
         XCTAssertEqual(BuiltinImageModels.providerCount, 1)
         let models = try BuiltinImageModels.all()
-        XCTAssertEqual(models.count, 59)
+        XCTAssertEqual(models.count, 61)
         XCTAssertTrue(models.contains { $0.provider == .openRouter && $0.api == .openRouterImages })
         XCTAssertTrue(models.contains { $0.id == "krea/krea-2-large" })
         XCTAssertTrue(models.contains { $0.id == "openrouter/auto-beta" })
@@ -530,7 +530,7 @@ final class SwiftAITests: XCTestCase {
 
     func testUpstream0844GeneratedCatalogMetadata() throws {
         let models = try BuiltinModels.all()
-        XCTAssertEqual(models.count, 1536)
+        XCTAssertEqual(models.count, 1563)
         XCTAssertEqual(Set(models.map(\.provider)).count, 41)
         XCTAssertEqual(Set(models.map(\.api)).count, 10)
         let cloudflare = try XCTUnwrap(models.first { $0.provider == .cloudflareAIGateway && $0.id == "workers-ai/@cf/zai-org/glm-5.3" })
@@ -548,7 +548,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(models.first { $0.provider == .fireworks && $0.id == "accounts/fireworks/routers/kimi-k2-instruct-turbo" })
 
         let images = try BuiltinImageModels.all()
-        XCTAssertEqual(images.count, 59)
+        XCTAssertEqual(images.count, 61)
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "meta/muse-image" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "recraft/recraft-v4-styles-pro-vector" })
         XCTAssertNotNil(images.first { $0.provider == .openRouter && $0.id == "inclusionai/ming-image-0.1-design" })
@@ -945,7 +945,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: codex), [.minimal, .low, .medium, .high, .xhigh, .max])
         XCTAssertEqual(AIUtilities.mapThinkingLevel(model: codex, level: .minimal), "low")
 
-        let azure = try model(.azureOpenAI, "gpt-6-astra")
+        let azure = try model(.azure, "gpt-6-astra")
         XCTAssertEqual(azure.api, .azureOpenAIResponses)
         XCTAssertEqual(azure.contextWindow, 272_000)
         XCTAssertEqual(azure.maxTokens, 128_000)
@@ -963,7 +963,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(openRouter.contextWindow, 1_050_000)
         XCTAssertEqual(openRouter.maxTokens, 128_000)
         XCTAssertEqual(openRouter.input, ["text", "image"])
-        XCTAssertEqual(openRouter.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+        XCTAssertEqual(openRouter.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5, tiers: [.object(["inputTokensAbove": .number(272000), "input": .number(20), "output": .number(75), "cacheRead": .number(2), "cacheWrite": .number(25)])]))
         XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: openRouter), [.low, .medium, .high, .xhigh, .max])
 
         let gateway = try model(.vercelAIGateway, "openai/gpt-6-astra")
@@ -971,7 +971,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(gateway.contextWindow, 1_050_000)
         XCTAssertEqual(gateway.maxTokens, 128_000)
         XCTAssertEqual(gateway.input, ["text", "image"])
-        XCTAssertEqual(gateway.cost, ModelCost(input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5))
+        XCTAssertEqual(gateway.cost, openRouter.cost)
         XCTAssertEqual(AIUtilities.supportedThinkingLevels(model: gateway), [.off, .minimal, .low, .medium, .high, .xhigh])
 
         let images = try BuiltinImageModels.all()
@@ -1884,7 +1884,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertNil(successMessage.errorMessage)
 
         let providerError = MistralConversationsProvider.processSSEText("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"error\"}]}\n\n", model: model)
-        XCTAssertTrue(providerError.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "error" && message?.errorMessage == "Provider stopped with: error" }; return false })
+        XCTAssertTrue(providerError.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "error" && message?.errorMessage == "Provider stopped with: error (server error)" }; return false })
 
         let unknown = MistralConversationsProvider.processSSEText("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"unmapped_error\"}]}\n\n", model: model)
         XCTAssertTrue(unknown.contains { if case .error(_, let message, _) = $0 { return message?.stopReason == .error && message?.rawStopReason == "unmapped_error" && message?.errorMessage == "Provider stopped with: unmapped_error" }; return false })
@@ -2198,7 +2198,7 @@ final class SwiftAITests: XCTestCase {
         let commentary: [String: JSONValue] = ["type": .string("response.output_item.done"), "item": .object(["id": .string("i"), "type": .string("message"), "phase": .string("commentary"), "content": .array([.object(["type": .string("output_text"), "text": .string("reason")])])])]
         guard case .object(let item)? = AzureHelpers.normalizeReasoningEvent(commentary)["item"] else { return XCTFail("missing item") }
         XCTAssertEqual(item["type"], .string("reasoning"))
-        let model = Model(id: "az", name: "Azure", api: .azureOpenAIResponses, provider: .azureOpenAI)
+        let model = Model(id: "az", name: "Azure", api: .azureOpenAIResponses, provider: .azure)
         let sse = """
         event: response.output_item.added
         data: {"type":"response.output_item.added","item":{"id":"i","type":"message","phase":"commentary"}}
@@ -2220,7 +2220,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testAzureResponsesReasoningEncryptedContentReplay() throws {
-        let model = Model(id: "gpt-5-mini", name: "GPT-5 Mini", api: .azureOpenAIResponses, provider: .azureOpenAI, reasoning: true)
+        let model = Model(id: "gpt-5-mini", name: "GPT-5 Mini", api: .azureOpenAIResponses, provider: .azure, reasoning: true)
         func replayedEncryptedContent(doneEncrypted: String?, completedEncrypted: String) throws -> String? {
             let donePart = doneEncrypted.map { #", "encrypted_content":"\#($0)""# } ?? ""
             let sse = """
@@ -2274,7 +2274,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(try OpenAIResponsesProvider.normalizeAzureBaseURL("https://res.openai.azure.com/openai"), "https://res.openai.azure.com/openai/v1")
         var options = StreamOptions()
         options.env = ["AZURE_OPENAI_BASE_URL": "https://res.openai.azure.com", "AZURE_OPENAI_DEPLOYMENT_NAME_MAP": "model=dep"]
-        let cfg = try OpenAIResponsesProvider.resolveAzureConfig(model: Model(id: "model", name: "M", api: .azureOpenAIResponses, provider: .azureOpenAI), options: options)
+        let cfg = try OpenAIResponsesProvider.resolveAzureConfig(model: Model(id: "model", name: "M", api: .azureOpenAIResponses, provider: .azure), options: options)
         XCTAssertTrue(cfg.baseURL.contains("/openai/v1/deployments/dep"))
     }
 
@@ -2606,7 +2606,7 @@ final class SwiftAITests: XCTestCase {
     }
 
     func testAzureOpenAIResponsesConfigAndPayloadDefaults() throws {
-        let model = Model(id: "gpt-4o-mini", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI)
+        let model = Model(id: "gpt-4o-mini", name: "GPT", api: .azureOpenAIResponses, provider: .azure)
         var options = StreamOptions()
         options.azureBaseUrl = "https://my-resource.openai.azure.com"
         options.azureApiVersion = "2024-12-01"
@@ -3469,7 +3469,7 @@ final class SwiftAITests: XCTestCase {
         XCTAssertEqual(body["stream"], .bool(true))
         XCTAssertNotNil(body["reasoning"])
         XCTAssertEqual(body["prompt_cache_key"], JSONValue.string("session"))
-        let azure = try OpenAIResponsesProvider.resolveAzureConfig(model: Model(id: "dep", name: "dep", api: .azureOpenAIResponses, provider: .azureOpenAI), options: { var o = StreamOptions(); o.azureResourceName = "res"; return o }())
+        let azure = try OpenAIResponsesProvider.resolveAzureConfig(model: Model(id: "dep", name: "dep", api: .azureOpenAIResponses, provider: .azure), options: { var o = StreamOptions(); o.azureResourceName = "res"; return o }())
         XCTAssertTrue(azure.baseURL.contains("res.openai.azure.com"))
 
         let sse = """
@@ -4579,7 +4579,7 @@ final class SwiftAITests: XCTestCase {
     func testUpstream0843ToolChoiceUserAgentAndAnthropicFallbacks() throws {
         var responseOptions = StreamOptions()
         responseOptions.toolChoice = .object(["type": .string("function"), "name": .string("lookup")])
-        let responseBody = OpenAIResponsesProvider.buildRequestBody(model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI), context: AIContext(messages: [.user("hi")]), options: responseOptions)
+        let responseBody = OpenAIResponsesProvider.buildRequestBody(model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azure), context: AIContext(messages: [.user("hi")]), options: responseOptions)
         XCTAssertEqual(responseBody["tool_choice"], responseOptions.toolChoice)
 
         let fallback = AnthropicFallbackModel(provider: "anthropic", model: "claude-opus-4-8", cost: ModelCost(input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25))
@@ -4773,7 +4773,7 @@ final class SwiftAITests: XCTestCase {
         }
         defer { OpenAIResponsesProvider.requestTransport = nil }
         var options = StreamOptions(); options.apiKey = "key"; options.azureBaseUrl = "https://res.openai.azure.com/openai/v1"; options.toolChoice = .object(["type": .string("function"), "name": .string("lookup")])
-        for await _ in OpenAIResponsesProvider.stream(model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azureOpenAI), context: AIContext(messages: [.user("hi")]), options: options) {}
+        for await _ in OpenAIResponsesProvider.stream(model: Model(id: "gpt", name: "GPT", api: .azureOpenAIResponses, provider: .azure), context: AIContext(messages: [.user("hi")]), options: options) {}
         XCTAssertEqual(capture.body["tool_choice"], options.toolChoice)
 
         let task = Task { () -> Message in
@@ -4941,7 +4941,7 @@ final class SwiftAITests: XCTestCase {
         let codexXHigh = OpenAIResponsesProvider.buildRequestBody(model: codex, context: AIContext(messages: [.user("hi")]), options: high)
         XCTAssertEqual(codexXHigh["reasoning"], .object(["effort": .string("xhigh"), "summary": .string("auto")]))
 
-        let azure = try model(.azureOpenAI, "gpt-6.1-sol")
+        let azure = try model(.azure, "gpt-6.1-sol")
         XCTAssertEqual(azure.api, .azureOpenAIResponses)
         XCTAssertEqual(azure.cost.input, openAI.cost.input)
         XCTAssertEqual(azure.cost.output, openAI.cost.output)

@@ -155,9 +155,7 @@ enum SystemOneClassifierProvider {
         result.input = input
         result.output = output
         result.totalTokens = total
-        result.cost.input = Double(input) / 1_000_000.0 * model.cost.input
-        result.cost.output = Double(output) / 1_000_000.0 * model.cost.output
-        result.cost.total = result.cost.input + result.cost.output
+        result.cost = AIUtilities.calculateCost(cost: model.cost, usage: result)
         return result
     }
 
@@ -184,6 +182,7 @@ enum SystemOneClassifierProvider {
         do {
             let expectedAPI: ClassifierAPI = transport == .typeSafe ? .typeSafeSystemOne : .cloudflareWorkersAISystemOne
             guard model.api == expectedAPI else { throw AIError.unsupported("Unsupported classifier API: \(model.api.rawValue)") }
+            guard context.images?.isEmpty != false else { throw AIError.unsupported("System One classification does not support image input") }
             guard let apiKey = options?.apiKey, !apiKey.isEmpty else { throw AIError.provider("No API key for provider: \(model.provider.rawValue)") }
             var body = try payload(model: model, context: context, transport: transport)
             if let transformed = try await options?.onPayload?(body, model) { body = transformed }

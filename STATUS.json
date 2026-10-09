@@ -13,8 +13,24 @@
     "openrouter-images",
     "typesafe-system-one",
     "cloudflare-workers-ai-system-one",
-    "faux"
+    "faux",
+    "openai-decisions"
   ],
+  "durable": {
+    "implemented": "storage/journal, generation/recovery, serial owned tools, ordered scans, provider session IDs and tool timing",
+    "parity": "partial",
+    "remaining": [
+      "fork/reset",
+      "inbox",
+      "compaction",
+      "subagents",
+      "hooks/extensions",
+      "watches/events/views",
+      "built-in tools",
+      "SQLite/JSONL backends"
+    ],
+    "upstreamVersion": "1.1.0"
+  },
   "knownNonBundledCapabilities": [
     "Bedrock live AWS SigV4/event-stream transport",
     "Codex WebSocket/session-cache transport implementation",
@@ -43,14 +59,14 @@
     }
   ],
   "registries": {
-    "classifierAPIs": 2,
-    "classifierModels": 20,
-    "classifierProviders": 5,
+    "classifierAPIs": 3,
+    "classifierModels": 26,
+    "classifierProviders": 6,
     "imageAPIs": 1,
-    "imageModels": 59,
+    "imageModels": 61,
     "imageProviders": 1,
     "textAPIs": 10,
-    "textModels": 1536,
+    "textModels": 1563,
     "textProviders": 41
   },
   "swiftPM": {
@@ -69,15 +85,16 @@
     "CodexTransport": "Must use a real RFC6455 WebSocket client/handshake and include local WS-server integration tests for handshake, streaming, and connection-limit retry/fallback behavior."
   },
   "upstream": {
-    "commit": "a7229ddc21810d6245105978033b7df645ecc2f7",
+    "commit": "abe508e1b89912adde45528136c3221eb69acdd7",
     "package": "@earendil-works/pi-ai",
-    "version": "1.0.1"
+    "version": "1.1.0"
   },
   "usageDocumentation": "docs/USAGE.md",
   "validation": {
-    "latestStaticCheck": "pending local v1.0.1 provider candidate; commit/push/tag/release not authorised; heavy full gates awaiting explicit slot",
-    "staticCommand": "python3 scripts/static-check.py",
-    "swiftCommand": "swift test",
+    "acceptedRelease": "1.0.1",
+    "latestStaticCheck": "v1.1.0 candidate: 388 tests, static/catalogue/self-tests, SBOM/OSV/licence pass locally; exact release audit incomplete; CPU report-reader crash prevents attribution; unpublished",
+    "staticCommand": "make static-check",
+    "swiftCommand": "make test",
     "swiftToolchain": "local /home/agent/.local/share/swiftly/toolchains/6.3.2/usr/bin/swift (6.3.2); hosted ubuntu Swift 6.4",
     "swiftToolchainUnavailableInContainer": false
   }

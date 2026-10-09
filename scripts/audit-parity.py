@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static parity audit for the SwiftPM registry/runtime surface.
 
-Checks that generated registries match the verified pinned @earendil-works/pi-ai v1.0.1
+Checks that generated registries match the verified pinned @earendil-works/pi-ai v1.1.0
 npm tarball's baked schema-v6 exports and provider-data manifest. This gate is
 toolchain-light and deliberately avoids live catalog hydration.
 """
@@ -16,16 +16,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_MODELS = ROOT / "scripts" / "models.v1.0.1.json"
-UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.a7229dd.json"
-PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v1.0.0.json"
-IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.1.json"
-UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.a7229dd.json"
-PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.0.json"
-CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.1.json"
-UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.a7229dd.json"
-PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.0.json"
-PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v1.0.1.json"
+TEXT_MODELS = ROOT / "scripts" / "models.v1.1.0.json"
+UPSTREAM_TEXT_MODELS = ROOT / "scripts" / "upstream-models.abe508e.json"
+PREVIOUS_TEXT_MODELS = ROOT / "scripts" / "models.v1.0.1.json"
+IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.1.0.json"
+UPSTREAM_IMAGE_MODELS = ROOT / "scripts" / "upstream-image-models.abe508e.json"
+PREVIOUS_IMAGE_MODELS = ROOT / "scripts" / "image-models.v1.0.1.json"
+CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.1.0.json"
+UPSTREAM_CLASSIFIER_MODELS = ROOT / "scripts" / "upstream-classifier-models.abe508e.json"
+PREVIOUS_CLASSIFIER_MODELS = ROOT / "scripts" / "classifier-models.v1.0.1.json"
+PROVIDER_DATA_MANIFEST = ROOT / "scripts" / "provider-data-manifest.v1.1.0.json"
 STATUS = ROOT / "STATUS.json"
 TYPES = ROOT / "Sources" / "SwiftAI" / "Core" / "Types.swift"
 IMAGES = ROOT / "Sources" / "SwiftAI" / "Core" / "Images.swift"
@@ -36,28 +36,28 @@ IMAGE_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" /
 CLASSIFIER_MODELS_GENERATED = ROOT / "Sources" / "SwiftAI" / "Models" / "Generated" / "ClassifierModelsGenerated.swift"
 SWIFT_STATUS = ROOT / "Sources" / "SwiftAI" / "Core" / "Status.swift"
 
-EXPECTED_TEXT_MODELS = 1536
+EXPECTED_TEXT_MODELS = 1563
 EXPECTED_TEXT_PROVIDERS = 41
 EXPECTED_TEXT_APIS = 10
-EXPECTED_IMAGE_MODELS = 59
+EXPECTED_IMAGE_MODELS = 61
 EXPECTED_IMAGE_PROVIDERS = 1
 EXPECTED_IMAGE_APIS = 1
-EXPECTED_CLASSIFIER_MODELS = 20
-EXPECTED_CLASSIFIER_PROVIDERS = 5
-EXPECTED_CLASSIFIER_APIS = 2
-EXPECTED_TOTAL_MODELS = 1615
+EXPECTED_CLASSIFIER_MODELS = 26
+EXPECTED_CLASSIFIER_PROVIDERS = 6
+EXPECTED_CLASSIFIER_APIS = 3
+EXPECTED_TOTAL_MODELS = 1650
 EXPECTED_PROVIDER_FILES = 42
 EXPECTED_SCHEMA_VERSION = 6
-EXPECTED_STRUCTURE_HASH = "03d2e1aeeee6eb16959d4f727b47b9b187efaf863c688a47889fb90d200e6812"
-EXPECTED_TEXT_ADDED = 17
-EXPECTED_TEXT_REMOVED = 13
-EXPECTED_TEXT_CHANGED = 54
+EXPECTED_STRUCTURE_HASH = "080cfcf6bdd13064ce2362f26e4902c31503b675fd06a8c4685c04a0333bc465"
+EXPECTED_TEXT_ADDED = 79
+EXPECTED_TEXT_REMOVED = 52
+EXPECTED_TEXT_CHANGED = 199
 EXPECTED_IMAGE_ADDED = 2
 EXPECTED_IMAGE_REMOVED = 0
 EXPECTED_IMAGE_CHANGED = 0
-EXPECTED_CLASSIFIER_ADDED = 5
+EXPECTED_CLASSIFIER_ADDED = 6
 EXPECTED_CLASSIFIER_REMOVED = 0
-EXPECTED_CLASSIFIER_CHANGED = 0
+EXPECTED_CLASSIFIER_CHANGED = 1
 CHANGED_PATHS_MANIFEST = ROOT / "docs" / "upstream-v1.0.1-changed-paths.txt"
 CHANGED_TESTS_MANIFEST = ROOT / "docs" / "upstream-v1.0.1-changed-tests.txt"
 TEST_CORPUS_MANIFEST = ROOT / "docs" / "upstream-v1.0.1-test-corpus-basename.txt"

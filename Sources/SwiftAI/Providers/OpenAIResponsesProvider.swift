@@ -53,8 +53,6 @@ public enum OpenAIResponsesProvider {
         var input = convertInput(model: model, context: context, deferredMarkers: plan.markers, deferredMode: deferredToolsMode(model), grammarInputProperties: grammarInputProperties)
         if model.api == .azureOpenAIResponses { input = AzureHelpers.applyToolCallLimit(input).messages }
         var body: [String: JSONValue] = ["model": .string(model.id), "input": .array(input), "stream": .bool(true), "store": .bool(false)]
-        for (key, value) in model.samplingParams ?? [:] { body[key] = value }
-        for (key, value) in options?.samplingParams ?? [:] { body[key] = value }
         let supportsGrammar = model.responsesCompat?.supportsOpenAIGrammarTools == true
         if !plan.immediateTools.isEmpty { body["tools"] = .array(plan.immediateTools.map { toolJSON($0, supportsOpenAIGrammarTools: supportsGrammar) }) }
         if !omitUnsupportedFields, let t = options?.temperature { body["temperature"] = .number(t) }
@@ -75,6 +73,8 @@ public enum OpenAIResponsesProvider {
         if let session = options?.sessionId, !session.isEmpty, cacheRetention != CacheRetention.none { body["prompt_cache_key"] = .string(PromptCache.clampOpenAIKey(session)) }
         if !omitUnsupportedFields, let promptCacheOptions = promptCacheOptions(model: model, cacheRetention: cacheRetention) { body["prompt_cache_options"] = promptCacheOptions }
         else if !omitUnsupportedFields, cacheRetention == .long, responsesSupportsLongCacheRetention(model) { body["prompt_cache_retention"] = .string("24h") }
+        let level = options?.reasoning.map { ModelThinkingLevel(rawValue: $0.rawValue)! } ?? (options?.reasoningSummary == nil ? .off : .medium)
+        for (key, value) in AIUtilities.resolveSamplingParams(model: model, level: level, request: options?.samplingParams) { body[key] = value }
         return body
     }
 

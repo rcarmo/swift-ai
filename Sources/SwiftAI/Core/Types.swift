@@ -22,6 +22,7 @@ public enum Provider: String, Codable, Hashable, Sendable {
     case googleGeminiCLI = "google-gemini-cli"
     case googleAntigravity = "google-antigravity"
     case googleVertex = "google-vertex"
+    case azure = "azure"
     case azureOpenAI = "azure-openai-responses"
     case openAICodex = "openai-codex"
     case radius = "radius"
@@ -182,8 +183,9 @@ public struct Message: Codable, Equatable, Sendable {
     public var toolsRemoved: [ToolReference]?
     public var endTurn: Bool?
     public var nestedCalls: JSONValue?
+    public var durationMs: Double?
 
-    enum CodingKeys: String, CodingKey { case role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, thinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, toolsAdded, toolsRemoved, endTurn, nestedCalls }
+    enum CodingKeys: String, CodingKey { case durationMs, role, content, timestamp, api, provider, model, responseId, responseModel, providerThinkingLevel, thinkingLevel, diagnostics, usage, stopReason, errorMessage, deferred, rawStopReason, toolCallId, toolName, isError, details, addedToolNames, toolsAdded, toolsRemoved, endTurn, nestedCalls }
 
     public init(role: Role, content: [ContentBlock], timestamp: Int64 = 0) { self.role = role; self.content = content; self.timestamp = timestamp }
 
@@ -214,6 +216,7 @@ public struct Message: Codable, Equatable, Sendable {
         toolsRemoved = try c.decodeIfPresent([ToolReference].self, forKey: .toolsRemoved)
         endTurn = try c.decodeIfPresent(Bool.self, forKey: .endTurn)
         nestedCalls = try c.decodeIfPresent(JSONValue.self, forKey: .nestedCalls)
+        durationMs = try c.decodeIfPresent(Double.self, forKey: .durationMs)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -243,6 +246,7 @@ public struct Message: Codable, Equatable, Sendable {
         try c.encodeIfPresent(toolsRemoved, forKey: .toolsRemoved)
         try c.encodeIfPresent(endTurn, forKey: .endTurn)
         try c.encodeIfPresent(nestedCalls, forKey: .nestedCalls)
+        try c.encodeIfPresent(durationMs, forKey: .durationMs)
     }
 
     public static func user(_ text: String) -> Message { Message(role: .user, content: [.text(text)]) }
@@ -289,6 +293,7 @@ public struct Model: Codable, Equatable, Sendable {
     public var contextWindow: Int
     public var maxTokens: Int
     public var samplingParams: [String: JSONValue]?
+    public var samplingParamsByThinkingLevel: [ModelThinkingLevel: [String: JSONValue]]?
     public var headers: ProviderHeaders?
     public var completionsCompat: OpenAICompletionsCompat?
     public var responsesCompat: OpenAIResponsesCompat?
@@ -303,7 +308,7 @@ public struct Model: Codable, Equatable, Sendable {
         self.id = id; self.name = name; self.api = api; self.provider = provider; self.baseUrl = baseUrl; self.reasoning = reasoning; self.thinkingLevelMap = thinkingLevelMap; self.input = input; self.cost = cost; self.contextWindow = contextWindow; self.maxTokens = maxTokens; self.samplingParams = samplingParams; self.headers = headers; self.completionsCompat = completionsCompat; self.responsesCompat = responsesCompat; self.anthropicCompat = anthropicCompat; self.inputLimits = inputLimits; self.promptCache = promptCache; self.enabled = enabled; self.lab = lab; self.providers = providers
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, api, provider; case baseUrl; case reasoning; case thinkingLevelMap; case input, cost, contextWindow, maxTokens, samplingParams, headers, completionsCompat, responsesCompat, anthropicCompat, inputLimits, promptCache, enabled, lab, providers }
+    enum CodingKeys: String, CodingKey { case id, name, api, provider; case baseUrl; case reasoning; case thinkingLevelMap; case input, cost, contextWindow, maxTokens, samplingParams, samplingParamsByThinkingLevel, headers, completionsCompat, responsesCompat, anthropicCompat, inputLimits, promptCache, enabled, lab, providers }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -325,6 +330,14 @@ public struct Model: Codable, Equatable, Sendable {
         contextWindow = try c.decodeIfPresent(Int.self, forKey: .contextWindow) ?? 0
         maxTokens = try c.decodeIfPresent(Int.self, forKey: .maxTokens) ?? 0
         samplingParams = try c.decodeIfPresent([String: JSONValue].self, forKey: .samplingParams)
+        if let raw = try c.decodeIfPresent([String: [String: JSONValue]].self, forKey: .samplingParamsByThinkingLevel) {
+            var levels: [ModelThinkingLevel: [String: JSONValue]] = [:]
+            for (key, value) in raw {
+                guard let level = ModelThinkingLevel(rawValue: key) else { throw DecodingError.dataCorruptedError(forKey: .samplingParamsByThinkingLevel, in: c, debugDescription: "unknown thinking level") }
+                levels[level] = value
+            }
+            samplingParamsByThinkingLevel = levels
+        }
         headers = try c.decodeIfPresent(ProviderHeaders.self, forKey: .headers)
         completionsCompat = try c.decodeIfPresent(OpenAICompletionsCompat.self, forKey: .completionsCompat)
         responsesCompat = try c.decodeIfPresent(OpenAIResponsesCompat.self, forKey: .responsesCompat)
@@ -354,6 +367,9 @@ public struct Model: Codable, Equatable, Sendable {
         try c.encode(contextWindow, forKey: .contextWindow)
         try c.encode(maxTokens, forKey: .maxTokens)
         try c.encodeIfPresent(samplingParams, forKey: .samplingParams)
+        if let samplingParamsByThinkingLevel {
+            try c.encode(Dictionary(uniqueKeysWithValues: samplingParamsByThinkingLevel.map { ($0.key.rawValue, $0.value) }), forKey: .samplingParamsByThinkingLevel)
+        }
         try c.encodeIfPresent(headers, forKey: .headers)
         try c.encodeIfPresent(completionsCompat, forKey: .completionsCompat)
         try c.encodeIfPresent(responsesCompat, forKey: .responsesCompat)

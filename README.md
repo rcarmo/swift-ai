@@ -6,21 +6,15 @@
 
 SwiftPM port of [@earendil-works/pi-ai](https://www.npmjs.com/package/@earendil-works/pi-ai), built for Swift applications that need the same provider catalogue, streaming events, OAuth flows, and request-shaping behaviour without pulling in the TypeScript runtime.
 
-The port tracks upstream `@earendil-works/pi-ai` **v1.0.1** and embeds its audited catalogues: **1536 chat models across 41 providers and 10 APIs**, plus **59 image models** and **20 classifier models**. `STATUS.json` and `SwiftAIStatus` expose those versions and counts.
+The current development candidate targets upstream `@earendil-works/pi-ai` and `pi-durable` **v1.1.0**, pinned to the official 7 October release. Its catalogues contain **1563 chat models across 41 providers and 10 APIs**, **61 image models**, and **26 classifier models across 6 providers and 3 APIs**. The last accepted and published Swift release is **v1.0.1**.
 
 ## Port status
 
-As checked on **9 October 2026**, npm's latest official release is **v1.1.0**, published on 7 October. That release has not been audited or ported here. The accepted provider/catalogue baseline and the published Swift release are v1.0.1.
+The v1.1.0 candidate adds OpenAI Decisions classification with image inputs, thinking-level sampling overrides, Azure provider routing, context estimates at 3.5 characters per token, tiered prices, updated retry cases and response/tool duration metadata. Durable additions cover ordered scan cursors and persisted provider session IDs. Local verification passed **388 tests**, catalogue comparators and corruption self-tests, SBOM checks, OSV scanning and licence review.
 
-| Area | Current coverage |
-|---|---|
-| Provider and catalogue updates | Audited through v1.0.1. All 1615 catalogue records were compared with the pinned official artifact; the six changed upstream test rows have three ported and three adapted dispositions, with none pending. |
-| Durable runtime | Published storage/journal foundation, persistent generation/session/recovery, and serial owned tools with pinned bindings, schema checks, safe/unsafe replay, usage accounting and abort/close ownership. |
-| Broader durable parity | Incomplete. Fork/reset, inbox steering, compaction, subagents, hooks/extensions, watches/events/views/task graphs, built-in filesystem/shell tools and alternative SQLite/JSONL backends are outside the published vertical. |
-| Validation | The published runtime passed 379 Swift tests on Ubuntu with zero failures. Local cache/temp-routing verification also passed the 379-test suite; macOS persistence and other Apple platforms have no equivalent verification. |
-| Performance | Heap analysis identified an oversized test fixture, now created as a sparse file. CPU-time sampling was blocked by the Linux host policy; LLVM coverage is not CPU-time profiling, and no comparable-workload performance gain has been established. |
+Full release parity is incomplete. The exact [AI audit](docs/upstream-v1.1.0-audit.md) has 82 changed paths and 38 changed test paths; the [durable audit](docs/durable-v1.1.0-audit.md) has unresolved rows. The v1.1.0 durable inventory contains **67 source paths and 49 executable test suites**. Fork/reset, inbox steering, compaction, subagents, hooks/extensions, watches/events/views/task graphs, built-in tools and SQLite/JSONL backends are not implemented by this candidate.
 
-The durable roadmap covers **60 upstream source paths and 42 suites**; the published subset does not complete that roadmap. The provider crosswalk audits release changes and does not establish one-to-one coverage of every upstream test. Transport and platform gaps are listed below.
+Linux is verified locally; macOS persistence and other Apple platforms need real-host validation. A focused nine-test Massif run passed with an 11,557,726-byte useful-heap peak, mostly registry bootstrap/decoding. A full-suite CPU sampling capture ran, but the gprofng report reader crashed, so CPU hotspot attribution is unverified. There is no measured equivalent-workload performance improvement. No v1.1.0 tag, release or assets have been published.
 
 ## Documentation
 
@@ -29,7 +23,7 @@ The short usage guide lives in [`docs/USAGE.md`](docs/USAGE.md), with transport 
 * [`RELEASE.md`](RELEASE.md) records the accepted upstream release, validation gates, and CI/SBOM references.
 * [`docs/upstream-v1.0.1-audit.md`](docs/upstream-v1.0.1-audit.md) and [`docs/upstream-v1.0.1-test-crosswalk.md`](docs/upstream-v1.0.1-test-crosswalk.md) map the pinned provider release diff to Swift code and tests.
 * [`docs/durable/native-design.md`](docs/durable/native-design.md) describes the implemented storage, generation and owned-tools phases. The [contract](docs/durable/contract-crosswalk.md) and [test](docs/durable/test-crosswalk.md) crosswalks retain the phased roadmap.
-* [`PARITY.md`](PARITY.md) contains the older v0.99.1 baseline. Its version/counts and the validation note in `STATUS.json` have not caught up with the accepted release; use `RELEASE.md` for current validation and publication results.
+* [`PARITY.md`](PARITY.md) retains the older provider inventory; use the v1.1.0 candidate audit and `STATUS.json` for development coverage, and `RELEASE.md` for accepted validation/publication results.
 
 ## Features
 
@@ -39,7 +33,7 @@ The package includes:
 
 * Core chat, image, classifier, provider, message, content-block, tool, usage, diagnostic, and stream-option types.
 * Actor-backed chat/image/classifier model/provider registries plus `await SwiftAI.bootstrap()` for one-call registration.
-* OpenAI Chat Completions, OpenAI Responses, Azure OpenAI Responses, OpenAI Codex SSE, Anthropic Messages, Google Gemini/Vertex, Google Gemini CLI/Cloud Code Assist, Mistral Conversations, Pi Messages, OpenRouter Images, TypeSafe System One and Cloudflare Workers AI classifiers, and Faux test streams.
+* OpenAI Chat Completions, OpenAI Responses, Azure OpenAI Responses, OpenAI Codex SSE, Anthropic Messages, Google Gemini/Vertex, Google Gemini CLI/Cloud Code Assist, Mistral Conversations, Pi Messages, OpenRouter Images, TypeSafe System One, Cloudflare Workers AI and OpenAI Decisions classifiers, and Faux test streams.
 * OAuth providers for GitHub Copilot, OpenAI Codex, Anthropic, Gemini CLI, Google Antigravity, Radius, and xAI.
 * SSE parsing, partial JSON recovery for streamed tool calls, prompt-cache helpers, context overflow helpers, JSON Schema tool argument validation, retry/backoff utilities, diagnostics, pluggable logging, and request/response hooks.
 * Generated chat, image, and classifier catalogues from the pinned upstream release, including compatibility metadata for reasoning, cache control, response APIs, image APIs, and provider-specific routing.
@@ -138,7 +132,7 @@ Tests follow the same split under `Tests/SwiftAITests/`, with provider tests kep
 
 Bundled text providers currently cover OpenAI Completions, OpenAI Responses, Azure OpenAI Responses, OpenAI Codex Responses over SSE, Anthropic Messages, Google Generative AI, Google Vertex, Google Gemini CLI / Cloud Code Assist, Mistral Conversations, Pi Messages, and Faux test streams.
 
-Image generation is exposed through OpenRouter Images, using the generated image catalogue. `SwiftAI.classify` uses TypeSafe System One or Cloudflare Workers AI System One for Choice, Score and Noul questions. Bedrock ConverseStream request building and provider registration are present; consumers supply the live SigV4/event-stream transport.
+Image generation is exposed through OpenRouter Images, using the generated image catalogue. `SwiftAI.classify` uses TypeSafe System One, Cloudflare Workers AI System One or OpenAI Decisions for Choice, Score and Noul questions. Decisions maps Noul to predicates and supports image-capable classifier models. Bedrock ConverseStream request building and provider registration are present; consumers supply the live SigV4/event-stream transport.
 
 ## Known limitations/divergences
 
@@ -153,7 +147,7 @@ The core package avoids bundling heavyweight vendor SDKs and WebSocket stacks. T
 
 ## Compatibility/versioning
 
-The accepted upstream baseline is `@earendil-works/pi-ai` v1.0.1, tag commit `a7229ddc21810d6245105978033b7df645ecc2f7`. Native `v1.0.1` and its `upstream-v1.0.1` alias target the accepted provider and useful durable runtime recorded in [`RELEASE.md`](RELEASE.md). Later tooling/documentation commits on `main` do not change that release target.
+The last accepted upstream baseline is `@earendil-works/pi-ai` v1.0.1, tag commit `a7229ddc21810d6245105978033b7df645ecc2f7`. Native `v1.0.1` and its `upstream-v1.0.1` alias target the accepted provider and useful durable runtime recorded in [`RELEASE.md`](RELEASE.md). The v1.1.0 development candidate does not change that published release target. The installation example pins the accepted release; use a reviewed candidate commit to consume v1.1.0 work.
 
 Pin a release or commit when consuming the package. A matching version identifies the audited upstream baseline; it does not guarantee every upstream transport or durable feature is implemented.
 

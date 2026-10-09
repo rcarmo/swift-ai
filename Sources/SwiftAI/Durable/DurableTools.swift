@@ -124,6 +124,7 @@ struct DurableStagedToolResult: Codable, Equatable, Sendable {
     var documents: [DurableToolApplicationDocument]
     var code: String?
     var billingUnknown: Bool
+    var durationMs: Double? = nil
 }
 
 enum DurableToolOutputValidation: Error { case outputLimit, invalidUsage, invalidDocuments }

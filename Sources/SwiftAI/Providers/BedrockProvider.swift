@@ -186,7 +186,20 @@ public enum BedrockProvider {
     }
 
     public static func additionalModelRequestFields(model: Model, options: StreamOptions?) -> [String: JSONValue]? {
-        guard let reasoning = options?.reasoning, model.reasoning, isAnthropicClaude(model) else { return nil }
+        guard let reasoning = options?.reasoning, model.reasoning else { return nil }
+        if !isAnthropicClaude(model) {
+            let candidates = modelMatchCandidates(model)
+            if candidates.contains(where: { $0.contains("gpt-oss") }) {
+                let effort = reasoning == .minimal ? "low" : ([.xhigh, .max].contains(reasoning) ? "high" : reasoning.rawValue)
+                return ["reasoning_effort": .string(effort)]
+            }
+            if candidates.contains(where: { $0.contains("gpt-") }) {
+                let level = ModelThinkingLevel(rawValue: reasoning.rawValue)!
+                let effort = model.thinkingLevelMap?[level] ?? (reasoning == .minimal ? "low" : reasoning.rawValue)
+                return ["reasoning": .object(["effort": .string(effort ?? (reasoning == .minimal ? "low" : reasoning.rawValue))])]
+            }
+            return nil
+        }
         if supportsAdaptiveThinking(model) {
             let govCloud = isGovCloudTarget(model: model, options: options)
             let useBlockBinding = !govCloud && supportsThinkingBlockBinding(model)
@@ -224,16 +237,16 @@ public enum BedrockProvider {
 
     private static func supportsAdaptiveThinking(_ model: Model) -> Bool {
         modelMatchCandidates(model).contains { value in
-            value.contains("opus-4-6") || value.contains("opus-4-7") || value.contains("opus-4-8") || value.contains("opus-5") || value.contains("sonnet-4-6") || value.contains("sonnet-5") || value.contains("fable-5")
+            value.contains("opus-4-6") || value.contains("opus-4-7") || value.contains("opus-4-8") || value.contains("opus-5") || value.contains("sonnet-4-6") || value.contains("sonnet-5") || value.contains("haiku-5") || value.contains("fable-5")
         }
     }
 
     private static func supportsNativeXHighEffort(_ model: Model) -> Bool {
-        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus-5") || $0.contains("sonnet-5") || $0.contains("fable-5") }
+        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus-5") || $0.contains("sonnet-5") || $0.contains("haiku-5") || $0.contains("fable-5") }
     }
 
     private static func supportsThinkingBlockBinding(_ model: Model) -> Bool {
-        modelMatchCandidates(model).contains { $0.contains("opus-4-7") || $0.contains("opus-4-8") || $0.contains("opus-5") || $0.contains("sonnet-5") || $0.contains("fable-5") }
+        supportsNativeXHighEffort(model)
     }
 
     private static func mapBedrockEffort(model: Model, reasoning: ThinkingLevel) -> String {

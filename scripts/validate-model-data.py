@@ -21,15 +21,15 @@ from pathlib import Path
 from project_tmp import configured_run_tmp
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_TARBALL_SHA256 = "8a9e69b1309cf93405d87729fa123c8b11c6be7c646b16f34f8bef7b792f9138"
+EXPECTED_TARBALL_SHA256 = "6caab33cec57480ed02c57fe37428a030a77cc2a0662814b435a5cf8932ad829"
 EXPECTED_SCHEMA = 6
-EXPECTED_COUNTS = {"chat": 1536, "image": 59, "classifier": 20}
-EXPECTED_PROVIDERS = {"chat": 41, "image": 1, "classifier": 5}
-EXPECTED_APIS = {"chat": 10, "image": 1, "classifier": 2}
-EXPECTED_TOTAL = 1615
+EXPECTED_COUNTS = {"chat": 1563, "image": 61, "classifier": 26}
+EXPECTED_PROVIDERS = {"chat": 41, "image": 1, "classifier": 6}
+EXPECTED_APIS = {"chat": 10, "image": 1, "classifier": 3}
+EXPECTED_TOTAL = 1650
 EXPECTED_PROVIDER_FILES = 42
-EXPECTED_GENERATED_AT = "2026-10-03T12:25:02.573Z"
-EXPECTED_STRUCTURE_HASH = "03d2e1aeeee6eb16959d4f727b47b9b187efaf863c688a47889fb90d200e6812"
+EXPECTED_GENERATED_AT = "2026-10-07T22:01:28.515Z"
+EXPECTED_STRUCTURE_HASH = "080cfcf6bdd13064ce2362f26e4902c31503b675fd06a8c4685c04a0333bc465"
 MODALITIES = {"text", "image"}
 REQUIRED_MANIFEST = {"schemaVersion", "generatedAt", "structureHash", "files"}
 
@@ -259,16 +259,16 @@ def render_stage(records: dict[str, list[dict]], manifest: dict, stage: Path) ->
     scripts.mkdir(parents=True)
     generated.mkdir(parents=True)
     specs = {
-        "chat": ("models.v1.0.1.json", "upstream-models.a7229dd.json", "ModelsGenerated.swift"),
-        "image": ("image-models.v1.0.1.json", "upstream-image-models.a7229dd.json", "ImageModelsGenerated.swift"),
-        "classifier": ("classifier-models.v1.0.1.json", "upstream-classifier-models.a7229dd.json", "ClassifierModelsGenerated.swift"),
+        "chat": ("models.v1.1.0.json", "upstream-models.abe508e.json", "ModelsGenerated.swift"),
+        "image": ("image-models.v1.1.0.json", "upstream-image-models.abe508e.json", "ImageModelsGenerated.swift"),
+        "classifier": ("classifier-models.v1.1.0.json", "upstream-classifier-models.abe508e.json", "ClassifierModelsGenerated.swift"),
     }
     for kind, (current, upstream, swift_name) in specs.items():
         for name in [current, upstream]:
             write_json(scripts / name, records[kind])
             write_jsonl(scripts / f"{name}l", records[kind])
         subprocess.run([sys.executable, str(ROOT / "scripts/generate-models.py"), str(scripts / current), str(generated / swift_name)], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-    write_json(scripts / "provider-data-manifest.v1.0.1.json", manifest)
+    write_json(scripts / "provider-data-manifest.v1.1.0.json", manifest)
 
 
 def publish_stage(stage: Path, output_root: Path, generated_root: Path) -> None:
@@ -317,7 +317,7 @@ def main() -> int:
             if render_fault:
                 raise SystemExit("injected render/format fault after staging; accepted outputs were not replaced")
             publish_stage(stage, args.output_root, args.generated_root)
-    print("ok: verified pinned schema6 provider data rendered 1536/59/20 records")
+    print("ok: verified pinned schema6 provider data rendered 1563/61/26 records")
     return 0
 
 

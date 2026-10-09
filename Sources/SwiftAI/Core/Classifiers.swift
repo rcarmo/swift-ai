@@ -4,11 +4,13 @@ import FoundationNetworking
 #endif
 
 public enum ClassifierAPI: String, Codable, Sendable {
+    case openAIDecisions = "openai-decisions"
     case typeSafeSystemOne = "typesafe-system-one"
     case cloudflareWorkersAISystemOne = "cloudflare-workers-ai-system-one"
 }
 
 public enum ClassifierProvider: String, Codable, Hashable, Sendable {
+    case openAIClassifier = "openai"
     case typesafe = "typesafe"
     case cloudflareWorkersAI = "cloudflare-workers-ai"
     case openRouter = "openrouter"
@@ -79,7 +81,8 @@ public struct ClassifierQuestion: Codable, Equatable, Sendable {
 public struct ClassificationContext: Codable, Equatable, Sendable {
     public var state: JSONValue
     public var questions: [String: ClassifierQuestion]
-    public init(state: JSONValue, questions: [String: ClassifierQuestion]) { self.state = state; self.questions = questions }
+    public var images: [ContentBlock]?
+    public init(state: JSONValue, questions: [String: ClassifierQuestion], images: [ContentBlock]? = nil) { self.state = state; self.questions = questions; self.images = images }
     public init(stateObject: [String: JSONValue], questions: [String: ClassifierQuestion]) { self.state = .object(stateObject); self.questions = questions }
     public init(input: String, questions: [String: ClassifierQuestion]) { self.state = .string(input); self.questions = questions }
 }
@@ -161,6 +164,7 @@ public actor ClassifierRegistry {
 public extension SwiftAI {
     static func classify(model: ClassifierModel?, context: ClassificationContext, options: ClassifierOptions? = nil) async -> ClassificationResult {
         guard let model else { return ClassificationResult(stopReason: .error, errorMessage: "nil model") }
+        if context.images?.isEmpty == false, !model.input.contains("image") { return ClassificationResult(api: model.api, provider: model.provider, model: model.id, stopReason: .error, errorMessage: "Model \(model.provider.rawValue)/\(model.id) does not accept image input") }
         guard let provider = await ClassifierRegistry.shared.apiProvider(for: model.api) else { return ClassificationResult(api: model.api, provider: model.provider, model: model.id, stopReason: .error, errorMessage: "no classifier provider registered") }
         return await provider.classify(model, context, options)
     }

@@ -25,13 +25,13 @@ final class ClassifierRegistryTests: XCTestCase {
     }
 
     func testBuiltinClassifierCatalogMatchesV101Oracle() throws {
-        XCTAssertEqual(BuiltinClassifierModels.upstreamVersion, "1.0.1")
-        XCTAssertEqual(BuiltinClassifierModels.modelCount, 20)
-        XCTAssertEqual(BuiltinClassifierModels.providerCount, 5)
+        XCTAssertEqual(BuiltinClassifierModels.upstreamVersion, "1.1.0")
+        XCTAssertEqual(BuiltinClassifierModels.modelCount, 26)
+        XCTAssertEqual(BuiltinClassifierModels.providerCount, 6)
         let models = try BuiltinClassifierModels.all()
-        XCTAssertEqual(models.count, 20)
-        XCTAssertEqual(Set(models.map(\.api)), [.typeSafeSystemOne, .cloudflareWorkersAISystemOne])
-        XCTAssertEqual(Set(models.map(\.provider)), [ClassifierProvider.typesafe, .cloudflareWorkersAI, .openRouter, .vercelAIGateway, .openCode])
+        XCTAssertEqual(models.count, 26)
+        XCTAssertEqual(Set(models.map(\.api)), [.typeSafeSystemOne, .cloudflareWorkersAISystemOne, .openAIDecisions])
+        XCTAssertEqual(Set(models.map(\.provider)), [ClassifierProvider.typesafe, .cloudflareWorkersAI, .openRouter, .vercelAIGateway, .openCode, .openAIClassifier])
 
         let direct = try XCTUnwrap(models.first { $0.provider == .typesafe && $0.id == "jev-latest" })
         XCTAssertEqual(direct.api, .typeSafeSystemOne)

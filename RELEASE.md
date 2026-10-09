@@ -2,7 +2,19 @@
 
 This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
-## Current target
+## v1.1.0 development candidate (not accepted/published)
+
+* Official pi-ai/pi-durable tag: `abe508e1b89912adde45528136c3221eb69acdd7`.
+* AI npm SHA-256: `6caab33cec57480ed02c57fe37428a030a77cc2a0662814b435a5cf8932ad829`.
+* Durable npm SHA-256: `a0f95b4a418e8bc219e9cbde06baedada940c62c47068829208e4fff278c07be`.
+* Catalogues: 1563 chat / 61 image / 26 classifier; deltas vs v1.0.1: chat +79/-52/199 changed, image +2/-0/0, classifier +6/-0/1. Exact pinned schema-v6 validation and full-record comparisons passed.
+* Production candidate: OpenAI Decisions wire/parse/dispatch with billed refusal preservation and no 504 retry; classifier images; sampling-by-effective-thinking-level; Azure provider identity/completions; Bedrock GPT/Haiku effort; retry phrases; 3.5-character context estimate; tiered cost; response/tool duration; ordered native scan cursors; persisted provider session ID.
+* Local Swift 6.3.2: warnings-as-errors build; full 388-test suite passed, no skips; static and catalogue corruption checks passed; SBOM/security/licence passed. These results apply to the dirty development candidate, not an accepted release ref.
+* Focused nine-test Massif: pass, peak useful heap 11,557,726 bytes; largest named paths are registry registration, JSON decoding and catalogues. CPU clock-sampling collection completed a 388-test run, but gprofng display crashed (139), including machine-view retry; hotspot analysis is unavailable. No measured optimisation accepted.
+* AI and durable exact-path matrices are [`docs/upstream-v1.1.0-audit.md`](docs/upstream-v1.1.0-audit.md) and [`docs/durable-v1.1.0-audit.md`](docs/durable-v1.1.0-audit.md). Unresolved rows prevent full parity acceptance. The existing v1.0.1 crosswalk gate is historical; catalogue checks now use v1.1.0 inputs.
+* Broad durable features and real-host macOS persistence are incomplete. Current release tags/assets stay at accepted v1.0.1 runtime; no v1.1.0 publication authorised or performed.
+
+## Accepted publication
 
 - Upstream package: `@earendil-works/pi-ai`
 - Current upstream release: `v1.0.1`

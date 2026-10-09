@@ -31,8 +31,6 @@ public enum OpenAICompletionsProvider {
         ]
         if stream, compat.supportsUsageInStreaming != false { body["stream_options"] = .object(["include_usage": .bool(true)]) }
         if compat.supportsStore != false { body["store"] = .bool(false) }
-        for (key, value) in model.samplingParams ?? [:] { body[key] = value }
-        for (key, value) in options?.samplingParams ?? [:] { body[key] = value }
         if let temperature = options?.temperature { body["temperature"] = .number(temperature) }
         let maxTokensField = compat.maxTokensField ?? "max_tokens"
         if let maxTokens = AIUtilities.effectiveMaxTokens(model: model, context: context, options: options, defaultToModel: true) { body[maxTokensField] = .number(Double(maxTokens)) }
@@ -48,6 +46,7 @@ public enum OpenAICompletionsProvider {
         if let toolChoice = options?.toolChoice { body["tool_choice"] = toolChoice }
         if let reasoning = options?.reasoning, model.reasoning { applyThinking(model: model, options: options, compat: compat, effort: reasoning.rawValue, body: &body); applyThinkingTokenBudget(model: model, options: options, compat: compat, body: &body) }
         else if model.reasoning { applyThinkingDisabled(model: model, compat: compat, body: &body) }
+        for (key, value) in AIUtilities.resolveSamplingParams(model: model, level: options?.reasoning.map { ModelThinkingLevel(rawValue: $0.rawValue)! } ?? .off, request: options?.samplingParams) { body[key] = value }
         return body
     }
 
@@ -319,7 +318,14 @@ public enum OpenAICompletionsProvider {
 
     private static func makeRequest(model: Model, context: AIContext, options: StreamOptions?, stream: Bool) async throws -> URLRequest {
         guard let key = clientAPIKey(model: model, options: options), !key.isEmpty else { throw AIError.provider("missing API key for \(model.provider.rawValue)") }
-        let baseURL = AIUtilities.isCloudflareProvider(model.provider) ? AIUtilities.resolveCloudflareBaseURL(model: model, env: options?.env) : model.baseUrl
+        var baseURL = AIUtilities.isCloudflareProvider(model.provider) ? AIUtilities.resolveCloudflareBaseURL(model: model, env: options?.env) : model.baseUrl
+        var deployment: String?
+        if model.provider == .azure {
+            let config = try OpenAIResponsesProvider.resolveAzureConfig(model: model, options: options)
+            guard let endpoint = URL(string: config.baseURL) else { throw AIError.invalidResponse("Invalid Azure endpoint") }
+            baseURL = endpoint.deletingLastPathComponent().deletingLastPathComponent().absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            deployment = config.deployment
+        }
         let url = URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -340,6 +346,7 @@ public enum OpenAICompletionsProvider {
         }
         AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         var payload = buildRequestBody(model: model, context: context, options: options, stream: stream)
+        if let deployment { payload["model"] = .string(deployment) }
         if let hook = options?.onPayload { payload = try await hook(payload, model) }
         request.httpBody = try JSONEncoder().encode(payload)
         return request

@@ -138,7 +138,7 @@ final class DurableSubmissionRecoveryTests: XCTestCase {
             let environment = ProcessInfo.processInfo.environment
             let dir = URL(fileURLWithPath: environment["SWIFT_AI_S1B_CRASH_DIR"]!, isDirectory: true)
             let effectURL = URL(fileURLWithPath: environment["SWIFT_AI_S1B_EFFECT_FILE"]!)
-            let storage = try DurableJournalStorage(directory: dir, faultInjector: S1BCrashAfterDirectorySync(targetSeq: 4))
+            let storage = try DurableJournalStorage(directory: dir, faultInjector: S1CCrashAtMarker("terminal-staged"))
             let model = Model(id: "crash-completing", name: "Crash Completing", api: .faux, provider: .faux, baseUrl: "runtime")
             await AIRegistry.shared.register(model)
             await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, _, _ in AsyncStream { continuation in Task { try! Data("effect\n".utf8).write(to: effectURL, options: .atomic); var message = Message(role: .assistant, content: [.text("staged")]); message.api = model.api; message.provider = model.provider; message.model = model.id; message.stopReason = .stop; continuation.yield(.done(reason: .stop, message: message)); continuation.finish() } } }))
@@ -195,7 +195,7 @@ final class DurableSubmissionRecoveryTests: XCTestCase {
         let model = Model(id: "uncertain-stop", name: "Uncertain Stop", api: .faux, provider: .faux, baseUrl: "runtime")
         await AIRegistry.shared.register(model)
         await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, context, _ in AsyncStream { continuation in Task { await effects.record(context); await barrier.hold(); var message = Message(role: .assistant, content: [.text("first")]); message.api = model.api; message.provider = model.provider; message.model = model.id; message.stopReason = .stop; continuation.yield(.done(reason: .stop, message: message)); continuation.finish() } } }))
-        let storage = try DurableJournalStorage(directory: dir, faultInjector: S1BFailAfterDirectorySync(targetSeq: 5))
+        let storage = try DurableJournalStorage(directory: dir, faultInjector: S1BFailAfterDirectorySync(targetSeq: 6))
         let session = DurableSession(storage: storage, testingHooks: DurableSessionTestingHooks(onSubmitWaiter: { hooks.mark($0) }), capacity: 2)
         let first = Task { try await session.submit(DurableGenerationRequest(conversationID: 1, model: model, transcript: [.user("first")], requestID: "first")) }
         await hooks.wait(1); await barrier.waitEntered()

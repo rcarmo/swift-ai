@@ -38,6 +38,7 @@ public actor DurableSession {
     public let taskRegistry = DurableTaskRegistry()
     var nativeTaskSignals: [Int64: DurableCancellationSignal] = [:]
     var nativeSchedulerRunning = false
+    var subagentSchedulerRunning = false
     let gate: DurableMutationGate
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
@@ -331,7 +332,7 @@ public actor DurableSession {
         }
     }
 
-    private func recover(taskID: Int64) async throws -> DurableGenerationResult {
+    func recover(taskID: Int64) async throws -> DurableGenerationResult {
         let snapshot = try await storage.snapshot()
         guard let task = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing recovery task") }
         let intent = try DurableGenerationPlanner.intent(for: task, in: snapshot)

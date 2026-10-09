@@ -35,7 +35,7 @@ public actor DurableTaskRegistry {
     private var definitions: [String: DurableTaskDefinition] = [:]
     public init() {}
     public func register(_ definition: DurableTaskDefinition) throws {
-        guard !definition.name.isEmpty, definition.name.utf8.count <= 128, definition.version > 0, !["generation", "tool", "compaction"].contains(definition.name) else { throw DurableError.invalidRecord("invalid native task definition") }
+        guard !definition.name.isEmpty, definition.name.utf8.count <= 128, definition.version > 0, !["generation", "tool", "compaction", "subagent"].contains(definition.name) else { throw DurableError.invalidRecord("invalid native task definition") }
         definitions[definition.name] = definition
     }
     public func remove(_ name: String) { definitions.removeValue(forKey: name) }
@@ -78,7 +78,7 @@ public extension DurableSession {
         nativeSchedulerRunning = true; activeAdmissions += 1
         defer { nativeSchedulerRunning = false; activeAdmissions -= 1; finishCloseIfNeeded() }
         let snapshot = try await snapshot()
-        let tasks = snapshot.tasks.values.filter { (conversationID == nil || $0.conversationID == conversationID) && !["generation", "tool", "compaction"].contains($0.kind) && ![.completed, .failed, .aborted].contains($0.status) }.sorted { $0.id < $1.id }
+        let tasks = snapshot.tasks.values.filter { (conversationID == nil || $0.conversationID == conversationID) && !["generation", "tool", "compaction", "subagent"].contains($0.kind) && ![.completed, .failed, .aborted].contains($0.status) }.sorted { $0.id < $1.id }
         guard tasks.count <= DurableLimits.maxPublicQueue else { throw DurableError.queueFull }
         var results: [DurableTaskRecord] = []
         for task in tasks { results.append(try await executeNativeTask(id: task.id, ancestry: [])) }

@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Subagent conversations and completion reports chunk
+
+Added durable child-conversation ownership, pinned subagent input/agent settings, explicit serial subagent resume, deduplicated child generation admission and staged completion reports. Report queueing and subagent terminal settlement share one commit; journal reopen and completing-stage recovery queue one report without repeating model effects. Background ownership is recorded, but execution still requires explicit resume. Full 418-test, warnings-as-errors and static/catalogue gates passed locally. Parallel scheduling, nested abort propagation, full subagent hook/tool integration and the broader upstream audit remain incomplete.
+
 ### Automatic inbox follow-up scheduling chunk
 
 Configured agents can now admit `send` input and explicitly resume persisted inbox work without caller-owned provider execution. The generation worker schedules selected placed follow-ups after terminal settlement, reuses their existing input/submission IDs and respects agent one/all queue modes. Combined input context is preserved without duplicate entries; abort removes queued user inputs as unanswered while passive writes remain queued. Scheduling holds close reservations across asynchronous preparation. Full 416-test, warnings-as-errors and static/catalogue gates passed locally. Background subagents and automatic pressure/overflow compaction remain follow-up scope.

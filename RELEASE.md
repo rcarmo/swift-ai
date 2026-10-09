@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Native task ownership/recovery chunk
+
+Added registered versioned native task definitions, explicit bounded resume, persisted input/checkpoints, child creation/wait, completing-stage results, ownership drain before parent settlement, abort-tree marking/handlers and task graph inspection. Missing/mismatched definitions block execution; completing recovery settles without repeating effects. A failed task does not stop later tasks, and committed pre-effect checkpoints survive failed callbacks. The scheduler is a serial native adapter; worker-slot yielding, arbitrary sibling waits, memos, handover/orphan policies, background generation/subagents and automatic wake are still follow-up scope. Full 410-test, warnings-as-errors and static/catalogue gates passed locally.
+
 ### Agent/prompt/request-hook chunk
 
 Added persisted agent model/instructions/thinking/extension selection, install/replace/uninstall extension registry, selected prompt-section rendering and before-request/after-response hooks. Failed section renderers retain previously shown text without double tagging; invalid extension keys are rejected before installation. Named extension identity is pinned into generation intent, credentials/endpoints stay live-only, and after-response hook failures preserve billed usage. The native prompt currently passes a combined `AIContext.systemPrompt`; upstream mid-conversation system/tool-delta replay, task/tool hooks, wrappers and automatic scheduling still require integration. Full 406-test, warnings-as-errors and static/catalogue gates passed locally.

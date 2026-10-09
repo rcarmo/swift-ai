@@ -35,6 +35,9 @@ public actor DurableSession {
     let storage: DurableStorage
     let observation = DurableObservationHub()
     public let extensionRegistry = DurableExtensionRegistry()
+    public let taskRegistry = DurableTaskRegistry()
+    var nativeTaskSignals: [Int64: DurableCancellationSignal] = [:]
+    var nativeSchedulerRunning = false
     let gate: DurableMutationGate
     private let testingHooks: DurableSessionTestingHooks?
     private let capacity: Int
@@ -222,6 +225,7 @@ public actor DurableSession {
             return
         }
         isClosing = true
+        for signal in nativeTaskSignals.values { signal.cancel() }
         await observation.close()
         await toolRegistry?.seal()
         testingHooks?.onCloseSealed?()

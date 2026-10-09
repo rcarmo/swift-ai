@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Persisted inbox/boundary chunk
+
+Inbox input and passive-write submissions now persist separately from generation admission, with request-ID semantic deduplication, withdrawal, bounded queue size and journal recovery. Post-tool boundaries place all passive writes before selected steering input; final boundaries also select follow-ups. Reset writes promote a tool boundary to final and stale head writes settle unanswered without restoring cut history. Tool-round continuation includes the placed steering context, and final answer settlement plus next boundary placement share one storage batch. The native API exposes explicit queue/placement operations; automatic follow-up run scheduling, configurable agent queue settings and abort cascades remain follow-up scope. Full 396-test, warnings-as-errors and static/catalogue gates passed locally for this chunk.
+
 ### Conversation/context/observation chunk
 
 Native conversation forks now inherit visible ancestor entries through the exact cut, copy current/as-of conversation documents into independent instances, and leave initial-policy documents absent. Journal replay reconstructs rewindable document history. Reset markers and latest context edits define the active range; tool results are ordered by assistant calls, with explicit missing-result messages. Generation preparation and entry scans use that visible context. Document/view/commit observations acquire a baseline on the mutation line and publish acknowledged commits only, with bounded self-contained root frames, retirement and close termination.

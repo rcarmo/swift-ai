@@ -667,9 +667,15 @@ public actor DurableSession {
             let resultMessages = childIDs.compactMap { id -> Message? in guard let entryID = snapshot.tasks[id]?.outcome?.objectValue?["entryID"]?.doubleValue.map(Int64.init) else { return nil }; return snapshot.entries[entryID]?.messages?.first }
             guard resultMessages.count == childIDs.count else { throw DurableError.corruptStorage("missing ordered tool results") }
             intent.roundMessages = (intent.roundMessages ?? []) + resultMessages; intent.round = (intent.round ?? 1) + 1
+            let boundary = try DurableInboxPlanner.boundary(snapshot: snapshot, conversationID: parent.conversationID, at: .postTools, steering: .oneAtATime, followUp: .oneAtATime)
+            if boundary.result.reset {
+                let projected = DurableValidation.applying(boundary.batch, to: snapshot, seq: snapshot.seq + 1, highWater: max(snapshot.highWaterID, boundary.batch.entries.map(\.id).max() ?? 0))
+                intent.preparedTranscript = try DurableContext.derive(snapshot: projected, conversationID: parent.conversationID).messages
+                intent.roundMessages = []
+            } else { intent.roundMessages = (intent.roundMessages ?? []) + boundary.result.entries.flatMap { $0.messages ?? [] } }
             let intentDoc = try Self.toolIntentDocument(snapshot: snapshot, taskID: taskID, intent: intent)
             let running = DurableTaskRecord(id: parent.id, conversationID: parent.conversationID, ownerTaskID: parent.ownerTaskID, kind: parent.kind, status: .running, checkpoint: DurableGenerationPlanner.checkpoint(intent: intent, phase: "running"), abortRequested: parent.abortRequested, background: parent.background, outcome: parent.outcome, createdSeq: parent.createdSeq)
-            _ = try await self.storage.commit(DurableCommitBatch(tasks: [running], documents: [intentDoc]))
+            _ = try await self.storage.commit(DurableCommitBatch(entries: boundary.batch.entries, tasks: [running], submissions: boundary.batch.submissions, documents: boundary.batch.documents + [intentDoc]))
         }
     }
 
@@ -689,7 +695,15 @@ public actor DurableSession {
             let afterCompleting = try await self.storage.snapshot()
             let placed = submissionID.flatMap { afterCompleting.submissions[$0] }
             do {
-                let finalBatch = try DurableGenerationPlanner.finalSuccessBatch(snapshot: afterCompleting, task: taskForFinal, submission: placed, inputEntryID: inputEntryID, terminal: terminal)
+                var finalBatch = try DurableGenerationPlanner.finalSuccessBatch(snapshot: afterCompleting, task: taskForFinal, submission: placed, inputEntryID: inputEntryID, terminal: terminal)
+                for submission in afterCompleting.submissions.values where submission.conversationID == taskForFinal.conversationID && submission.status == .placed && submission.payloadHash?.hasPrefix("inbox:") == true && !finalBatch.submissions.contains(where: { $0.id == submission.id }) {
+                    guard let entryID = submission.entryID else { continue }
+                    var settled = submission; settled.status = .done; settled.answerID = finalBatch.entries.first?.id; settled.entryID = entryID
+                    finalBatch.submissions.append(settled)
+                }
+                let projected = DurableValidation.applying(finalBatch, to: afterCompleting, seq: afterCompleting.seq + 1, highWater: max(afterCompleting.highWaterID, finalBatch.entries.map(\.id).max() ?? 0, finalBatch.documents.map(\.id).max() ?? 0))
+                let boundary = try DurableInboxPlanner.boundary(snapshot: projected, conversationID: taskForFinal.conversationID, at: .final, steering: .oneAtATime, followUp: .oneAtATime)
+                finalBatch.entries += boundary.batch.entries; finalBatch.submissions += boundary.batch.submissions; finalBatch.documents += boundary.batch.documents
                 _ = try await self.storage.commit(finalBatch)
             } catch DurableGenerationFailure.failure(let failure) {
                 let failureTerminal = try DurableGenerationPlanner.aggregateFailureFinalBatch(snapshot: afterCompleting, task: taskForFinal, submission: placed, inputEntryID: inputEntryID, failure: failure)

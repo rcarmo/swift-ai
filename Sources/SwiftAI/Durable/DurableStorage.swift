@@ -648,7 +648,7 @@ enum DurableValidation {
     private static func validSubmissionTransition(from old: DurableSubmissionStatus, to new: DurableSubmissionStatus) -> Bool {
         if old == new { return true }
         switch old {
-        case .queued: return [.placed, .withdrawn].contains(new)
+        case .queued: return [.placed, .unanswered, .withdrawn].contains(new)
         case .placed: return [.done, .unanswered, .withdrawn].contains(new)
         case .done, .unanswered, .withdrawn: return false
         }
@@ -671,7 +671,8 @@ enum DurableValidation {
         case .done:
             guard record.entryID != nil, record.answerID != nil, record.reason == nil else { throw missingReferenceError("done submission requires entry and answer") }
         case .unanswered:
-            guard record.entryID != nil, record.answerID == nil, record.reason != nil else { throw missingReferenceError("unanswered submission requires entry and reason") }
+            let unplacedStaleWrite = record.type == .write && record.reason == "stale" && record.payloadHash?.hasPrefix("inbox:") == true
+            guard record.entryID != nil || unplacedStaleWrite, record.answerID == nil, record.reason != nil else { throw missingReferenceError("unanswered submission requires entry and reason") }
         case .withdrawn:
             guard record.answerID == nil, record.reason != nil else { throw missingReferenceError("withdrawn submission requires reason and no answer") }
         }

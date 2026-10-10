@@ -68,7 +68,7 @@ For a local checkout during development, use:
 .package(path: "../swift-ai")
 ```
 
-The manifest declares SwiftPM tools version 5.9 and targets macOS 13, iOS 16, tvOS 16, and watchOS 9. Local verification used Swift 6.3.2 on Linux; hosted verification used Ubuntu Swift 6.4. Those manifest declarations do not establish testing on Swift 5.9 or the Apple platforms. The `CZstd` system-library target also requires libzstd (`libzstd-dev` on Debian/Ubuntu, `zstd` via Homebrew).
+The manifest declares SwiftPM tools version 5.9 and targets macOS 13, iOS 16, tvOS 16, and watchOS 9. Local verification used Swift 6.3.2 on Linux; hosted verification used Ubuntu Swift 6.4. Those manifest declarations do not establish testing on Swift 5.9 or the Apple platforms. The system-library targets require libzstd and SQLite (`libzstd-dev libsqlite3-dev` on Debian/Ubuntu, `zstd sqlite` via Homebrew). Native SQLite storage uses a Swift-specific schema and does not read upstream TypeScript databases.
 
 ## Quick start
 

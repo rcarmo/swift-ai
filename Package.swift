@@ -16,8 +16,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0")
     ],
     targets: [
-        .target(name: "SwiftAI", dependencies: [.product(name: "Crypto", package: "swift-crypto"), "CZstd"]),
+        .target(name: "SwiftAI", dependencies: [.product(name: "Crypto", package: "swift-crypto"), "CZstd", "CSQLite"]),
         .systemLibrary(name: "CZstd", pkgConfig: "libzstd", providers: [.apt(["libzstd-dev"]), .brew(["zstd"])]),
+        .systemLibrary(name: "CSQLite", pkgConfig: "sqlite3", providers: [.apt(["libsqlite3-dev"]), .brew(["sqlite"])]),
         .testTarget(name: "SwiftAITests", dependencies: ["SwiftAI"])
     ]
 )

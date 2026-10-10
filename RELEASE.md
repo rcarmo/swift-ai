@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Native SQLite persistence chunk
+
+Added a CSQLite system-library binding and real SQLite durable backend with writer ownership locking, WAL/FULL synchronisation, explicit transactions, schema-version checks, bounded decoded payloads and immutable revision checks. Mixed batches roll back on validation/write failure; state adoption follows commit acknowledgement. Tests cover writer exclusion, invalid-batch atomicity, reopen, fork/reset/document history and corrupt payload rejection. The native schema stores bounded Swift snapshots and is not wire-compatible with upstream SQLite; indexed upstream facade, migrations and Cloudflare driver remain follow-up scope. Full 433-test, warnings-as-errors, static/catalogue and SBOM/OSV/licence gates passed locally. SQLite is a host system dependency outside the resolved SwiftPM graph scan.
+
 ### Azure/Codex production transport chunk
 
 Azure configuration now uses scoped-or-process environment resolution, ignores empty/whitespace overrides and applies resource-before-model fallback. Added the completions transport seam and production streaming tests for Azure endpoint/deployment payload-hook routing. Codex custom originator/User-Agent overrides are retained while bearer authentication and account identity are restored after custom headers. Full 430-test, warnings-as-errors and static/catalogue gates passed locally; request URL/body/header assertions execute through production streaming functions.

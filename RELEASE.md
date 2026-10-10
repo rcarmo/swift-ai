@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Native JSONL persistence chunk
+
+Added native checksummed commit-line storage with strict version/sequence/allocator validation, bounded replay, writer locking, append/file/directory synchronisation and uncertain-failure poison. Only incomplete EOF data is truncated; malformed complete lines or checksum/version conflicts fail closed. Tests cover mixed-batch reopen, torn-tail repair followed by append, corruption, invalid-batch nonpublication and exclusive ownership. Full 436-test, warnings-as-errors and static/catalogue gates passed locally. The Swift line schema has no upstream sidecar/reclamation or wire-compatibility claim; those facade/format adaptations need final disposition.
+
 ### Native SQLite persistence chunk
 
 Added a CSQLite system-library binding and real SQLite durable backend with writer ownership locking, WAL/FULL synchronisation, explicit transactions, schema-version checks, bounded decoded payloads and immutable revision checks. Mixed batches roll back on validation/write failure; state adoption follows commit acknowledgement. Tests cover writer exclusion, invalid-batch atomicity, reopen, fork/reset/document history and corrupt payload rejection. The native schema stores bounded Swift snapshots and is not wire-compatible with upstream SQLite; indexed upstream facade, migrations and Cloudflare driver remain follow-up scope. Full 433-test, warnings-as-errors, static/catalogue and SBOM/OSV/licence gates passed locally. SQLite is a host system dependency outside the resolved SwiftPM graph scan.

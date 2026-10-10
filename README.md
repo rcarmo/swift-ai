@@ -1,7 +1,7 @@
 # swift-ai
 
 > [!IMPORTANT]
-> Work on this project is paused. The unfinished v1.1.0 port is preserved on [`release/v1.1.0`](https://github.com/rcarmo/swift-ai/tree/release/v1.1.0). `main` retains the v1.0.1 release code with README updates.
+> I have decided to halt this project for two very simple reasons: I don't have the resources (tokens, compute or time) and there are a zillion people doing parallel work on this, so it feels wasteful. Feel free to fork and adopt this. Unfinished v1.1.0 work is preserved on the [`release/v1.1.0`](https://github.com/rcarmo/swift-ai/tree/release/v1.1.0). `main` retains the v1.0.1 release code with README updates.
 
 [![CI](https://github.com/rcarmo/swift-ai/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rcarmo/swift-ai/actions/workflows/ci.yml)
 [![CycloneDX SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](https://github.com/rcarmo/swift-ai/releases/download/v1.0.1/sbom.cdx.json)

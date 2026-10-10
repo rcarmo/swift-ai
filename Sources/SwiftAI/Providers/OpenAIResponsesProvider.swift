@@ -165,12 +165,13 @@ public enum OpenAIResponsesProvider {
     }
 
     public static func resolveAzureConfig(model: Model, options: StreamOptions?) throws -> (baseURL: String, deployment: String, apiVersion: String) {
-        let env = options?.env ?? [:]
-        let apiVersion = options?.azureApiVersion ?? env["AZURE_OPENAI_API_VERSION"] ?? "v1"
-        let mappedDeployment = parseAzureDeploymentNameMap(env["AZURE_OPENAI_DEPLOYMENT_NAME_MAP"] ?? "")[model.id]
-        let deployment = options?.azureDeploymentName ?? mappedDeployment ?? model.id
-        var base = options?.azureBaseUrl ?? env["AZURE_OPENAI_BASE_URL"] ?? model.baseUrl
-        if base.isEmpty, let resource = options?.azureResourceName ?? env["AZURE_OPENAI_RESOURCE_NAME"], !resource.isEmpty { base = "https://\(resource).openai.azure.com/openai/v1" }
+        func nonempty(_ value: String?) -> String? { guard let value, !value.isEmpty else { return nil }; return value }
+        let apiVersion = nonempty(options?.azureApiVersion) ?? nonempty(ProviderEnvironment.value("AZURE_OPENAI_API_VERSION", env: options?.env)) ?? "v1"
+        let mappedDeployment = parseAzureDeploymentNameMap(ProviderEnvironment.value("AZURE_OPENAI_DEPLOYMENT_NAME_MAP", env: options?.env) ?? "")[model.id]
+        let deployment = nonempty(options?.azureDeploymentName) ?? nonempty(mappedDeployment) ?? model.id
+        var base = nonempty(options?.azureBaseUrl?.trimmingCharacters(in: .whitespacesAndNewlines)) ?? nonempty(ProviderEnvironment.value("AZURE_OPENAI_BASE_URL", env: options?.env)?.trimmingCharacters(in: .whitespacesAndNewlines)) ?? ""
+        if base.isEmpty, let resource = nonempty(options?.azureResourceName) ?? nonempty(ProviderEnvironment.value("AZURE_OPENAI_RESOURCE_NAME", env: options?.env)) { base = "https://\(resource).openai.azure.com/openai/v1" }
+        if base.isEmpty { base = model.baseUrl }
         guard !base.isEmpty else { throw AIError.provider("Azure OpenAI base URL is required") }
         base = try normalizeAzureBaseURL(base)
         return (base + "/deployments/\(deployment.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? deployment)", deployment, apiVersion)
@@ -211,6 +212,9 @@ public enum OpenAIResponsesProvider {
         if model.provider == .githubCopilot { for (k, v) in AIUtilities.buildCopilotDynamicHeaders(context.messages) { request.setValue(v, forHTTPHeaderField: k) } }
         AIUtilities.applyProviderHeaders(model.headers, options?.headers, to: &request)
         if model.api == .openAICodexResponses {
+            // Identity/auth are mandatory; caller overrides apply only to the other defaults.
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            request.setValue(try extractCodexAccountID(key), forHTTPHeaderField: "chatgpt-account-id")
             let encoded = try encodeCodexSSERequestBody(body)
             request.setValue(encoded.contentEncoding, forHTTPHeaderField: "Content-Encoding")
             request.httpBody = encoded.body

@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Azure/Codex production transport chunk
+
+Azure configuration now uses scoped-or-process environment resolution, ignores empty/whitespace overrides and applies resource-before-model fallback. Added the completions transport seam and production streaming tests for Azure endpoint/deployment payload-hook routing. Codex custom originator/User-Agent overrides are retained while bearer authentication and account identity are restored after custom headers. Full 430-test, warnings-as-errors and static/catalogue gates passed locally; request URL/body/header assertions execute through production streaming functions.
+
 ### Stored OAuth refresh ownership chunk
 
 Added a native credential-store mutation contract and in-memory provider-scoped locking, plus stored-key resolution with double-checked refresh. Cancellation while waiting for admission removes the observer/lock wait; once refresh starts, the owned refresh and persistence survive caller cancellation so a rotated token is not discarded. Provider refresh has a timeout and concurrent callers reuse the committed credential. Added source-compatible login options and custom ChatGPT agent-name hints. Full 427-test, warnings-as-errors and static/catalogue gates passed locally. Persistent cross-process credential locking and Codex browser-login option propagation still require follow-up; the in-memory store does not claim cross-process coordination.

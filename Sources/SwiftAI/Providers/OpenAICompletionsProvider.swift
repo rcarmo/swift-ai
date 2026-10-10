@@ -4,6 +4,8 @@ import FoundationNetworking
 #endif
 
 public enum OpenAICompletionsProvider {
+    public typealias RequestTransport = @Sendable (URLRequest, RetryPolicy) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse)
+    nonisolated(unsafe) public static var requestTransport: RequestTransport?
     public static let minAnswerTokens = 1024
     public static func stream(model: Model, context: AIContext, options: StreamOptions?) -> AsyncStream<AIEvent> {
         AsyncStream { continuation in
@@ -356,7 +358,8 @@ public enum OpenAICompletionsProvider {
         let request = try await makeRequest(model: model, context: context, options: options, stream: true)
         let policy = RetryPolicy(options: options)
         let (bytes, response) = try await ProviderRetry.run(maxRetries: policy.maxRetries, maxRetryDelayMs: policy.maxRetryDelayMs) {
-            try await HTTPRetry.providerBytes(for: request, maxRetryDelayMs: policy.maxRetryDelayMs)
+            if let transport = requestTransport { return try await transport(request, RetryPolicy(maxRetries: 0, maxRetryDelayMs: policy.maxRetryDelayMs)) }
+            return try await HTTPRetry.providerBytes(for: request, maxRetryDelayMs: policy.maxRetryDelayMs)
         }
         guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse("non-HTTP response") }
         if let hook = options?.onResponse { await hook(HTTPResponseMetadata(status: http.statusCode, headers: http.headersDictionary), model) }

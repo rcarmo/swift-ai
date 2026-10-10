@@ -37,7 +37,7 @@ extension DurableSession {
             var ids = try DurableSubmissionPlanner.nextID(from: current, reserving: 4)
             let childID = ids.removeFirst(), intentID = ids.removeFirst()
             let transcript = DurableContext.orderToolResults(view.contributions.prefix(cut).flatMap { $0 })
-            let childIntent = DurableCompactionIntent(model: pinned.model, conversationID: task.conversationID, tail: tail, firstKept: view.entries[cut].id, transcript: transcript, maxTokens: min(max(1, Int(Double(policy.reserveTokens) * 0.8)), pinned.model.maxTokens > 0 ? pinned.model.maxTokens : Int.max))
+            let childIntent = DurableCompactionIntent(model: pinned.model, conversationID: task.conversationID, tail: tail, firstKept: view.entries[cut].id, transcript: transcript, maxTokens: min(max(1, Int(Double(policy.reserveTokens) * 0.8)), pinned.model.maxTokens > 0 ? pinned.model.maxTokens : Int.max), extensions: pinned.extensions)
             let child = DurableTaskRecord(id: childID, conversationID: task.conversationID, ownerTaskID: taskID, kind: "compaction", checkpoint: .object(["phase": .string("summarize")]))
             let childDocument = DurableDocumentRecord(id: intentID, scope: "task", ownerID: childID, kind: "compaction.intent", value: try DurableGenerationPlanner.encodeJSON(childIntent, maxBytes: DurableLimits.maxCheckpointBytes))
             pinned.compactionTaskID = childID; pinned.pressureChecked = true
@@ -72,7 +72,8 @@ extension DurableSession {
             guard let parent = snapshot.tasks[parentID], let child = snapshot.tasks[compactionID], var document = DurableGenerationPlanner.document(scope: "task", ownerID: parentID, kind: "generation.intent", in: snapshot) else { throw DurableError.corruptStorage("missing automatic compaction settlement") }
             var intent = try DurableGenerationPlanner.intent(for: parent, in: snapshot)
             intent.compactionTaskID = nil; intent.pressureChecked = true
-            if child.status == .completed {
+            let placed = child.status == .completed && child.outcome?.objectValue?["entryID"] != nil
+            if placed {
                 let view = try DurableContext.derive(snapshot: snapshot, conversationID: parent.conversationID)
                 let otherInputs = Set(snapshot.tasks.values.filter { $0.id != parentID && $0.kind == "generation" && ![.completed, .failed, .aborted].contains($0.status) }.compactMap { task in
                     (try? DurableGenerationPlanner.intent(for: task, in: snapshot))?.inputEntryID
@@ -82,7 +83,7 @@ extension DurableSession {
             }
             document.value = try DurableGenerationPlanner.encodeJSON(intent)
             _ = try await self.storage.commit(DurableCommitBatch(documents: [document]))
-            return child.status == .completed
+            return placed
         }
     }
 }

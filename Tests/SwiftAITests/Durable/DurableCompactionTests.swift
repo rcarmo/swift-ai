@@ -41,6 +41,36 @@ final class DurableCompactionTests: XCTestCase {
         XCTAssertNil(DurableCompaction.selectCut(view: DurableContextView(entries: Array(entries.prefix(1)), contributions: Array(contributions.prefix(1)), messages: [.user("old")]), keepRecentTokens: 100))
     }
 
+    func testHookSummaryAndDeclineAvoidProviderEffects() async throws {
+        let session = DurableSession(storage: DurableMemoryStorage())
+        let model = Model(id: "no-summary-provider", name: "none", api: .faux, provider: .faux)
+        let conversation = try await session.createConversation()
+        try await session.configureAgent(conversationID: conversation.id, settings: DurableAgentSettings(model: model, extensions: ["summary"]))
+        for text in ["first", "second", "third"] { _ = try await session.appendEntry(conversationID: conversation.id, kind: "user", messages: [.user(text)]) }
+        try await session.extensionRegistry.install(DurableExtension(name: "summary", hooks: DurableGenerationHooks(beforeCompact: { view in
+            XCTAssertEqual(view.messages.count, 3); return .summary("hook supplied summary")
+        })))
+        let compacted = try await session.compact(conversationID: conversation.id, model: model, keepRecentTokens: 1)
+        let summary = try XCTUnwrap(compacted); XCTAssertEqual(summary.task.status, .completed); XCTAssertTrue(summary.entry?.messages?.first?.content.first?.text?.contains("hook supplied summary") == true)
+        _ = try await session.appendEntry(conversationID: conversation.id, kind: "user", messages: [.user("fourth")])
+        try await session.extensionRegistry.install(DurableExtension(name: "summary", hooks: DurableGenerationHooks(beforeCompact: { _ in .decline })))
+        let declined = try await session.compact(conversationID: conversation.id, model: model, keepRecentTokens: 1)
+        let result = try XCTUnwrap(declined); XCTAssertEqual(result.task.status, .completed); XCTAssertNil(result.entry); XCTAssertEqual(result.task.outcome?.objectValue?["declined"], .bool(true))
+        try await session.close()
+    }
+
+    func testPersistedHookDecisionRecoveryDoesNotInvokeHookAgain() async throws {
+        let storage = DurableMemoryStorage()
+        _ = try await storage.commit(DurableCommitBatch(conversations: [DurableConversationRecord(id: 1)], entries: [DurableEntryRecord(id: 2, conversationID: 1, kind: "user", messages: [.user("old")]), DurableEntryRecord(id: 3, conversationID: 1, kind: "user", messages: [.user("kept")])]))
+        let model = Model(id: "none", name: "none", api: .faux, provider: .faux)
+        let intent = DurableCompactionIntent(model: model, conversationID: 1, tail: 3, firstKept: 3, transcript: [.user("old")], maxTokens: 80, summary: "durable hook summary", extensions: ["missing-on-reopen"], decisionEvaluated: true)
+        _ = try await storage.commit(DurableCommitBatch(tasks: [DurableTaskRecord(id: 4, conversationID: 1, kind: "compaction")], documents: [DurableDocumentRecord(id: 5, scope: "task", ownerID: 4, kind: "compaction.intent", value: try DurableGenerationPlanner.encodeJSON(intent))]))
+        _ = try await storage.commit(DurableCommitBatch(tasks: [DurableTaskRecord(id: 4, conversationID: 1, kind: "compaction", status: .running)]))
+        let session = DurableSession(storage: storage)
+        let results = try await session.resumeCompactions(); XCTAssertEqual(results.first?.task.status, .completed); XCTAssertTrue(results.first?.entry?.messages?.first?.content.first?.text?.contains("durable hook summary") == true)
+        try await session.close()
+    }
+
     func testStagedSummaryRecoveryDoesNotCallProviderOrRebill() async throws {
         let storage = DurableMemoryStorage()
         _ = try await storage.commit(DurableCommitBatch(conversations: [DurableConversationRecord(id: 1)], entries: [DurableEntryRecord(id: 2, conversationID: 1, kind: "user", messages: [.user("old")]), DurableEntryRecord(id: 3, conversationID: 1, kind: "user", messages: [.user("kept")])]))

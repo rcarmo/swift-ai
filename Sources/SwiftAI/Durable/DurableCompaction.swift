@@ -16,6 +16,9 @@ struct DurableCompactionIntent: Codable, Sendable {
     var summary: String?
     var usage: Usage?
     var failure: String?
+    var extensions: [String]?
+    var decisionEvaluated: Bool?
+    var declined: Bool?
 }
 
 public enum DurableCompaction {
@@ -75,6 +78,7 @@ public extension DurableSession {
         guard keepRecentTokens >= 0, reserveTokens > 0 else { throw DurableError.invalidRecord("invalid compaction policy") }
         activeAdmissions += 1
         defer { activeAdmissions -= 1; finishCloseIfNeeded() }
+        let selectedExtensions = try await agent(conversationID: conversationID)?.extensions ?? []
         let taskID: Int64? = try await gate.submit {
             let snapshot = try await self.storage.snapshot()
             guard !snapshot.tasks.values.contains(where: { $0.conversationID == conversationID && ![.completed, .failed, .aborted].contains($0.status) }) else { throw DurableError.invalidRecord("manual compaction requires an idle conversation") }
@@ -83,7 +87,7 @@ public extension DurableSession {
             let ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: 2)
             var pinned = model; pinned.baseUrl = ""; pinned.headers = nil
             let transcript = DurableContext.orderToolResults(view.contributions.prefix(cut).flatMap { $0 })
-            let intent = DurableCompactionIntent(model: pinned, conversationID: conversationID, tail: tail, firstKept: view.entries[cut].id, transcript: transcript, instructions: instructions, maxTokens: min(max(1, Int(Double(reserveTokens) * 0.8)), model.maxTokens > 0 ? model.maxTokens : Int.max))
+            let intent = DurableCompactionIntent(model: pinned, conversationID: conversationID, tail: tail, firstKept: view.entries[cut].id, transcript: transcript, instructions: instructions, maxTokens: min(max(1, Int(Double(reserveTokens) * 0.8)), model.maxTokens > 0 ? model.maxTokens : Int.max), extensions: selectedExtensions.isEmpty ? nil : selectedExtensions)
             try DurableNativePreflight.validate(intent, maxBytes: DurableLimits.maxCheckpointBytes)
             let task = DurableTaskRecord(id: ids[0], conversationID: conversationID, kind: "compaction", checkpoint: .object(["phase": .string("summarize")]))
             let document = DurableDocumentRecord(id: ids[1], scope: "task", ownerID: task.id, kind: "compaction.intent", value: try DurableGenerationPlanner.encodeJSON(intent, maxBytes: DurableLimits.maxCheckpointBytes))
@@ -117,6 +121,34 @@ public extension DurableSession {
                 current.status = .running
                 _ = try await self.storage.commit(DurableCommitBatch(tasks: [current]))
             }
+            if intent.decisionEvaluated != true {
+                do {
+                    let view = try DurableContext.derive(snapshot: before, conversationID: intent.conversationID, at: intent.tail)
+                    let selected = try await extensionRegistry.snapshot(names: intent.extensions ?? [])
+                    for value in selected {
+                        guard let hook = value.hooks.beforeCompact else { continue }
+                        if let decision = try await hook(view) {
+                            switch decision {
+                            case .decline: intent.declined = true
+                            case .summary(let text):
+                                let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !text.isEmpty, text.utf8.count <= DurableLimits.maxStringBytes else { throw DurableError.invalidRecord("invalid hook summary") }
+                                intent.summary = text
+                            }
+                            break
+                        }
+                    }
+                } catch { intent.failure = "before_compact_hook" }
+                intent.decisionEvaluated = true
+                let decisionIntent = intent
+                try await gate.submit {
+                    let snapshot = try await self.storage.snapshot()
+                    guard var doc = snapshot.documents[document.id] else { throw DurableError.corruptStorage("missing compaction decision") }
+                    doc.value = try DurableGenerationPlanner.encodeJSON(decisionIntent, maxBytes: DurableLimits.maxCheckpointBytes)
+                    _ = try await self.storage.commit(DurableCommitBatch(documents: [doc]))
+                }
+            }
+            if intent.declined != true, intent.summary == nil, intent.failure == nil {
             do {
                 guard var current = await AIRegistry.shared.model(provider: intent.model.provider, id: intent.model.id) else { throw DurableError.invalidRecord("missing compaction model") }
                 var connection: DurableLiveConnection?
@@ -136,6 +168,7 @@ public extension DurableSession {
                 guard message.stopReason == .stop, !summary.isEmpty, !message.content.contains(where: { $0.type == "toolCall" }) else { throw DurableError.invalidRecord("compaction did not produce a complete text summary") }
                 intent.summary = summary
             } catch { intent.failure = "summary_failed" }
+            }
             let stagedIntent = intent
             try await gate.submit {
                 let snapshot = try await self.storage.snapshot(); guard var current = snapshot.tasks[taskID], var doc = snapshot.documents[document.id] else { throw DurableError.corruptStorage("missing compaction stage") }
@@ -151,7 +184,9 @@ public extension DurableSession {
             var ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: 3)
             var entries: [DurableEntryRecord] = [], documents: [DurableDocumentRecord] = []
             let head = try DurableContext.derive(snapshot: snapshot, conversationID: current.conversationID).head?.head
-            if let summary = finalIntent.summary, finalIntent.failure == nil, !current.abortRequested, (head ?? 0) <= finalIntent.firstKept {
+            if finalIntent.declined == true, !current.abortRequested {
+                current.status = .completed; current.outcome = .object(["declined": .bool(true)])
+            } else if let summary = finalIntent.summary, finalIntent.failure == nil, !current.abortRequested, (head ?? 0) <= finalIntent.firstKept {
                 let entry = DurableEntryRecord(id: ids.removeFirst(), conversationID: current.conversationID, kind: "pi.compaction", messages: [.user("The conversation before the retained messages was summarised as:\n\n" + summary)], byTaskID: taskID, head: finalIntent.firstKept)
                 entries.append(entry); current.status = .completed; current.outcome = .object(["entryID": .number(Double(entry.id))])
             } else { current.status = current.abortRequested ? .aborted : .failed; current.outcome = .object(["code": .string(finalIntent.failure ?? "stale")]) }

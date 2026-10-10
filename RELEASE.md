@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Durable compaction-hook decisions chunk
+
+Manual and generation-owned compaction now run selected before-compact hooks. The first decision may decline or supply a validated summary; that decision is persisted before any summarisation call. Running-task recovery reuses the decision even when the extension is unavailable after reopen. A declined automatic compaction completes without refreshing context or triggering an overflow retry. Full 441-test, warnings-as-errors and static/catalogue checks passed, including supplied-summary, decline and persisted-decision recovery tests. Summarisation retry policy and remaining upstream lifecycle/control hooks still require follow-up.
+
 ### Tool-hook validation and replay chunk
 
 Before-tool hooks can replace arguments or block an effect. Rewritten arguments are revalidated and persisted with the started checkpoint; started recovery skips the before-hook chain. After-tool hooks can change validated result content/documents while original billed usage is preserved. Hook errors become ordered tool-error results without stopping later generation rounds. The first full run exposed usage normalisation masking invalid original billing; validation now precedes hooks and preserves the existing invalid-usage rejection. Full 439-test, warnings-as-errors and static/catalogue checks passed after correction. Compaction decisions and remaining lifecycle/control hooks still need integration.

@@ -19,6 +19,8 @@ struct DurableCompactionIntent: Codable, Sendable {
     var extensions: [String]?
     var decisionEvaluated: Bool?
     var declined: Bool?
+    var attempt: Int?
+    var retryAtMs: Int64?
 }
 
 public enum DurableCompaction {
@@ -111,11 +113,21 @@ public extension DurableSession {
     func executeCompaction(taskID: Int64) async throws -> DurableCompactionResult {
         guard runningCompactions.insert(taskID).inserted else { throw DurableError.invalidRecord("compaction is already executing") }
         defer { runningCompactions.remove(taskID) }
+        return try await performCompaction(taskID: taskID)
+    }
+
+    private func performCompaction(taskID: Int64) async throws -> DurableCompactionResult {
         let before = try await snapshot()
         guard let task = before.tasks[taskID], let document = DurableGenerationPlanner.document(scope: "task", ownerID: taskID, kind: "compaction.intent", in: before) else { throw DurableError.corruptStorage("missing compaction intent") }
         if [.completed, .failed, .aborted].contains(task.status) { return DurableCompactionResult(task: task, entry: before.entries.values.first { $0.byTaskID == taskID }) }
         var intent = try JSONDecoder().decode(DurableCompactionIntent.self, from: JSONEncoder().encode(document.value))
         if task.status != .completing {
+            if let deadline = intent.retryAtMs {
+                let remaining = max(0, deadline - Int64(Date().timeIntervalSince1970 * 1000))
+                guard remaining <= 300_000 else { throw DurableError.corruptStorage("invalid compaction retry deadline") }
+                if remaining > 0 { try await Task.sleep(nanoseconds: UInt64(remaining) * 1_000_000) }
+                intent.retryAtMs = nil
+            }
             try await gate.submit {
                 let snapshot = try await self.storage.snapshot(); guard var current = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing compaction") }
                 current.status = .running
@@ -148,6 +160,7 @@ public extension DurableSession {
                     _ = try await self.storage.commit(DurableCommitBatch(documents: [doc]))
                 }
             }
+            var retryable = false
             if intent.declined != true, intent.summary == nil, intent.failure == nil {
             do {
                 guard var current = await AIRegistry.shared.model(provider: intent.model.provider, id: intent.model.id) else { throw DurableError.invalidRecord("missing compaction model") }
@@ -164,10 +177,41 @@ public extension DurableSession {
                 }
                 guard terminalCount == 1, let message = terminal else { throw DurableError.invalidRecord("invalid compaction terminal") }
                 intent.usage = DurableGenerationPlanner.validUsageOrNil(message.usage)
+                retryable = AssistantErrorRetryClassifier.isRetryableAssistantError(message)
                 let summary = message.content.filter { $0.type == "text" }.compactMap(\.text).joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
                 guard message.stopReason == .stop, !summary.isEmpty, !message.content.contains(where: { $0.type == "toolCall" }) else { throw DurableError.invalidRecord("compaction did not produce a complete text summary") }
                 intent.summary = summary
             } catch { intent.failure = "summary_failed" }
+            }
+            let attempt = intent.attempt ?? 1
+            if intent.failure != nil, intent.failure != "before_compact_hook" {
+                let policy = try await agent(conversationID: intent.conversationID)?.retry ?? DurableRetryPolicy(enabled: false)
+                try policy.validate()
+                if retryable, policy.enabled, attempt <= policy.maxRetries {
+                    let billedUsage = intent.usage
+                    intent.attempt = attempt + 1; intent.failure = nil; intent.usage = nil
+                    let delay = min(Double(policy.maxDelayMs), Double(policy.baseDelayMs) * pow(2, Double(attempt - 1)))
+                    intent.retryAtMs = Int64(Date().timeIntervalSince1970 * 1000) + Int64(delay)
+                    let retryIntent = intent
+                    try await gate.submit {
+                        let snapshot = try await self.storage.snapshot()
+                        guard var current = snapshot.tasks[taskID], var doc = snapshot.documents[document.id] else { throw DurableError.corruptStorage("missing compaction retry") }
+                        current.checkpoint = .object(["phase": .string("retry"), "attempt": .number(Double(attempt + 1))])
+                        doc.value = try DurableGenerationPlanner.encodeJSON(retryIntent, maxBytes: DurableLimits.maxCheckpointBytes)
+                        var documents = [doc]
+                        if let usage = billedUsage {
+                            let kind = "compaction.usage.attempt.\(attempt)"
+                            guard DurableGenerationPlanner.document(scope: "task", ownerID: taskID, kind: kind, in: snapshot) == nil else { throw DurableError.corruptStorage("duplicate compaction retry receipt") }
+                            let aggregate = DurableGenerationPlanner.document(scope: "conversation", ownerID: retryIntent.conversationID, kind: "durable.usage", in: snapshot)
+                            let ids = try DurableSubmissionPlanner.nextID(from: snapshot, reserving: aggregate == nil ? 2 : 1)
+                            let identity = "\(retryIntent.model.provider.rawValue)/\(retryIntent.model.api.rawValue)/\(retryIntent.model.id)"
+                            documents.append(DurableDocumentRecord(id: ids[0], scope: "task", ownerID: taskID, kind: kind, value: DurableGenerationPlanner.usageValue(usage, model: identity)))
+                            documents.append(DurableDocumentRecord(id: aggregate?.id ?? ids[1], scope: "conversation", ownerID: retryIntent.conversationID, kind: "durable.usage", value: try DurableGenerationPlanner.aggregateUsageValue(existing: aggregate?.value, adding: usage, model: identity), createdSeq: aggregate?.createdSeq ?? 0))
+                        }
+                        _ = try await self.storage.commit(DurableCommitBatch(tasks: [current], documents: documents))
+                    }
+                    return try await performCompaction(taskID: taskID)
+                }
             }
             let stagedIntent = intent
             try await gate.submit {

@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Durable summariser retries chunk
+
+Added validated bounded retry settings for configured agents and persisted summariser attempts/deadlines. A retryable failed summary atomically records its usage receipt, aggregate spend and next-attempt checkpoint before retrying; reopen continues that next attempt without repeating the billed failure. The existing pinned transcript and hook decision survive retries. Full 443-test, warnings-as-errors and static/catalogue checks passed, including retry accounting and acknowledgement-loss recovery. Generation-level retry, background pressure scheduling and the remaining upstream task/control audit are still open.
+
 ### Durable compaction-hook decisions chunk
 
 Manual and generation-owned compaction now run selected before-compact hooks. The first decision may decline or supply a validated summary; that decision is persisted before any summarisation call. Running-task recovery reuses the decision even when the extension is unavailable after reopen. A declined automatic compaction completes without refreshing context or triggering an overflow retry. Full 441-test, warnings-as-errors and static/catalogue checks passed, including supplied-summary, decline and persisted-decision recovery tests. Summarisation retry policy and remaining upstream lifecycle/control hooks still require follow-up.

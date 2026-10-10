@@ -41,6 +41,59 @@ final class DurableCompactionTests: XCTestCase {
         XCTAssertNil(DurableCompaction.selectCut(view: DurableContextView(entries: Array(entries.prefix(1)), contributions: Array(contributions.prefix(1)), messages: [.user("old")]), keepRecentTokens: 100))
     }
 
+    func testRetryPreservesEachBilledAttemptAndReadsBoundedPolicy() async throws {
+        let counter = CompactionRetryCounter()
+        let model = Model(id: "retry-summary", name: "retry", api: .faux, provider: .faux, baseUrl: "runtime", maxTokens: 80)
+        await AIRegistry.shared.register(model)
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { model, _, _ in AsyncStream { continuation in Task {
+            let attempt = await counter.next()
+            var message = Message(role: .assistant, content: [.text("summary")]); message.api = model.api; message.provider = model.provider; message.model = model.id
+            var usage = Usage(); usage.input = attempt; usage.totalTokens = attempt; message.usage = usage
+            if attempt == 1 { message.stopReason = .error; message.errorMessage = "server_busy"; continuation.yield(.error(reason: .error, message: message, error: AIError.provider("server_busy"))) }
+            else { message.stopReason = .stop; continuation.yield(.done(reason: .stop, message: message)) }
+            continuation.finish()
+        } } }))
+        let session = DurableSession(storage: DurableMemoryStorage())
+        let conversation = try await session.createConversation()
+        try await session.configureAgent(conversationID: conversation.id, settings: DurableAgentSettings(model: model, retry: DurableRetryPolicy(maxRetries: 1, baseDelayMs: 0, maxDelayMs: 0)))
+        for text in ["old", "middle", "kept"] { _ = try await session.appendEntry(conversationID: conversation.id, kind: "user", messages: [.user(text)]) }
+        let compacted = try await session.compact(conversationID: conversation.id, model: model, keepRecentTokens: 1)
+        let result = try XCTUnwrap(compacted); XCTAssertEqual(result.task.status, .completed)
+        let calls = await counter.count; XCTAssertEqual(calls, 2)
+        let snapshot = try await session.snapshot()
+        XCTAssertEqual(snapshot.documents.values.first { $0.kind == "compaction.usage.attempt.1" }?.value.objectValue?["input"], .number(1))
+        XCTAssertEqual(snapshot.documents.values.first { $0.kind == "compaction.usage" }?.value.objectValue?["input"], .number(2))
+        XCTAssertEqual(snapshot.documents.values.first { $0.kind == "durable.usage" }?.value.objectValue?["input"], .number(3))
+        try await session.close()
+    }
+
+    func testRetryCheckpointReopenDoesNotRepeatBilledFailedAttempt() async throws {
+        let counter = CompactionRetryCounter(), storage = CompactionRetryCrashStorage()
+        let model = Model(id: "retry-reopen", name: "retry", api: .faux, provider: .faux, baseUrl: "runtime", maxTokens: 80)
+        await AIRegistry.shared.register(model)
+        await AIRegistry.shared.register(APIProvider(api: .faux, stream: { _, _, _ in AsyncStream { continuation in Task {
+            let attempt = await counter.next()
+            var message = Message(role: .assistant, content: [.text("summary")]); var usage = Usage(); usage.input = attempt; usage.totalTokens = attempt; message.usage = usage
+            if attempt == 1 { message.stopReason = .error; message.errorMessage = "server_busy"; continuation.yield(.error(reason: .error, message: message, error: AIError.provider("server_busy"))) }
+            else { message.stopReason = .stop; continuation.yield(.done(reason: .stop, message: message)) }
+            continuation.finish()
+        } } }))
+        let session = DurableSession(storage: storage)
+        let conversation = try await session.createConversation()
+        try await session.configureAgent(conversationID: conversation.id, settings: DurableAgentSettings(model: model, retry: DurableRetryPolicy(maxRetries: 1, baseDelayMs: 0, maxDelayMs: 0)))
+        for text in ["old", "middle", "kept"] { _ = try await session.appendEntry(conversationID: conversation.id, kind: "user", messages: [.user(text)]) }
+        do { _ = try await session.compact(conversationID: conversation.id, model: model, keepRecentTokens: 1); XCTFail("retry ACK failure expected") } catch DurableError.durabilityUncertain {} catch { XCTFail("wrong retry fault") }
+        let persisted = try await storage.snapshot()
+        XCTAssertEqual(persisted.tasks.values.first { $0.kind == "compaction" }?.checkpoint?.objectValue?["phase"], .string("retry"))
+        do { try await session.close(); XCTFail("uncertain close should retain failure") } catch DurableError.durabilityUncertain {} catch { XCTFail("wrong close fault") }
+        let reopened = DurableSession(storage: DurableMemoryStorage(snapshot: persisted))
+        let results = try await reopened.resumeCompactions(); XCTAssertEqual(results.first?.task.status, .completed)
+        let calls = await counter.count; XCTAssertEqual(calls, 2)
+        let final = try await reopened.snapshot(); XCTAssertEqual(final.documents.values.first { $0.kind == "durable.usage" }?.value.objectValue?["input"], .number(3))
+        XCTAssertEqual(final.documents.values.filter { $0.kind == "compaction.usage.attempt.1" }.count, 1)
+        try await reopened.close()
+    }
+
     func testHookSummaryAndDeclineAvoidProviderEffects() async throws {
         let session = DurableSession(storage: DurableMemoryStorage())
         let model = Model(id: "no-summary-provider", name: "none", api: .faux, provider: .faux)
@@ -87,6 +140,22 @@ final class DurableCompactionTests: XCTestCase {
         try await session.close()
     }
 }
+
+private actor CompactionRetryCrashStorage: DurableStorage {
+    private let memory = DurableMemoryStorage()
+    private var tripped = false
+    func snapshot() async throws -> DurableSnapshot { try await memory.snapshot() }
+    func commit(_ batch: DurableCommitBatch) async throws -> DurableSnapshot {
+        let snapshot = try await memory.commit(batch)
+        if !tripped, batch.tasks.contains(where: { $0.kind == "compaction" && $0.checkpoint?.objectValue?["phase"] == .string("retry") }) {
+            tripped = true; throw DurableError.durabilityUncertain("retry ACK loss")
+        }
+        return snapshot
+    }
+    func close() async throws { try await memory.close() }
+}
+
+private actor CompactionRetryCounter { var count = 0; func next() -> Int { count += 1; return count } }
 
 private actor CompactionCapture {
     var prompts: [AIContext] = []

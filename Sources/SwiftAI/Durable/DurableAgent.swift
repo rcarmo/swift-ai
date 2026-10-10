@@ -1,5 +1,18 @@
 import Foundation
 
+public struct DurableRetryPolicy: Codable, Equatable, Sendable {
+    public var enabled: Bool
+    public var maxRetries: Int
+    public var baseDelayMs: Int
+    public var maxDelayMs: Int
+    public init(enabled: Bool = true, maxRetries: Int = 3, baseDelayMs: Int = 2000, maxDelayMs: Int = 60_000) {
+        self.enabled = enabled; self.maxRetries = maxRetries; self.baseDelayMs = baseDelayMs; self.maxDelayMs = maxDelayMs
+    }
+    func validate() throws {
+        guard maxRetries >= 0, maxRetries <= 100, baseDelayMs >= 0, baseDelayMs <= 300_000, maxDelayMs >= baseDelayMs, maxDelayMs <= 300_000 else { throw DurableError.invalidRecord("invalid durable retry policy") }
+    }
+}
+
 public struct DurableCompactionPolicy: Codable, Equatable, Sendable {
     public var enabled: Bool
     public var reserveTokens: Int
@@ -20,8 +33,9 @@ public struct DurableAgentSettings: Codable, Equatable, Sendable {
     public var steeringMode: DurableQueueMode
     public var followUpMode: DurableQueueMode
     public var compaction: DurableCompactionPolicy?
-    public init(model: Model, instructions: String? = nil, thinkingLevel: ModelThinkingLevel = .off, extensions: [String] = [], steeringMode: DurableQueueMode = .oneAtATime, followUpMode: DurableQueueMode = .oneAtATime, compaction: DurableCompactionPolicy = DurableCompactionPolicy()) {
-        self.model = model; self.instructions = instructions; self.thinkingLevel = thinkingLevel; self.extensions = extensions; self.steeringMode = steeringMode; self.followUpMode = followUpMode; self.compaction = compaction
+    public var retry: DurableRetryPolicy?
+    public init(model: Model, instructions: String? = nil, thinkingLevel: ModelThinkingLevel = .off, extensions: [String] = [], steeringMode: DurableQueueMode = .oneAtATime, followUpMode: DurableQueueMode = .oneAtATime, compaction: DurableCompactionPolicy = DurableCompactionPolicy(), retry: DurableRetryPolicy = DurableRetryPolicy()) {
+        self.model = model; self.instructions = instructions; self.thinkingLevel = thinkingLevel; self.extensions = extensions; self.steeringMode = steeringMode; self.followUpMode = followUpMode; self.compaction = compaction; self.retry = retry
     }
 }
 
@@ -76,6 +90,7 @@ struct DurablePromptState: Codable, Sendable { var sections: [String]; var text:
 public extension DurableSession {
     func configureAgent(conversationID: Int64, settings: DurableAgentSettings) async throws {
         try settings.compaction?.validate()
+        try settings.retry?.validate()
         var stored = settings; stored.model.baseUrl = ""; stored.model.headers = nil
         guard Set(stored.extensions).count == stored.extensions.count else { throw DurableError.invalidRecord("duplicate selected extension") }
         _ = try await writeDocument(scope: "conversation", ownerID: conversationID, kind: "pi.agent", value: DurableGenerationPlanner.encodeJSON(stored), fork: .current)

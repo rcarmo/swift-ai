@@ -1,5 +1,17 @@
 import Foundation
 
+public struct DurableCompactionPolicy: Codable, Equatable, Sendable {
+    public var enabled: Bool
+    public var reserveTokens: Int
+    public var keepRecentTokens: Int
+    public init(enabled: Bool = true, reserveTokens: Int = 16_384, keepRecentTokens: Int = 20_000) {
+        self.enabled = enabled; self.reserveTokens = reserveTokens; self.keepRecentTokens = keepRecentTokens
+    }
+    func validate() throws {
+        guard reserveTokens > 0, reserveTokens <= 16_777_216, keepRecentTokens >= 0, keepRecentTokens <= 16_777_216 else { throw DurableError.invalidRecord("invalid compaction policy") }
+    }
+}
+
 public struct DurableAgentSettings: Codable, Equatable, Sendable {
     public var model: Model
     public var instructions: String?
@@ -7,8 +19,9 @@ public struct DurableAgentSettings: Codable, Equatable, Sendable {
     public var extensions: [String]
     public var steeringMode: DurableQueueMode
     public var followUpMode: DurableQueueMode
-    public init(model: Model, instructions: String? = nil, thinkingLevel: ModelThinkingLevel = .off, extensions: [String] = [], steeringMode: DurableQueueMode = .oneAtATime, followUpMode: DurableQueueMode = .oneAtATime) {
-        self.model = model; self.instructions = instructions; self.thinkingLevel = thinkingLevel; self.extensions = extensions; self.steeringMode = steeringMode; self.followUpMode = followUpMode
+    public var compaction: DurableCompactionPolicy?
+    public init(model: Model, instructions: String? = nil, thinkingLevel: ModelThinkingLevel = .off, extensions: [String] = [], steeringMode: DurableQueueMode = .oneAtATime, followUpMode: DurableQueueMode = .oneAtATime, compaction: DurableCompactionPolicy = DurableCompactionPolicy()) {
+        self.model = model; self.instructions = instructions; self.thinkingLevel = thinkingLevel; self.extensions = extensions; self.steeringMode = steeringMode; self.followUpMode = followUpMode; self.compaction = compaction
     }
 }
 
@@ -53,6 +66,7 @@ struct DurablePromptState: Codable, Sendable { var sections: [String]; var text:
 
 public extension DurableSession {
     func configureAgent(conversationID: Int64, settings: DurableAgentSettings) async throws {
+        try settings.compaction?.validate()
         var stored = settings; stored.model.baseUrl = ""; stored.model.headers = nil
         guard Set(stored.extensions).count == stored.extensions.count else { throw DurableError.invalidRecord("duplicate selected extension") }
         _ = try await writeDocument(scope: "conversation", ownerID: conversationID, kind: "pi.agent", value: DurableGenerationPlanner.encodeJSON(stored), fork: .current)

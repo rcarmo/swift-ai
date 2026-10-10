@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Automatic pressure/overflow compaction chunk
+
+Configured agents now validate persisted compaction policy, check context pressure before provider dispatch and link a bounded summarisation child to the generation intent in one commit. A context-overflow error can compact and retry once; failed-request usage is recorded before summarisation, and staged linked compaction recovery refreshes the parent transcript without rebilling. Repeated overflow stops after one compaction. Disabled policy preserves the single-attempt path. Refreshed context excludes other pending generations' admitted inputs. Full 423-test, warnings-as-errors and static/catalogue gates passed locally, including pressure, billed overflow, repeated overflow, disabled policy and staged child recovery. Background pressure scheduling, before-compact decisions/retry and complete upstream audit remain follow-up scope.
+
 ### Subagent conversations and completion reports chunk
 
 Added durable child-conversation ownership, pinned subagent input/agent settings, explicit serial subagent resume, deduplicated child generation admission and staged completion reports. Report queueing and subagent terminal settlement share one commit; journal reopen and completing-stage recovery queue one report without repeating model effects. Background ownership is recorded, but execution still requires explicit resume. Full 418-test, warnings-as-errors and static/catalogue gates passed locally. Parallel scheduling, nested abort propagation, full subagent hook/tool integration and the broader upstream audit remain incomplete.

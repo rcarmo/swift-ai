@@ -104,11 +104,12 @@ public extension DurableSession {
         return results
     }
 
-    private func executeCompaction(taskID: Int64) async throws -> DurableCompactionResult {
+    func executeCompaction(taskID: Int64) async throws -> DurableCompactionResult {
         guard runningCompactions.insert(taskID).inserted else { throw DurableError.invalidRecord("compaction is already executing") }
         defer { runningCompactions.remove(taskID) }
         let before = try await snapshot()
         guard let task = before.tasks[taskID], let document = DurableGenerationPlanner.document(scope: "task", ownerID: taskID, kind: "compaction.intent", in: before) else { throw DurableError.corruptStorage("missing compaction intent") }
+        if [.completed, .failed, .aborted].contains(task.status) { return DurableCompactionResult(task: task, entry: before.entries.values.first { $0.byTaskID == taskID }) }
         var intent = try JSONDecoder().decode(DurableCompactionIntent.self, from: JSONEncoder().encode(document.value))
         if task.status != .completing {
             try await gate.submit {

@@ -382,6 +382,7 @@ public actor DurableSession {
                 throw error
             }
         }
+        _ = try await automaticCompaction(taskID: taskID)
         let dispatchIntent: DurableGenerationIntent
         let contextSnapshot = try await storage.snapshot()
         if let task = contextSnapshot.tasks[taskID] { dispatchIntent = try DurableGenerationPlanner.intent(for: task, in: contextSnapshot) }
@@ -403,6 +404,12 @@ public actor DurableSession {
                 }
             }
         } catch DurableGenerationFailure.failure(let failure) {
+            if failure.code == "context_overflow", try await automaticCompaction(taskID: taskID, overflow: failure) {
+                let snapshot = try await self.storage.snapshot()
+                guard let task = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing compacted generation") }
+                let pinned = try DurableGenerationPlanner.intent(for: task, in: snapshot)
+                return try await run(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, intent: pinned, startIfPending: false)
+            }
             return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure)
         } catch DurableGenerationFailure.outputLimit(let failure) {
             return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure)

@@ -159,6 +159,9 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
     var roundMessages: [Message]?
     var round: Int?
     var extensions: [String]?
+    var compactionTaskID: Int64?
+    var overflowCompacted: Bool?
+    var pressureChecked: Bool?
 
     init(request: DurableGenerationRequest, inputEntryID: Int64) {
         conversationID = request.conversationID
@@ -649,6 +652,8 @@ struct DurableGenerationPlanner {
 
     static func errorCode(_ message: String) -> String {
         let lower = message.lowercased()
+        var failure = Message(role: .assistant, content: []); failure.stopReason = .error; failure.errorMessage = message
+        if ContextUtilities.isContextOverflow(failure, contextWindow: 0) { return "context_overflow" }
         if lower.contains("timeout") { return "timeout" }
         if lower.contains("rate") { return "rate_limited" }
         if lower.contains("auth") || lower.contains("key") || lower.contains("token") { return "auth_error" }

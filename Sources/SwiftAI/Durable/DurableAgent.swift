@@ -32,10 +32,19 @@ public struct DurablePromptSection: Sendable {
     public init(key: String, tagged: Bool = true, render: @escaping @Sendable (DurableConversationView) async throws -> String?) { self.key = key; self.tagged = tagged; self.render = render }
 }
 
+public enum DurableBeforeToolDecision: Sendable {
+    case arguments([String: JSONValue])
+    case block(String)
+}
+public enum DurableBeforeCompactDecision: Sendable { case decline, summary(String) }
+
 public struct DurableGenerationHooks: Sendable {
+    public var beforeTool: (@Sendable (DurableToolBinding, [String: JSONValue]) async throws -> DurableBeforeToolDecision?)?
+    public var afterTool: (@Sendable (DurableToolBinding, DurableToolResult) async throws -> DurableToolResult)?
+    public var beforeCompact: (@Sendable (DurableContextView) async throws -> DurableBeforeCompactDecision?)?
     public var beforeRequest: (@Sendable (AIContext) async throws -> AIContext)?
     public var afterResponse: (@Sendable (Message) async throws -> Void)?
-    public init(beforeRequest: (@Sendable (AIContext) async throws -> AIContext)? = nil, afterResponse: (@Sendable (Message) async throws -> Void)? = nil) { self.beforeRequest = beforeRequest; self.afterResponse = afterResponse }
+    public init(beforeRequest: (@Sendable (AIContext) async throws -> AIContext)? = nil, afterResponse: (@Sendable (Message) async throws -> Void)? = nil, beforeTool: (@Sendable (DurableToolBinding, [String: JSONValue]) async throws -> DurableBeforeToolDecision?)? = nil, afterTool: (@Sendable (DurableToolBinding, DurableToolResult) async throws -> DurableToolResult)? = nil, beforeCompact: (@Sendable (DurableContextView) async throws -> DurableBeforeCompactDecision?)? = nil) { self.beforeRequest = beforeRequest; self.afterResponse = afterResponse; self.beforeTool = beforeTool; self.afterTool = afterTool; self.beforeCompact = beforeCompact }
 }
 
 public struct DurableExtension: Sendable {

@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Tool-hook validation and replay chunk
+
+Before-tool hooks can replace arguments or block an effect. Rewritten arguments are revalidated and persisted with the started checkpoint; started recovery skips the before-hook chain. After-tool hooks can change validated result content/documents while original billed usage is preserved. Hook errors become ordered tool-error results without stopping later generation rounds. The first full run exposed usage normalisation masking invalid original billing; validation now precedes hooks and preserves the existing invalid-usage rejection. Full 439-test, warnings-as-errors and static/catalogue checks passed after correction. Compaction decisions and remaining lifecycle/control hooks still need integration.
+
 ### Native JSONL persistence chunk
 
 Added native checksummed commit-line storage with strict version/sequence/allocator validation, bounded replay, writer locking, append/file/directory synchronisation and uncertain-failure poison. Only incomplete EOF data is truncated; malformed complete lines or checksum/version conflicts fail closed. Tests cover mixed-batch reopen, torn-tail repair followed by append, corruption, invalid-batch nonpublication and exclusive ownership. Full 436-test, warnings-as-errors and static/catalogue gates passed locally. The Swift line schema has no upstream sidecar/reclamation or wire-compatibility claim; those facade/format adaptations need final disposition.

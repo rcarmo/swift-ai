@@ -565,7 +565,7 @@ public actor DurableSession {
     private func executeToolChild(_ childID: Int64) async throws {
         var snapshot = try await storage.snapshot()
         guard var child = snapshot.tasks[childID], child.kind == "tool", let intentDoc = DurableGenerationPlanner.document(scope: "task", ownerID: childID, kind: "tool.intent", in: snapshot) else { throw DurableError.corruptStorage("missing tool child intent") }
-        let intent = try DurableGenerationPlanner.decodeJSON(DurableToolIntent.self, from: intentDoc.value)
+        var intent = try DurableGenerationPlanner.decodeJSON(DurableToolIntent.self, from: intentDoc.value)
         if [.completed, .failed, .aborted].contains(child.status) { return }
         if child.abortRequested, child.status == .pending {
             try await gate.submit {
@@ -590,10 +590,45 @@ public actor DurableSession {
             let unavailable = DurableStagedToolResult(content: "Tool implementation unavailable", isError: true, usage: nil, documents: [], code: "tool_unavailable", billingUnknown: replayingStarted)
             try await stageAndFinalizeToolChild(child: child, intent: intent, result: unavailable); return
         }
+        guard let parent = snapshot.tasks[intent.parentTaskID] else { throw DurableError.corruptStorage("missing tool parent") }
+        let parentIntent = try DurableGenerationPlanner.intent(for: parent, in: snapshot)
+        let selectedExtensions = try await extensionRegistry.snapshot(names: parentIntent.extensions ?? [])
+        if !replayingStarted {
+            do {
+            for value in selectedExtensions {
+                guard let hook = value.hooks.beforeTool else { continue }
+                switch try await hook(intent.binding, intent.executionArguments) {
+                case .arguments(let arguments): intent.executionArguments = arguments
+                case .block(let text):
+                    let blocked = DurableStagedToolResult(content: String(text.prefix(4096)), isError: true, usage: nil, documents: [], code: "tool_blocked", billingUnknown: false)
+                    let currentChild = child
+                    try await gate.submit {
+                        var running = currentChild; running.status = .running
+                        _ = try await self.storage.commit(DurableCommitBatch(tasks: [running]))
+                    }
+                    try await stageAndFinalizeToolChild(child: child, intent: intent, result: blocked)
+                    return
+                case nil: break
+                }
+            }
+            try DurableToolSchema.validate(arguments: intent.executionArguments, against: intent.binding.definition.parameters)
+            } catch {
+                let failed = DurableStagedToolResult(content: "Tool hook arguments were rejected", isError: true, usage: nil, documents: [], code: "before_tool_hook", billingUnknown: false)
+                let currentChild = child
+                try await gate.submit {
+                    var running = currentChild; running.status = .running
+                    _ = try await self.storage.commit(DurableCommitBatch(tasks: [running]))
+                }
+                try await stageAndFinalizeToolChild(child: child, intent: intent, result: failed)
+                return
+            }
+        }
+        let preparedIntent = intent
         try await gate.submit {
             let current = try await self.storage.snapshot(); guard let value = current.tasks[childID] else { throw DurableError.corruptStorage("missing tool child") }
             let running = DurableTaskRecord(id: value.id, conversationID: value.conversationID, ownerTaskID: value.ownerTaskID, kind: value.kind, status: .running, checkpoint: .object(["phase": .string("started")]), abortRequested: value.abortRequested, background: value.background, outcome: value.outcome, createdSeq: value.createdSeq)
-            _ = try await self.storage.commit(DurableCommitBatch(tasks: [running]))
+            var updated = intentDoc; updated.value = try DurableGenerationPlanner.encodeJSON(preparedIntent)
+            _ = try await self.storage.commit(DurableCommitBatch(tasks: [running], documents: [updated]))
         }
         snapshot = try await storage.snapshot(); child = snapshot.tasks[childID]!
         var staged: DurableStagedToolResult
@@ -604,10 +639,13 @@ public actor DurableSession {
         if child.abortRequested { signal.cancel() }
         let startedAt = DispatchTime.now().uptimeNanoseconds
         do {
-            let output = try await registration.execute(DurableToolExecution(durableToolID: intent.durableToolID, idempotencyKey: intent.idempotencyKey, providerCallID: intent.providerCallID, arguments: intent.executionArguments, logicalAttempt: intent.logicalAttempt, cancellation: signal))
+            var output = try await registration.execute(DurableToolExecution(durableToolID: intent.durableToolID, idempotencyKey: intent.idempotencyKey, providerCallID: intent.providerCallID, arguments: intent.executionArguments, logicalAttempt: intent.logicalAttempt, cancellation: signal))
             knownUsage = DurableGenerationPlanner.validUsageOrNil(output.usage)
             do { try DurableToolSchema.validateOutput(output) }
             catch DurableToolOutputValidation.invalidUsage { invalidUsage = true; throw DurableToolOutputValidation.invalidUsage }
+            for value in selectedExtensions { if let hook = value.hooks.afterTool { output = try await hook(intent.binding, output) } }
+            output.usage = knownUsage
+            try DurableToolSchema.validateOutput(output)
             staged = DurableStagedToolResult(content: output.content, isError: output.isError, usage: output.usage, documents: output.documents, code: output.isError ? "tool_error" : nil, billingUnknown: replayingStarted)
         } catch let error as DurableToolOutputValidation {
             let code: String

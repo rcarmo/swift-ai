@@ -16,6 +16,11 @@ public struct OAuthCredentials: Codable, Equatable, Sendable {
 public struct OAuthAuthInfo: Codable, Equatable, Sendable { public var url: String; public var instructions: String; public init(url: String, instructions: String) { self.url = url; self.instructions = instructions } }
 public struct OAuthPrompt: Codable, Equatable, Sendable { public var message: String; public var placeholder: String; public var allowEmpty: Bool; public init(message: String, placeholder: String = "", allowEmpty: Bool = false) { self.message = message; self.placeholder = placeholder; self.allowEmpty = allowEmpty } }
 
+public struct OAuthLoginOptions: Sendable {
+    public var agentName: String?
+    public init(agentName: String? = nil) { self.agentName = agentName }
+}
+
 public struct OAuthLoginCallbacks: Sendable {
     public var onAuth: (@Sendable (OAuthAuthInfo) async -> Void)?
     public var onPrompt: (@Sendable (OAuthPrompt) async throws -> String)?
@@ -28,6 +33,7 @@ public protocol OAuthProvider: Sendable {
     var id: String { get }
     var name: String { get }
     func login(callbacks: OAuthLoginCallbacks) async throws -> OAuthCredentials
+    func login(callbacks: OAuthLoginCallbacks, options: OAuthLoginOptions) async throws -> OAuthCredentials
     func refreshToken(credentials: OAuthCredentials) async throws -> OAuthCredentials
     func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials
     func apiKey(credentials: OAuthCredentials) -> String
@@ -40,6 +46,7 @@ public struct OAuthCancellation: Sendable {
 }
 
 public extension OAuthProvider {
+    func login(callbacks: OAuthLoginCallbacks, options: OAuthLoginOptions) async throws -> OAuthCredentials { try await login(callbacks: callbacks) }
     func refreshToken(credentials: OAuthCredentials, cancellation: OAuthCancellation) async throws -> OAuthCredentials {
         try cancellation.check()
         let refreshed = try await refreshToken(credentials: credentials)
@@ -57,9 +64,9 @@ public actor OAuthRegistry {
     public func listProviders() -> [any OAuthProvider] { providers.values.sorted { $0.id < $1.id } }
     public func clear() { providers.removeAll() }
 
-    public func login(id: String, callbacks: OAuthLoginCallbacks = OAuthLoginCallbacks()) async throws -> OAuthCredentials {
+    public func login(id: String, callbacks: OAuthLoginCallbacks = OAuthLoginCallbacks(), options: OAuthLoginOptions = OAuthLoginOptions()) async throws -> OAuthCredentials {
         guard let provider = providers[id] else { throw ModelsError("OAuth provider \(id) not registered") }
-        do { return try await provider.login(callbacks: callbacks) }
+        do { return try await provider.login(callbacks: callbacks, options: options) }
         catch { throw ModelsError("OAuth login failed for \(id)", cause: error) }
     }
 
@@ -197,11 +204,11 @@ public enum OpenAIChatGPTOAuthUtilities {
         return "urn:uuid:\(deviceID.lowercased())"
     }
 
-    public static func authorizationURL(deviceID: String, state: String, nonce: String, challenge: String) throws -> String {
+    public static func authorizationURL(deviceID: String, state: String, nonce: String, challenge: String, agentName: String? = nil) throws -> String {
         var components = URLComponents(string: authorizeURL)!
         components.queryItems = [
             URLQueryItem(name: "client_id", value: dynamicClientID),
-            URLQueryItem(name: "agent_name_hint", value: agentNameHint),
+            URLQueryItem(name: "agent_name_hint", value: agentName ?? agentNameHint),
             URLQueryItem(name: "ext_agent_host_id", value: try agentHostID(deviceID: deviceID)),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "redirect_uri", value: redirectURI),

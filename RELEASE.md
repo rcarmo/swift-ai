@@ -4,6 +4,10 @@ This repository tracks Swift runtime parity for `@earendil-works/pi-ai`.
 
 ## v1.1.0 development candidate (not accepted/published)
 
+### Stored OAuth refresh ownership chunk
+
+Added a native credential-store mutation contract and in-memory provider-scoped locking, plus stored-key resolution with double-checked refresh. Cancellation while waiting for admission removes the observer/lock wait; once refresh starts, the owned refresh and persistence survive caller cancellation so a rotated token is not discarded. Provider refresh has a timeout and concurrent callers reuse the committed credential. Added source-compatible login options and custom ChatGPT agent-name hints. Full 427-test, warnings-as-errors and static/catalogue gates passed locally. Persistent cross-process credential locking and Codex browser-login option propagation still require follow-up; the in-memory store does not claim cross-process coordination.
+
 ### Automatic pressure/overflow compaction chunk
 
 Configured agents now validate persisted compaction policy, check context pressure before provider dispatch and link a bounded summarisation child to the generation intent in one commit. A context-overflow error can compact and retry once; failed-request usage is recorded before summarisation, and staged linked compaction recovery refreshes the parent transcript without rebilling. Repeated overflow stops after one compaction. Disabled policy preserves the single-attempt path. Refreshed context excludes other pending generations' admitted inputs. Full 423-test, warnings-as-errors and static/catalogue gates passed locally, including pressure, billed overflow, repeated overflow, disabled policy and staged child recovery. Background pressure scheduling, before-compact decisions/retry and complete upstream audit remain follow-up scope.

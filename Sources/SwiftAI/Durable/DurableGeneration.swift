@@ -162,6 +162,7 @@ struct DurableGenerationIntent: Codable, Equatable, Sendable {
     var compactionTaskID: Int64?
     var overflowCompacted: Bool?
     var pressureChecked: Bool?
+    var retryAtMs: Int64?
 
     init(request: DurableGenerationRequest, inputEntryID: Int64) {
         conversationID = request.conversationID
@@ -206,6 +207,7 @@ struct DurableFailureInfo: Codable, Equatable, Sendable {
     var code: String
     var usage: Usage?
     var diagnostics: [AssistantMessageDiagnostic]?
+    var retryable: Bool? = nil
 }
 
 struct DurableGenerationPlanner {
@@ -475,11 +477,11 @@ struct DurableGenerationPlanner {
     }
 
     static func failureInfo(from message: Message?, defaultCode: String) -> DurableFailureInfo {
-        boundedFailureInfo(DurableFailureInfo(code: message?.errorMessage.map(errorCode) ?? defaultCode, usage: validUsageOrNil(message?.usage), diagnostics: message?.diagnostics))
+        boundedFailureInfo(DurableFailureInfo(code: message?.errorMessage.map(errorCode) ?? defaultCode, usage: validUsageOrNil(message?.usage), diagnostics: message?.diagnostics, retryable: message.map(AssistantErrorRetryClassifier.isRetryableAssistantError)))
     }
 
     static func boundedFailureInfo(_ failure: DurableFailureInfo) -> DurableFailureInfo {
-        DurableFailureInfo(code: String(failure.code.prefix(128)), usage: validUsageOrNil(failure.usage), diagnostics: boundedDiagnostics(failure.diagnostics))
+        DurableFailureInfo(code: String(failure.code.prefix(128)), usage: validUsageOrNil(failure.usage), diagnostics: boundedDiagnostics(failure.diagnostics), retryable: failure.retryable)
     }
 
     static func boundedDiagnostics(_ diagnostics: [AssistantMessageDiagnostic]?) -> [AssistantMessageDiagnostic]? {

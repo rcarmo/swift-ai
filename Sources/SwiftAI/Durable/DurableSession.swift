@@ -382,6 +382,10 @@ public actor DurableSession {
                 throw error
             }
         }
+        if (try await storage.snapshot()).tasks[taskID]?.abortRequested == true {
+            return try await settleAbortedGeneration(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, usage: nil)
+        }
+        try await prepareGenerationRetry(taskID: taskID)
         _ = try await automaticCompaction(taskID: taskID)
         let dispatchIntent: DurableGenerationIntent
         let contextSnapshot = try await storage.snapshot()
@@ -409,6 +413,9 @@ public actor DurableSession {
                 guard let task = snapshot.tasks[taskID] else { throw DurableError.corruptStorage("missing compacted generation") }
                 let pinned = try DurableGenerationPlanner.intent(for: task, in: snapshot)
                 return try await run(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, intent: pinned, startIfPending: false)
+            }
+            if try await scheduleGenerationRetry(taskID: taskID, failure: failure) {
+                return try await recover(taskID: taskID)
             }
             return try await settleFailure(taskID: taskID, submissionID: submissionID, inputEntryID: inputEntryID, failure: failure)
         } catch DurableGenerationFailure.outputLimit(let failure) {
@@ -738,7 +745,7 @@ public actor DurableSession {
             var intent = try DurableGenerationPlanner.intent(for: parent, in: snapshot)
             let resultMessages = childIDs.compactMap { id -> Message? in guard let entryID = snapshot.tasks[id]?.outcome?.objectValue?["entryID"]?.doubleValue.map(Int64.init) else { return nil }; return snapshot.entries[entryID]?.messages?.first }
             guard resultMessages.count == childIDs.count else { throw DurableError.corruptStorage("missing ordered tool results") }
-            intent.roundMessages = (intent.roundMessages ?? []) + resultMessages; intent.round = (intent.round ?? 1) + 1
+            intent.roundMessages = (intent.roundMessages ?? []) + resultMessages; intent.round = (intent.round ?? 1) + 1; intent.attempt = 1
             let modes = try await self.queueModes(conversationID: parent.conversationID, snapshot: snapshot)
             let boundary = try DurableInboxPlanner.boundary(snapshot: snapshot, conversationID: parent.conversationID, at: .postTools, steering: modes.0, followUp: modes.1)
             if boundary.result.reset {
